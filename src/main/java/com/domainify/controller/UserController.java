@@ -1,0 +1,121 @@
+package com.domainify.controller;
+
+import com.domainify.dto.*;
+import com.domainify.entity.User;
+import com.domainify.service.MessageService;
+import com.domainify.service.UserService;
+import jakarta.validation.Valid;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.Instant;
+
+@RestController
+@RequestMapping("/users")
+public class UserController {
+
+    private final UserService userService;
+    private final MessageService messageService;
+
+    public UserController(UserService userService, MessageService messageService) {
+        this.userService = userService;
+        this.messageService = messageService;
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserDto> getCurrentUser(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(userService.getById(user.getId()));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<UserDto> updateProfile(@AuthenticationPrincipal User user,
+                                                 @Valid @RequestBody UpdateProfileRequest request) {
+        return ResponseEntity.ok(userService.updateProfile(user, request));
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(@AuthenticationPrincipal User user,
+                                                            @Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(user, request);
+        return ResponseEntity.ok(ApiResponse.success(messageService.get("auth.password_changed"), null));
+    }
+
+    @PostMapping(value = "/me/avatar", consumes = "multipart/form-data")
+    public ResponseEntity<UserDto> uploadAvatar(@AuthenticationPrincipal User user,
+                                                @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(userService.updateAvatar(user, file));
+    }
+
+    @DeleteMapping("/me/avatar")
+    public ResponseEntity<UserDto> removeAvatar(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(userService.removeAvatar(user));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<PagedResponse<UserDto>> listUsers(
+            @RequestParam(required = false) String firstName,
+            @RequestParam(required = false) String lastName,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) User.Role role,
+            @RequestParam(required = false) Boolean enabled,
+            @RequestParam(required = false) User.CreateMethod createMethod,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdTo,
+            @PageableDefault(size = 10, sort = {"firstName", "lastName"}, direction = Sort.Direction.ASC)
+            Pageable pageable) {
+        return ResponseEntity.ok(userService.list(
+                firstName, lastName, email, role, enabled, createMethod, createdFrom, createdTo, pageable));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> getUser(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.getById(id));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> createUser(@Valid @RequestBody CreateUserRequest request,
+                                              @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(request, currentUser));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> updateUser(@PathVariable Long id,
+                                              @Valid @RequestBody UpdateUserRequest request) {
+        return ResponseEntity.ok(userService.update(id, request));
+    }
+
+    @PatchMapping("/{id}/enabled")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> setEnabled(@PathVariable Long id,
+                                              @Valid @RequestBody UpdateEnabledRequest request,
+                                              @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(userService.setEnabled(id, request.getEnabled(), currentUser));
+    }
+
+    @PatchMapping("/{id}/role")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> setRole(@PathVariable Long id,
+                                           @Valid @RequestBody UpdateRoleRequest request) {
+        return ResponseEntity.ok(userService.setRole(id, request.getRole()));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long id,
+                                                        @AuthenticationPrincipal User currentUser) {
+        userService.delete(id, currentUser);
+        return ResponseEntity.ok(ApiResponse.success(messageService.get("users.deleted"), null));
+    }
+}
