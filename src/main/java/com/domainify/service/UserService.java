@@ -224,6 +224,18 @@ public class UserService {
         userRepository.save(user);
     }
 
+    /** Admin sets another user's password (no current-password check). */
+    @Transactional
+    public void adminSetPassword(Long id, AdminSetPasswordRequest request) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new ApiException(ErrorCode.PASSWORDS_MISMATCH);
+        }
+        User user = findUser(id);
+        passwordPolicyService.applyNewPassword(user, request.getPassword());
+        user.setRefreshToken(null);
+        userRepository.save(user);
+    }
+
     @Transactional
     public UserDto updateAvatar(User currentUser, MultipartFile file) {
         User user = findUser(currentUser.getId());

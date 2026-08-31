@@ -96,6 +96,14 @@ public class UserController {
         return ResponseEntity.ok(userService.update(id, request));
     }
 
+    @PutMapping("/{id}/password")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> adminSetPassword(@PathVariable Long id,
+                                                              @Valid @RequestBody AdminSetPasswordRequest request) {
+        userService.adminSetPassword(id, request);
+        return ResponseEntity.ok(ApiResponse.success(messageService.get("auth.password_changed"), null));
+    }
+
     @PatchMapping("/{id}/enabled")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> setEnabled(@PathVariable Long id,
