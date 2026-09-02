@@ -146,20 +146,9 @@ Workload view (open tickets per agent)
 
 
 4. Customer (user) portal
-
-
-
-
-
-“My tickets” list with status filters & search
-
-
-
-Create ticket from portal
-
-
-
-Reply / add attachments
+done - “My tickets” list with status filters & search
+done - Create ticket from portal
+done - Reply / add attachments
 
 
 

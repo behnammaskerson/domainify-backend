@@ -1,5 +1,6 @@
 package com.domainify.dto;
 
+import com.domainify.entity.TicketChannel;
 import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketStatus;
 
@@ -16,6 +17,7 @@ public class TicketDto {
     private TicketCategoryDto category;
     private TicketPriority priority;
     private TicketStatus status;
+    private TicketChannel channel;
     private Long requesterId;
     private String requesterEmail;
     private Instant createdAt;
@@ -76,6 +78,14 @@ public class TicketDto {
 
     public void setStatus(TicketStatus status) {
         this.status = status;
+    }
+
+    public TicketChannel getChannel() {
+        return channel;
+    }
+
+    public void setChannel(TicketChannel channel) {
+        this.channel = channel;
     }
 
     public Long getRequesterId() {

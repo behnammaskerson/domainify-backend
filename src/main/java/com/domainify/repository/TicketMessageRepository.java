@@ -1,0 +1,15 @@
+package com.domainify.repository;
+
+import com.domainify.entity.Ticket;
+import com.domainify.entity.TicketMessage;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface TicketMessageRepository extends JpaRepository<TicketMessage, Long> {
+
+    List<TicketMessage> findByTicketAndInternalNoteFalseOrderByCreatedAtAscIdAsc(Ticket ticket);
+
+    Optional<TicketMessage> findByIdAndTicketId(Long id, Long ticketId);
+}

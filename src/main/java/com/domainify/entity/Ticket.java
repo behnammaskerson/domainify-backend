@@ -54,6 +54,10 @@ public class Ticket {
     @Column(nullable = false, length = 16)
     private TicketStatus status = TicketStatus.NEW;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private TicketChannel channel = TicketChannel.PORTAL;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "requester_id", nullable = false)
     private User requester;
@@ -74,6 +78,9 @@ public class Ticket {
         updatedAt = now;
         if (status == null) {
             status = TicketStatus.NEW;
+        }
+        if (channel == null) {
+            channel = TicketChannel.PORTAL;
         }
     }
 
@@ -136,6 +143,14 @@ public class Ticket {
 
     public void setStatus(TicketStatus status) {
         this.status = status;
+    }
+
+    public TicketChannel getChannel() {
+        return channel;
+    }
+
+    public void setChannel(TicketChannel channel) {
+        this.channel = channel;
     }
 
     public User getRequester() {
