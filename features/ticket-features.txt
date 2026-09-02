@@ -1,0 +1,474 @@
+Ticket System — Complete Feature Catalog
+
+Assumption: tickets are for Domainify customers (users) talking to support agents/admins, with Persian/English/Arabic/Turkish UI like the rest of the app. Features below are organized so you can pick an MVP first, then expand.
+
+
+
+1. Core ticket lifecycle
+
+
+
+
+Create ticket (subject, description, category, priority, attachments)
+
+
+
+Auto-generate unique ticket ID (e.g. TCK-2026-000142)
+
+
+
+Status workflow: New → Open → Pending → On Hold → Resolved → Closed (customizable statuses)
+
+
+
+Priority levels: Low / Medium / High / Urgent
+
+
+
+Categories / types: Billing, Technical, Domains, SMS, Account, Other (admin-configurable)
+
+
+
+Tags / labels (multi-select, free-form or predefined)
+
+
+
+Reopen closed tickets (within a time window)
+
+
+
+Soft-delete / archive old tickets
+
+
+
+Merge duplicate tickets
+
+
+
+Split one ticket into multiple
+
+
+
+Link related tickets
+
+
+
+Due date / SLA deadline on ticket
+
+
+
+Internal notes vs public replies (customer never sees internal notes)
+
+
+
+2. Conversation & messaging
+
+
+
+
+
+Threaded replies (chronological conversation)
+
+
+
+Rich text / Markdown replies
+
+
+
+Canned responses / reply templates (with variables: name, ticket ID, domain)
+
+
+
+Mentions (@agent) in internal notes
+
+
+
+Edit / delete own replies (with audit trail)
+
+
+
+Attachments (images, PDF, logs) with size/type limits
+
+
+
+Read receipts / “seen by customer/agent”
+
+
+
+Draft replies (auto-save)
+
+
+
+Email-in / email-out (create & reply by email) — later phase
+
+
+
+SMS notification of ticket updates (fits your SMS.ir stack) — later phase
+
+
+
+3. Assignment & team workflow
+
+
+
+
+
+Assign to agent / unassign
+
+
+
+Auto-assign round-robin or by category skill
+
+
+
+Assignment queues / departments (Support, Billing, Technical)
+
+
+
+Watchers / followers (notify without being assignee)
+
+
+
+Transfer ticket between agents/departments
+
+
+
+Escalation (manual + automatic by SLA breach)
+
+
+
+Agent presence / availability (optional)
+
+
+
+Workload view (open tickets per agent)
+
+
+
+4. Customer (user) portal
+
+
+
+
+
+“My tickets” list with status filters & search
+
+
+
+Create ticket from portal
+
+
+
+Reply / add attachments
+
+
+
+Rate satisfaction after resolve (CSAT 1–5 + comment)
+
+
+
+Knowledge-base suggestions while creating (“Did you mean…?”)
+
+
+
+Guest ticket by email without login (optional)
+
+
+
+Multi-language ticket UI (reuse your i18n: en/fa/ar/tr)
+
+
+
+5. Agent / admin console
+
+
+
+
+
+Inbox views: All, Unassigned, Mine, Mentions, Overdue
+
+
+
+Advanced filters: status, priority, category, assignee, date range, tag, customer
+
+
+
+Full-text search (subject, body, ticket ID, customer email)
+
+
+
+Bulk actions: assign, change status, add tag, close
+
+
+
+Ticket detail side panel (customer profile, domains, recent SMS, order history)
+
+
+
+Keyboard shortcuts for power users
+
+
+
+Saved views / custom filters
+
+
+
+6. Customer context (Domainify-specific — high value)
+
+
+
+
+
+Link ticket to user account
+
+
+
+Link to domain(s) owned by user
+
+
+
+Link to SMS pack / send / scheduled SMS (for SMS support cases)
+
+
+
+Show recent activity: last login, credit balance, last SMS send
+
+
+
+Impersonation / “view as customer” (admin-only, audited)
+
+
+
+7. SLA & automation
+
+
+
+
+
+SLA policies by priority/category (first response time, resolve time)
+
+
+
+Business hours calendar (timezone-aware)
+
+
+
+Pause SLA when status = Pending (waiting on customer)
+
+
+
+Breach warnings & escalation rules
+
+
+
+Automations / triggers:
+
+
+
+
+
+On create → set priority, assign queue, send ack
+
+
+
+On no reply X hours → remind customer or escalate
+
+
+
+On resolve → ask CSAT
+
+
+
+Auto-close if customer silent for N days after resolve
+
+
+
+Business rules engine (if/then) — later phase
+
+
+
+8. Notifications
+
+
+
+
+
+In-app notifications (bell)
+
+
+
+Email notifications (new reply, assignment, status change)
+
+
+
+SMS notifications (urgent / opt-in)
+
+
+
+Digest / daily summary for agents
+
+
+
+Per-user notification preferences
+
+
+
+9. Knowledge base & self-service
+
+
+
+
+
+Public FAQ / articles (categories, search)
+
+
+
+Article feedback (helpful / not helpful)
+
+
+
+Suggest articles on ticket create
+
+
+
+Internal-only articles for agents
+
+
+
+Versioning of articles
+
+
+
+10. Reporting & analytics
+
+
+
+
+
+Ticket volume over time
+
+
+
+Average first response / resolve time
+
+
+
+Open vs closed backlog
+
+
+
+Tickets by category, priority, channel
+
+
+
+Agent performance (handled, CSAT, response time)
+
+
+
+SLA compliance %
+
+
+
+CSAT trends
+
+
+
+Export CSV / Excel
+
+
+
+Dashboard widgets on admin home
+
+
+
+11. Security, roles & audit
+
+
+
+
+
+Roles: Customer, Agent, Senior Agent, Admin
+
+
+
+Permissions: view all vs own queue vs own tickets only
+
+
+
+Field-level visibility (hide internal notes from customers)
+
+
+
+Full audit log (who changed status/assignee/priority)
+
+
+
+PII redaction in exports
+
+
+
+Rate limits on ticket create (anti-spam)
+
+
+
+Attachment malware scanning (optional)
+
+
+
+12. Channels & integrations (later)
+
+
+
+
+
+Web portal (primary for Domainify)
+
+
+
+Email channel
+
+
+
+SMS channel (via SMS.ir)
+
+
+
+WhatsApp / Telegram (optional)
+
+
+
+Webhooks (ticket created/updated)
+
+
+
+Slack / Teams agent alerts
+
+
+
+Zapier / n8n style hooks
+
+
+
+13. Forms & customization
+
+
+
+
+
+Custom fields per category (dropdown, text, number, date)
+
+
+
+Dynamic forms (show field if category = Domains)
+
+
+
+Required fields by status transition
+
+
+
+Brandable ticket emails
+
+
+
+Configurable status / priority / category lists

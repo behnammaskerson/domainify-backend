@@ -1,14 +1,28 @@
 package com.domainify.service;
 
+import com.domainify.dto.SmsArchiveSendResultDto;
 import com.domainify.dto.SmsBulkSendDataDto;
 import com.domainify.dto.SmsBulkSendProviderBody;
 import com.domainify.dto.SmsBulkSendRequest;
 import com.domainify.dto.SmsBulkSendResultDto;
 import com.domainify.dto.SmsCreditResultDto;
+import com.domainify.dto.SmsDailyPackItemDto;
+import com.domainify.dto.SmsDailyPackResultDto;
+import com.domainify.dto.SmsDeliveryStatusDataDto;
+import com.domainify.dto.SmsIrArchiveSendEnvelope;
 import com.domainify.dto.SmsIrBulkSendEnvelope;
+import com.domainify.dto.SmsIrDailyPackEnvelope;
 import com.domainify.dto.SmsIrEnvelope;
 import com.domainify.dto.SmsIrLinesEnvelope;
+import com.domainify.dto.SmsIrLiveSendEnvelope;
+import com.domainify.dto.SmsIrPackReportEnvelope;
+import com.domainify.dto.SmsIrReceiveEnvelope;
 import com.domainify.dto.SmsLinesResultDto;
+import com.domainify.dto.SmsLiveSendResultDto;
+import com.domainify.dto.SmsPackReportResultDto;
+import com.domainify.dto.SmsReceiveLatestResultDto;
+import com.domainify.dto.SmsReceivePagedResultDto;
+import com.domainify.dto.SmsReceivedMessageDto;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +31,7 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -120,6 +135,182 @@ public class SmsService {
         }
     }
 
+    public SmsLiveSendResultDto fetchLiveSends(Integer pageSize, Integer pageNumber) {
+        int size = pageSize == null || pageSize <= 0 ? 100 : Math.min(pageSize, 100);
+        int page = pageNumber == null || pageNumber <= 0 ? 1 : pageNumber;
+
+        String apiKey = requireApiKey();
+        String baseUrl = smsConfigService.getServerUrl() + "v1/send/live";
+
+        try {
+            return restClient.get()
+                    .uri(baseUrl + "?PageSize={pageSize}&PageNumber={pageNumber}", size, page)
+                    .header("X-API-KEY", apiKey)
+                    .exchange((request, response) -> mapLiveSendResponse(response, size, page));
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            return SmsLiveSendResultDto.failure(null, null);
+        }
+    }
+
+    public SmsArchiveSendResultDto fetchArchiveSends(
+            Long fromDate,
+            Long toDate,
+            Integer pageSize,
+            Integer pageNumber) {
+        int size = pageSize == null || pageSize <= 0 ? 100 : Math.min(pageSize, 100);
+        int page = pageNumber == null || pageNumber <= 0 ? 1 : pageNumber;
+
+        String apiKey = requireApiKey();
+        String baseUrl = smsConfigService.getServerUrl() + "v1/send/archive";
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(baseUrl)
+                .queryParam("PageSize", size)
+                .queryParam("PageNumber", page);
+        if (fromDate != null && fromDate > 0) {
+            uriBuilder.queryParam("FromDate", fromDate);
+        }
+        if (toDate != null && toDate > 0) {
+            uriBuilder.queryParam("ToDate", toDate);
+        }
+
+        try {
+            return restClient.get()
+                    .uri(uriBuilder.toUriString())
+                    .header("X-API-KEY", apiKey)
+                    .exchange((request, response) -> mapArchiveSendResponse(response, size, page));
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            return SmsArchiveSendResultDto.failure(null, null);
+        }
+    }
+
+    public SmsDailyPackResultDto fetchDailyPacks(Integer pageSize, Integer pageNumber) {
+        int size = pageSize == null || pageSize <= 0 ? 100 : Math.min(pageSize, 100);
+        int page = pageNumber == null || pageNumber <= 0 ? 1 : pageNumber;
+
+        String apiKey = requireApiKey();
+        String baseUrl = smsConfigService.getServerUrl() + "v1/send/pack";
+
+        try {
+            return restClient.get()
+                    .uri(baseUrl + "?PageSize={pageSize}&PageNumber={pageNumber}", size, page)
+                    .header("X-API-KEY", apiKey)
+                    .exchange((request, response) -> mapDailyPackResponse(response, size, page));
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            return SmsDailyPackResultDto.failure(null, null);
+        }
+    }
+
+    public SmsPackReportResultDto fetchPackReport(String packId) {
+        if (!StringUtils.hasText(packId)) {
+            throw new ApiException(ErrorCode.SMS_PACK_ID_REQUIRED);
+        }
+
+        String trimmedPackId = packId.trim();
+        String apiKey = requireApiKey();
+        String url = smsConfigService.getServerUrl() + "v1/send/pack/" + trimmedPackId;
+
+        try {
+            return restClient.get()
+                    .uri(url)
+                    .header("X-API-KEY", apiKey)
+                    .exchange((request, response) -> mapPackReportResponse(response, trimmedPackId));
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            return SmsPackReportResultDto.failure(null, null);
+        }
+    }
+
+    public SmsReceiveLatestResultDto fetchLatestReceived(Integer count) {
+        int requestedCount = count == null || count <= 0 ? 100 : Math.min(count, 100);
+        String apiKey = requireApiKey();
+        String baseUrl = smsConfigService.getServerUrl() + "v1/receive/latest";
+
+        try {
+            return restClient.get()
+                    .uri(baseUrl + "?Count={count}", requestedCount)
+                    .header("X-API-KEY", apiKey)
+                    .exchange((request, response) -> mapReceiveLatestResponse(response, requestedCount));
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            return SmsReceiveLatestResultDto.failure(null, null);
+        }
+    }
+
+    public SmsReceivePagedResultDto fetchLiveReceived(
+            Integer pageSize,
+            Integer pageNumber,
+            Boolean sortByNewest,
+            String mobile) {
+        int size = pageSize == null || pageSize <= 0 ? 100 : Math.min(pageSize, 100);
+        int page = pageNumber == null || pageNumber <= 0 ? 1 : pageNumber;
+
+        String apiKey = requireApiKey();
+        String baseUrl = smsConfigService.getServerUrl() + "v1/receive/live";
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(baseUrl)
+                .queryParam("PageSize", size)
+                .queryParam("PageNumber", page);
+        if (sortByNewest != null) {
+            uriBuilder.queryParam("sortByNewest", sortByNewest);
+        }
+        if (StringUtils.hasText(mobile)) {
+            uriBuilder.queryParam("mobile", mobile.trim());
+        }
+
+        try {
+            return restClient.get()
+                    .uri(uriBuilder.toUriString())
+                    .header("X-API-KEY", apiKey)
+                    .exchange((request, response) -> mapReceivePagedResponse(response, size, page));
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            return SmsReceivePagedResultDto.failure(null, null);
+        }
+    }
+
+    public SmsReceivePagedResultDto fetchArchiveReceived(
+            Long fromDate,
+            Long toDate,
+            Integer pageSize,
+            Integer pageNumber,
+            String mobile) {
+        int size = pageSize == null || pageSize <= 0 ? 100 : Math.min(pageSize, 100);
+        int page = pageNumber == null || pageNumber <= 0 ? 1 : pageNumber;
+
+        String apiKey = requireApiKey();
+        String baseUrl = smsConfigService.getServerUrl() + "v1/receive/archive";
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(baseUrl)
+                .queryParam("PageSize", size)
+                .queryParam("PageNumber", page);
+        if (fromDate != null && fromDate > 0) {
+            uriBuilder.queryParam("FromDate", fromDate);
+        }
+        if (toDate != null && toDate > 0) {
+            uriBuilder.queryParam("ToDate", toDate);
+        }
+        if (StringUtils.hasText(mobile)) {
+            uriBuilder.queryParam("mobile", mobile.trim());
+        }
+
+        try {
+            return restClient.get()
+                    .uri(uriBuilder.toUriString())
+                    .header("X-API-KEY", apiKey)
+                    .exchange((request, response) -> mapReceivePagedResponse(response, size, page));
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            return SmsReceivePagedResultDto.failure(null, null);
+        }
+    }
+
     private String requireApiKey() {
         String apiKey = smsConfigService.getApiKey();
         if (!StringUtils.hasText(apiKey)) {
@@ -173,6 +364,128 @@ public class SmsService {
 
         Integer providerStatus = envelope != null ? envelope.getStatus() : null;
         return SmsBulkSendResultDto.failure(httpStatus, providerStatus);
+    }
+
+    private SmsLiveSendResultDto mapLiveSendResponse(
+            ClientHttpResponse response,
+            int pageSize,
+            int pageNumber) throws IOException {
+        int httpStatus = response.getStatusCode().value();
+        String rawBody = readBody(response);
+        SmsIrLiveSendEnvelope envelope = parseEnvelope(rawBody, SmsIrLiveSendEnvelope.class);
+
+        if (httpStatus == 200 && envelope != null && envelope.getStatus() != null
+                && envelope.getStatus() == PROVIDER_SUCCESS) {
+            List<SmsDeliveryStatusDataDto> data = envelope.getData() != null
+                    ? envelope.getData()
+                    : List.of();
+            boolean hasMore = data.size() >= pageSize;
+            return SmsLiveSendResultDto.success(data, pageNumber, pageSize, hasMore);
+        }
+
+        Integer providerStatus = envelope != null ? envelope.getStatus() : null;
+        return SmsLiveSendResultDto.failure(httpStatus, providerStatus);
+    }
+
+    private SmsArchiveSendResultDto mapArchiveSendResponse(
+            ClientHttpResponse response,
+            int pageSize,
+            int pageNumber) throws IOException {
+        int httpStatus = response.getStatusCode().value();
+        String rawBody = readBody(response);
+        SmsIrArchiveSendEnvelope envelope = parseEnvelope(rawBody, SmsIrArchiveSendEnvelope.class);
+
+        if (httpStatus == 200 && envelope != null && envelope.getStatus() != null
+                && envelope.getStatus() == PROVIDER_SUCCESS) {
+            List<SmsDeliveryStatusDataDto> data = envelope.getData() != null
+                    ? envelope.getData()
+                    : List.of();
+            boolean hasMore = data.size() >= pageSize;
+            return SmsArchiveSendResultDto.success(data, pageNumber, pageSize, hasMore);
+        }
+
+        Integer providerStatus = envelope != null ? envelope.getStatus() : null;
+        return SmsArchiveSendResultDto.failure(httpStatus, providerStatus);
+    }
+
+    private SmsDailyPackResultDto mapDailyPackResponse(
+            ClientHttpResponse response,
+            int pageSize,
+            int pageNumber) throws IOException {
+        int httpStatus = response.getStatusCode().value();
+        String rawBody = readBody(response);
+        SmsIrDailyPackEnvelope envelope = parseEnvelope(rawBody, SmsIrDailyPackEnvelope.class);
+
+        if (httpStatus == 200 && envelope != null && envelope.getStatus() != null
+                && envelope.getStatus() == PROVIDER_SUCCESS) {
+            List<SmsDailyPackItemDto> data = envelope.getData() != null
+                    ? envelope.getData()
+                    : List.of();
+            boolean hasMore = data.size() >= pageSize;
+            return SmsDailyPackResultDto.success(data, pageNumber, pageSize, hasMore);
+        }
+
+        Integer providerStatus = envelope != null ? envelope.getStatus() : null;
+        return SmsDailyPackResultDto.failure(httpStatus, providerStatus);
+    }
+
+    private SmsPackReportResultDto mapPackReportResponse(
+            ClientHttpResponse response,
+            String packId) throws IOException {
+        int httpStatus = response.getStatusCode().value();
+        String rawBody = readBody(response);
+        SmsIrPackReportEnvelope envelope = parseEnvelope(rawBody, SmsIrPackReportEnvelope.class);
+
+        if (httpStatus == 200 && envelope != null && envelope.getStatus() != null
+                && envelope.getStatus() == PROVIDER_SUCCESS) {
+            List<SmsDeliveryStatusDataDto> data = envelope.getData() != null
+                    ? envelope.getData()
+                    : List.of();
+            return SmsPackReportResultDto.success(packId, data);
+        }
+
+        Integer providerStatus = envelope != null ? envelope.getStatus() : null;
+        return SmsPackReportResultDto.failure(httpStatus, providerStatus);
+    }
+
+    private SmsReceiveLatestResultDto mapReceiveLatestResponse(
+            ClientHttpResponse response,
+            int count) throws IOException {
+        int httpStatus = response.getStatusCode().value();
+        String rawBody = readBody(response);
+        SmsIrReceiveEnvelope envelope = parseEnvelope(rawBody, SmsIrReceiveEnvelope.class);
+
+        if (httpStatus == 200 && envelope != null && envelope.getStatus() != null
+                && envelope.getStatus() == PROVIDER_SUCCESS) {
+            List<SmsReceivedMessageDto> data = envelope.getData() != null
+                    ? envelope.getData()
+                    : List.of();
+            return SmsReceiveLatestResultDto.success(data, count);
+        }
+
+        Integer providerStatus = envelope != null ? envelope.getStatus() : null;
+        return SmsReceiveLatestResultDto.failure(httpStatus, providerStatus);
+    }
+
+    private SmsReceivePagedResultDto mapReceivePagedResponse(
+            ClientHttpResponse response,
+            int pageSize,
+            int pageNumber) throws IOException {
+        int httpStatus = response.getStatusCode().value();
+        String rawBody = readBody(response);
+        SmsIrReceiveEnvelope envelope = parseEnvelope(rawBody, SmsIrReceiveEnvelope.class);
+
+        if (httpStatus == 200 && envelope != null && envelope.getStatus() != null
+                && envelope.getStatus() == PROVIDER_SUCCESS) {
+            List<SmsReceivedMessageDto> data = envelope.getData() != null
+                    ? envelope.getData()
+                    : List.of();
+            boolean hasMore = data.size() >= pageSize;
+            return SmsReceivePagedResultDto.success(data, pageNumber, pageSize, hasMore);
+        }
+
+        Integer providerStatus = envelope != null ? envelope.getStatus() : null;
+        return SmsReceivePagedResultDto.failure(httpStatus, providerStatus);
     }
 
     private List<String> normalizeMobiles(List<String> rawMobiles) {

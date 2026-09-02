@@ -205,7 +205,7 @@ Portfolio Optimization - Suggest which domains to keep/sell
 
 Support & Trust
 Live Chat - Real-time customer support
-Ticket System - Support ticket tracking
+Ticket Management System
 FAQ Knowledge Base - Common questions
 Video Tutorials - How-to guides
 Trust Badges - Secure transaction indicators
