@@ -9,11 +9,11 @@ Assumption: tickets are for Domainify customers (users) talking to support agent
 
 
 
-Create ticket (subject, description, category, priority, attachments)
+done - Create ticket (subject, description, category, priority, attachments)
 
 
 
-Auto-generate unique ticket ID (e.g. TCK-2026-000142)
+done - Auto-generate unique ticket ID (e.g. TCK-2026-000142)
 
 
 
@@ -21,11 +21,11 @@ Status workflow: New → Open → Pending → On Hold → Resolved → Closed (c
 
 
 
-Priority levels: Low / Medium / High / Urgent
+done - Priority levels: Low / Medium / High / Urgent
 
 
 
-Categories / types: Billing, Technical, Domains, SMS, Account, Other (admin-configurable)
+done - Categories / types: Billing, Technical, Domains, SMS, Account, Other (admin-configurable)
 
 
 
