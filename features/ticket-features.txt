@@ -9,11 +9,11 @@ done - Auto-generate unique ticket ID (e.g. TCK-2026-000142)
 done - Priority levels: Low / Medium / High / Urgent
 done - Categories / types: Billing, Technical, Domains, SMS, Account, Other (admin-configurable)
 done - Status workflow: New → Open → Pending → On Hold → Resolved → Closed (customizable statuses)
-
 done - Tags / labels (multi-select, free-form or predefined)
 done - Reopen closed tickets (within a time window)
 
 Soft-delete / archive old tickets
+
 Merge duplicate tickets
 Split one ticket into multiple
 Link related tickets
@@ -27,7 +27,9 @@ done - Rich text / Markdown replies
 Canned responses / reply templates (with variables: name, ticket ID, domain)
 Mentions (@agent) in internal notes
 Edit / delete own replies (with audit trail)
-Attachments (images, PDF, logs) with size/type limits
+
+done - Attachments (images, PDF, logs) with size/type limits in setting
+
 Read receipts / “seen by customer/agent”
 Draft replies (auto-save)
 Email-in / email-out (create & reply by email) — later phase

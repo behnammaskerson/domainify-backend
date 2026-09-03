@@ -1,6 +1,7 @@
 package com.domainify.controller;
 
 import com.domainify.dto.PagedResponse;
+import com.domainify.dto.TicketAttachmentPolicyDto;
 import com.domainify.dto.TicketCategoryDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
@@ -9,6 +10,7 @@ import com.domainify.entity.TicketStatus;
 import com.domainify.entity.User;
 import com.domainify.service.TicketCategoryService;
 import com.domainify.service.TicketService;
+import com.domainify.service.TicketSettingsService;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -32,10 +34,20 @@ public class TicketController {
 
     private final TicketService ticketService;
     private final TicketCategoryService ticketCategoryService;
+    private final TicketSettingsService ticketSettingsService;
 
-    public TicketController(TicketService ticketService, TicketCategoryService ticketCategoryService) {
+    public TicketController(
+            TicketService ticketService,
+            TicketCategoryService ticketCategoryService,
+            TicketSettingsService ticketSettingsService) {
         this.ticketService = ticketService;
         this.ticketCategoryService = ticketCategoryService;
+        this.ticketSettingsService = ticketSettingsService;
+    }
+
+    @GetMapping("/attachment-policy")
+    public ResponseEntity<TicketAttachmentPolicyDto> attachmentPolicy() {
+        return ResponseEntity.ok(ticketSettingsService.getAttachmentPolicy());
     }
 
     @GetMapping("/categories")

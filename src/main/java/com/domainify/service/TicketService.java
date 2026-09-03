@@ -57,17 +57,6 @@ public class TicketService {
     private static final int SUBJECT_MAX = 200;
     private static final int DESCRIPTION_MAX = 10000;
     private static final int REPLY_MAX = 10000;
-    private static final int MAX_ATTACHMENTS = 5;
-    private static final long MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
-    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "application/pdf",
-            "text/plain",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    );
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
             "createdAt", "updatedAt", "subject", "status", "priority", "publicNumber", "id"
     );
@@ -162,9 +151,7 @@ public class TicketService {
         }
 
         List<MultipartFile> files = normalizeFiles(attachments);
-        if (files.size() > MAX_ATTACHMENTS) {
-            throw new ApiException(ErrorCode.TICKET_ATTACHMENTS_LIMIT);
-        }
+        ticketSettingsService.validateAttachmentBatch(files);
 
         TicketMessage message = new TicketMessage();
         message.setTicket(ticket);
@@ -484,9 +471,7 @@ public class TicketService {
         TicketCategory category = ticketCategoryService.requireActiveCategory(categoryId);
 
         List<MultipartFile> files = normalizeFiles(attachments);
-        if (files.size() > MAX_ATTACHMENTS) {
-            throw new ApiException(ErrorCode.TICKET_ATTACHMENTS_LIMIT);
-        }
+        ticketSettingsService.validateAttachmentBatch(files);
 
         Ticket ticket = new Ticket();
         ticket.setSubject(trimmedSubject);
@@ -523,13 +508,7 @@ public class TicketService {
     }
 
     private void validateAttachmentFile(MultipartFile file) {
-        if (file.getSize() > MAX_ATTACHMENT_BYTES) {
-            throw new ApiException(ErrorCode.TICKET_ATTACHMENT_INVALID);
-        }
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
-            throw new ApiException(ErrorCode.TICKET_ATTACHMENT_INVALID);
-        }
+        ticketSettingsService.validateAttachmentFile(file, ticketSettingsService.getOrCreate());
     }
 
     private byte[] readAttachmentBytes(MultipartFile file) {
@@ -540,7 +519,8 @@ public class TicketService {
         } catch (IOException ex) {
             throw new ApiException(ErrorCode.TICKET_ATTACHMENT_UPLOAD_FAILED);
         }
-        if (bytes.length == 0 || bytes.length > MAX_ATTACHMENT_BYTES) {
+        long maxBytes = ticketSettingsService.getOrCreate().maxAttachmentBytes();
+        if (bytes.length == 0 || bytes.length > maxBytes) {
             throw new ApiException(ErrorCode.TICKET_ATTACHMENT_INVALID);
         }
         return bytes;
