@@ -31,6 +31,9 @@ public class TicketDto {
     private Instant deletedAt;
     private Boolean archived;
     private Boolean deleted;
+    private Long mergedIntoId;
+    private String mergedIntoPublicNumber;
+    private List<String> mergedSourcePublicNumbers = new ArrayList<>();
     private List<TicketTagDto> tags = new ArrayList<>();
     private Instant createdAt;
     private Instant updatedAt;
@@ -202,6 +205,32 @@ public class TicketDto {
 
     public void setDeleted(Boolean deleted) {
         this.deleted = deleted;
+    }
+
+    public Long getMergedIntoId() {
+        return mergedIntoId;
+    }
+
+    public void setMergedIntoId(Long mergedIntoId) {
+        this.mergedIntoId = mergedIntoId;
+    }
+
+    public String getMergedIntoPublicNumber() {
+        return mergedIntoPublicNumber;
+    }
+
+    public void setMergedIntoPublicNumber(String mergedIntoPublicNumber) {
+        this.mergedIntoPublicNumber = mergedIntoPublicNumber;
+    }
+
+    public List<String> getMergedSourcePublicNumbers() {
+        return mergedSourcePublicNumbers;
+    }
+
+    public void setMergedSourcePublicNumbers(List<String> mergedSourcePublicNumbers) {
+        this.mergedSourcePublicNumbers = mergedSourcePublicNumbers != null
+                ? mergedSourcePublicNumbers
+                : new ArrayList<>();
     }
 
     public List<TicketTagDto> getTags() {

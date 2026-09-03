@@ -84,6 +84,10 @@ public class Ticket {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "merged_into_ticket_id")
+    private Ticket mergedInto;
+
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TicketAttachment> attachments = new ArrayList<>();
 
@@ -237,6 +241,18 @@ public class Ticket {
 
     public boolean isDeleted() {
         return deletedAt != null;
+    }
+
+    public Ticket getMergedInto() {
+        return mergedInto;
+    }
+
+    public void setMergedInto(Ticket mergedInto) {
+        this.mergedInto = mergedInto;
+    }
+
+    public boolean isMerged() {
+        return mergedInto != null;
     }
 
     public List<TicketAttachment> getAttachments() {

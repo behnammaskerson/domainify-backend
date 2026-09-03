@@ -2,10 +2,12 @@ package com.domainify.repository;
 
 import com.domainify.entity.TicketMention;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 
 public interface TicketMentionRepository extends JpaRepository<TicketMention, Long> {
 
     boolean existsByTicketIdAndMentionedUserIdAndMessageId(Long ticketId, Long mentionedUserId, Long messageId);
+
+    List<TicketMention> findByTicketId(Long ticketId);
 }

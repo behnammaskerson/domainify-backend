@@ -1,5 +1,6 @@
 package com.domainify.controller;
 
+import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
 import com.domainify.dto.TicketAssigneeOptionDto;
 import com.domainify.dto.TicketDetailDto;
@@ -157,6 +158,14 @@ public class AdminTicketController {
             @AuthenticationPrincipal User agent,
             @PathVariable("id") Long id) {
         return ResponseEntity.ok(ticketService.restoreAsStaff(agent, id));
+    }
+
+    @PostMapping("/{id}/merge")
+    public ResponseEntity<TicketDetailDto> merge(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody MergeTicketRequest request) {
+        return ResponseEntity.ok(ticketService.mergeAsStaff(agent, id, request));
     }
 
     @PutMapping("/{id}/tags")

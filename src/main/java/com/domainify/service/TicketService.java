@@ -1,5 +1,6 @@
 package com.domainify.service;
 
+import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
 import com.domainify.dto.TicketAttachmentDto;
 import com.domainify.dto.TicketDetailDto;
@@ -10,6 +11,7 @@ import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketAttachment;
 import com.domainify.entity.TicketCategory;
 import com.domainify.entity.TicketChannel;
+import com.domainify.entity.TicketMention;
 import com.domainify.entity.TicketMessage;
 import com.domainify.entity.TicketMessageAttachment;
 import com.domainify.entity.TicketPriority;
@@ -19,6 +21,7 @@ import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
 import com.domainify.repository.TicketAttachmentRepository;
+import com.domainify.repository.TicketMentionRepository;
 import com.domainify.repository.TicketMessageAttachmentRepository;
 import com.domainify.repository.TicketMessageRepository;
 import com.domainify.repository.TicketRepository;
@@ -65,6 +68,7 @@ public class TicketService {
     private final TicketMessageRepository ticketMessageRepository;
     private final TicketAttachmentRepository ticketAttachmentRepository;
     private final TicketMessageAttachmentRepository ticketMessageAttachmentRepository;
+    private final TicketMentionRepository ticketMentionRepository;
     private final TicketCategoryService ticketCategoryService;
     private final TicketMentionService ticketMentionService;
     private final TicketStatusWorkflowService ticketStatusWorkflowService;
@@ -76,6 +80,7 @@ public class TicketService {
             TicketMessageRepository ticketMessageRepository,
             TicketAttachmentRepository ticketAttachmentRepository,
             TicketMessageAttachmentRepository ticketMessageAttachmentRepository,
+            TicketMentionRepository ticketMentionRepository,
             TicketCategoryService ticketCategoryService,
             TicketMentionService ticketMentionService,
             TicketStatusWorkflowService ticketStatusWorkflowService,
@@ -85,6 +90,7 @@ public class TicketService {
         this.ticketMessageRepository = ticketMessageRepository;
         this.ticketAttachmentRepository = ticketAttachmentRepository;
         this.ticketMessageAttachmentRepository = ticketMessageAttachmentRepository;
+        this.ticketMentionRepository = ticketMentionRepository;
         this.ticketCategoryService = ticketCategoryService;
         this.ticketMentionService = ticketMentionService;
         this.ticketStatusWorkflowService = ticketStatusWorkflowService;
@@ -291,6 +297,103 @@ public class TicketService {
         ticket.setDeletedAt(null);
         ticketRepository.save(ticket);
         return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto mergeAsStaff(User agent, Long targetTicketId, MergeTicketRequest request) {
+        requireAgent(agent);
+        if (request == null || !request.isSourceProvided()) {
+            throw new ApiException(ErrorCode.TICKET_MERGE_SOURCE_REQUIRED);
+        }
+
+        Ticket target = requireStaffTicket(targetTicketId, false);
+        if (target.isMerged()) {
+            throw new ApiException(ErrorCode.TICKET_ALREADY_MERGED);
+        }
+        if (target.isArchived()) {
+            throw new ApiException(ErrorCode.TICKET_MERGE_INVALID);
+        }
+
+        Ticket source = resolveMergeSource(request);
+        assertNotDeleted(source);
+        if (source.getId().equals(target.getId())) {
+            throw new ApiException(ErrorCode.TICKET_MERGE_SAME);
+        }
+        if (source.isMerged()) {
+            throw new ApiException(ErrorCode.TICKET_ALREADY_MERGED);
+        }
+        if (source.isArchived()) {
+            throw new ApiException(ErrorCode.TICKET_MERGE_INVALID);
+        }
+
+        TicketMessage notice = new TicketMessage();
+        notice.setTicket(target);
+        notice.setAuthor(agent);
+        notice.setBody("Merged ticket " + source.getPublicNumber()
+                + " (\"" + source.getSubject() + "\") into this ticket.");
+        notice.setInternalNote(false);
+        ticketMessageRepository.save(notice);
+
+        TicketMessage imported = new TicketMessage();
+        imported.setTicket(target);
+        imported.setAuthor(source.getRequester() != null ? source.getRequester() : agent);
+        imported.setBody("[From " + source.getPublicNumber() + "]\n\n" + source.getDescription());
+        imported.setInternalNote(false);
+        imported.setCreatedAt(source.getCreatedAt() != null ? source.getCreatedAt() : Instant.now());
+
+        List<TicketAttachment> sourceAttachments = new ArrayList<>(source.getAttachments());
+        for (TicketAttachment attachment : sourceAttachments) {
+            TicketMessageAttachment messageAttachment = new TicketMessageAttachment();
+            messageAttachment.setMessage(imported);
+            messageAttachment.setFileName(attachment.getFileName());
+            messageAttachment.setContentType(attachment.getContentType());
+            messageAttachment.setSizeBytes(attachment.getSizeBytes());
+            messageAttachment.setData(attachment.getData());
+            imported.getAttachments().add(messageAttachment);
+        }
+        source.getAttachments().clear();
+        ticketAttachmentRepository.deleteAll(sourceAttachments);
+        ticketMessageRepository.save(imported);
+
+        for (TicketMessage message : ticketMessageRepository.findByTicketOrderByCreatedAtAscIdAsc(source)) {
+            message.setTicket(target);
+            ticketMessageRepository.save(message);
+        }
+
+        for (TicketMention mention : ticketMentionRepository.findByTicketId(source.getId())) {
+            mention.setTicket(target);
+            ticketMentionRepository.save(mention);
+        }
+
+        if (source.getTags() != null && !source.getTags().isEmpty()) {
+            target.getTags().addAll(source.getTags());
+            source.getTags().clear();
+        }
+
+        if (source.getStatus() != TicketStatus.CLOSED) {
+            applyStatus(source, TicketStatus.CLOSED);
+        }
+        source.setMergedInto(target);
+        source.setArchivedAt(Instant.now());
+        ticketRepository.save(source);
+        ticketRepository.save(target);
+
+        return toDetailDto(target, agent, true);
+    }
+
+    private Ticket resolveMergeSource(MergeTicketRequest request) {
+        if (request.getSourceTicketId() != null) {
+            return ticketRepository.findById(request.getSourceTicketId())
+                    .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        }
+        String publicNumber = request.getSourcePublicNumber() != null
+                ? request.getSourcePublicNumber().trim()
+                : "";
+        if (!StringUtils.hasText(publicNumber)) {
+            throw new ApiException(ErrorCode.TICKET_MERGE_SOURCE_REQUIRED);
+        }
+        return ticketRepository.findByPublicNumberIgnoreCase(publicNumber)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
     }
 
     @Transactional
@@ -679,6 +782,7 @@ public class TicketService {
         detail.setCanUnarchive(includeWorkflow && archived && !deleted);
         detail.setCanSoftDelete(includeWorkflow && !deleted);
         detail.setCanRestore(includeWorkflow && deleted);
+        detail.setCanMerge(includeWorkflow && !deleted && !archived && !ticket.isMerged());
         detail.setReopenUntil(reopenDeadline(ticket));
         detail.setReopenWindowDays(ticketSettingsService.getReopenWindowDays());
         return detail;
@@ -770,6 +874,16 @@ public class TicketService {
             ));
         }
         dto.setAttachments(attachmentDtos);
+
+        if (ticket.getId() != null) {
+            List<String> mergedSources = ticketRepository
+                    .findByMergedIntoIdAndDeletedAtIsNullOrderByCreatedAtAsc(ticket.getId())
+                    .stream()
+                    .map(Ticket::getPublicNumber)
+                    .filter(StringUtils::hasText)
+                    .toList();
+            dto.setMergedSourcePublicNumbers(mergedSources);
+        }
         return dto;
     }
 
@@ -791,6 +905,10 @@ public class TicketService {
         dto.setDeletedAt(ticket.getDeletedAt());
         dto.setArchived(ticket.isArchived());
         dto.setDeleted(ticket.isDeleted());
+        if (ticket.getMergedInto() != null) {
+            dto.setMergedIntoId(ticket.getMergedInto().getId());
+            dto.setMergedIntoPublicNumber(ticket.getMergedInto().getPublicNumber());
+        }
         dto.setOverdue(AdminTicketService.isOverdue(ticket, Instant.now()));
         if (ticket.getRequester() != null) {
             dto.setRequesterId(ticket.getRequester().getId());
