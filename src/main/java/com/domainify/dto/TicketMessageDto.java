@@ -12,6 +12,10 @@ public class TicketMessageDto {
     private String authorName;
     private String authorEmail;
     private boolean mine;
+    /** True when the author is support staff (admin/agent). */
+    private boolean staff;
+    /** True for the opening ticket description (not a reply row). */
+    private boolean initial;
     private Instant createdAt;
     private List<TicketAttachmentDto> attachments = new ArrayList<>();
 
@@ -61,6 +65,22 @@ public class TicketMessageDto {
 
     public void setMine(boolean mine) {
         this.mine = mine;
+    }
+
+    public boolean isStaff() {
+        return staff;
+    }
+
+    public void setStaff(boolean staff) {
+        this.staff = staff;
+    }
+
+    public boolean isInitial() {
+        return initial;
+    }
+
+    public void setInitial(boolean initial) {
+        this.initial = initial;
     }
 
     public Instant getCreatedAt() {

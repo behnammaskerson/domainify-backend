@@ -20,6 +20,13 @@ public class TicketDto {
     private TicketChannel channel;
     private Long requesterId;
     private String requesterEmail;
+    private String requesterName;
+    private Long assigneeId;
+    private String assigneeEmail;
+    private String assigneeName;
+    private Instant dueAt;
+    private Boolean overdue;
+    private List<TicketTagDto> tags = new ArrayList<>();
     private Instant createdAt;
     private Instant updatedAt;
     private List<TicketAttachmentDto> attachments = new ArrayList<>();
@@ -102,6 +109,62 @@ public class TicketDto {
 
     public void setRequesterEmail(String requesterEmail) {
         this.requesterEmail = requesterEmail;
+    }
+
+    public String getRequesterName() {
+        return requesterName;
+    }
+
+    public void setRequesterName(String requesterName) {
+        this.requesterName = requesterName;
+    }
+
+    public Long getAssigneeId() {
+        return assigneeId;
+    }
+
+    public void setAssigneeId(Long assigneeId) {
+        this.assigneeId = assigneeId;
+    }
+
+    public String getAssigneeEmail() {
+        return assigneeEmail;
+    }
+
+    public void setAssigneeEmail(String assigneeEmail) {
+        this.assigneeEmail = assigneeEmail;
+    }
+
+    public String getAssigneeName() {
+        return assigneeName;
+    }
+
+    public void setAssigneeName(String assigneeName) {
+        this.assigneeName = assigneeName;
+    }
+
+    public Instant getDueAt() {
+        return dueAt;
+    }
+
+    public void setDueAt(Instant dueAt) {
+        this.dueAt = dueAt;
+    }
+
+    public Boolean getOverdue() {
+        return overdue;
+    }
+
+    public void setOverdue(Boolean overdue) {
+        this.overdue = overdue;
+    }
+
+    public List<TicketTagDto> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<TicketTagDto> tags) {
+        this.tags = tags != null ? tags : new ArrayList<>();
     }
 
     public Instant getCreatedAt() {

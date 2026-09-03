@@ -39,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,18 +72,24 @@ public class TicketService {
     private final TicketAttachmentRepository ticketAttachmentRepository;
     private final TicketMessageAttachmentRepository ticketMessageAttachmentRepository;
     private final TicketCategoryService ticketCategoryService;
+    private final TicketMentionService ticketMentionService;
+    private final TicketStatusWorkflowService ticketStatusWorkflowService;
 
     public TicketService(
             TicketRepository ticketRepository,
             TicketMessageRepository ticketMessageRepository,
             TicketAttachmentRepository ticketAttachmentRepository,
             TicketMessageAttachmentRepository ticketMessageAttachmentRepository,
-            TicketCategoryService ticketCategoryService) {
+            TicketCategoryService ticketCategoryService,
+            TicketMentionService ticketMentionService,
+            TicketStatusWorkflowService ticketStatusWorkflowService) {
         this.ticketRepository = ticketRepository;
         this.ticketMessageRepository = ticketMessageRepository;
         this.ticketAttachmentRepository = ticketAttachmentRepository;
         this.ticketMessageAttachmentRepository = ticketMessageAttachmentRepository;
         this.ticketCategoryService = ticketCategoryService;
+        this.ticketMentionService = ticketMentionService;
+        this.ticketStatusWorkflowService = ticketStatusWorkflowService;
     }
 
     @Transactional(readOnly = true)
@@ -100,12 +107,37 @@ public class TicketService {
     @Transactional(readOnly = true)
     public TicketDetailDto getMine(User requester, Long ticketId) {
         Ticket ticket = requireOwnedTicket(requester, ticketId);
-        return toDetailDto(ticket, requester);
+        return toDetailDto(ticket, requester, false);
+    }
+
+    @Transactional(readOnly = true)
+    public TicketDetailDto getForStaff(User agent, Long ticketId) {
+        requireAgent(agent);
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        return toDetailDto(ticket, agent, true);
     }
 
     @Transactional
     public TicketDetailDto reply(User requester, Long ticketId, String body, MultipartFile[] attachments) {
         Ticket ticket = requireOwnedTicket(requester, ticketId);
+        return addReply(ticket, requester, body, attachments, false);
+    }
+
+    @Transactional
+    public TicketDetailDto replyAsStaff(User agent, Long ticketId, String body, MultipartFile[] attachments) {
+        requireAgent(agent);
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        return addReply(ticket, agent, body, attachments, true);
+    }
+
+    private TicketDetailDto addReply(
+            Ticket ticket,
+            User author,
+            String body,
+            MultipartFile[] attachments,
+            boolean asStaff) {
         if (ticket.getStatus() == TicketStatus.CLOSED) {
             throw new ApiException(ErrorCode.TICKET_CLOSED_NO_REPLY);
         }
@@ -125,24 +157,92 @@ public class TicketService {
 
         TicketMessage message = new TicketMessage();
         message.setTicket(ticket);
-        message.setAuthor(requester);
+        message.setAuthor(author);
         message.setBody(trimmedBody);
         message.setInternalNote(false);
         for (MultipartFile file : files) {
             message.addAttachment(toMessageAttachment(file));
         }
         ticketMessageRepository.save(message);
+        ticketMentionService.syncMentions(ticket, message, trimmedBody, author);
 
-        if (ticket.getStatus() == TicketStatus.RESOLVED
-                || ticket.getStatus() == TicketStatus.PENDING
-                || ticket.getStatus() == TicketStatus.ON_HOLD) {
-            ticket.setStatus(TicketStatus.OPEN);
-        } else if (ticket.getStatus() == TicketStatus.NEW) {
-            ticket.setStatus(TicketStatus.OPEN);
+        if (asStaff) {
+            if (ticket.getStatus() == TicketStatus.NEW || ticket.getStatus() == TicketStatus.OPEN) {
+                maybeAutoTransition(ticket, TicketStatus.PENDING);
+            }
+            if (ticket.getAssignee() == null) {
+                ticket.setAssignee(author);
+            }
+        } else {
+            if (ticket.getStatus() == TicketStatus.RESOLVED
+                    || ticket.getStatus() == TicketStatus.PENDING
+                    || ticket.getStatus() == TicketStatus.ON_HOLD) {
+                maybeAutoTransition(ticket, TicketStatus.OPEN);
+            } else if (ticket.getStatus() == TicketStatus.NEW) {
+                maybeAutoTransition(ticket, TicketStatus.OPEN);
+            }
         }
         ticketRepository.save(ticket);
 
-        return toDetailDto(requireOwnedTicket(requester, ticketId), requester);
+        return toDetailDto(ticket, author, isStaffUser(author));
+    }
+
+    @Transactional
+    public TicketDetailDto updateStatusAsStaff(User agent, Long ticketId, TicketStatus nextStatus) {
+        requireAgent(agent);
+        if (nextStatus == null) {
+            throw new ApiException(ErrorCode.TICKET_STATUS_INVALID);
+        }
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        ticketStatusWorkflowService.assertTransitionAllowed(ticket.getStatus(), nextStatus);
+        ticket.setStatus(nextStatus);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    private void maybeAutoTransition(Ticket ticket, TicketStatus nextStatus) {
+        if (ticket.getStatus() == nextStatus) {
+            return;
+        }
+        if (ticketStatusWorkflowService.isTransitionAllowed(ticket.getStatus(), nextStatus)) {
+            ticket.setStatus(nextStatus);
+        }
+    }
+
+    private void requireAgent(User agent) {
+        if (agent == null || agent.getId() == null) {
+            throw new ApiException(ErrorCode.USER_NOT_FOUND);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> downloadTicketAttachmentForStaff(User agent, Long ticketId, Long attachmentId) {
+        requireAgent(agent);
+        if (!ticketRepository.existsById(ticketId)) {
+            throw new ApiException(ErrorCode.TICKET_NOT_FOUND);
+        }
+        TicketAttachment attachment = ticketAttachmentRepository.findByIdAndTicketId(attachmentId, ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND));
+        return toDownloadResponse(attachment.getFileName(), attachment.getContentType(), attachment.getData());
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> downloadMessageAttachmentForStaff(
+            User agent, Long ticketId, Long messageId, Long attachmentId) {
+        requireAgent(agent);
+        if (!ticketRepository.existsById(ticketId)) {
+            throw new ApiException(ErrorCode.TICKET_NOT_FOUND);
+        }
+        TicketMessage message = ticketMessageRepository.findByIdAndTicketId(messageId, ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        if (message.isInternalNote()) {
+            throw new ApiException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
+        }
+        TicketMessageAttachment attachment = ticketMessageAttachmentRepository
+                .findByIdAndMessageId(attachmentId, messageId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND));
+        return toDownloadResponse(attachment.getFileName(), attachment.getContentType(), attachment.getData());
     }
 
     @Transactional(readOnly = true)
@@ -284,6 +384,7 @@ public class TicketService {
         ticket.setChannel(TicketChannel.PORTAL);
         ticket.setRequester(requester);
         ticket.setPublicNumber("TMP-" + System.nanoTime());
+        ticket.setDueAt(AdminTicketService.computeDueAt(priority, Instant.now()));
 
         for (MultipartFile file : files) {
             ticket.addAttachment(toTicketAttachment(file));
@@ -365,7 +466,7 @@ public class TicketService {
         return String.format(Locale.ROOT, "TCK-%d-%06d", Year.now().getValue(), id);
     }
 
-    private TicketDetailDto toDetailDto(Ticket ticket, User viewer) {
+    private TicketDetailDto toDetailDto(Ticket ticket, User viewer, boolean includeWorkflow) {
         List<TicketMessageDto> messages = new ArrayList<>();
         messages.add(toInitialMessageDto(ticket, viewer));
 
@@ -375,13 +476,18 @@ public class TicketService {
         }
 
         boolean canReply = ticket.getStatus() != TicketStatus.CLOSED;
-        return new TicketDetailDto(toDto(ticket), messages, canReply);
+        List<TicketStatus> allowedNext = includeWorkflow
+                ? ticketStatusWorkflowService.allowedNextStatuses(ticket.getStatus())
+                : List.of();
+        return new TicketDetailDto(toDto(ticket), messages, canReply, allowedNext);
     }
 
     private TicketMessageDto toInitialMessageDto(Ticket ticket, User viewer) {
         TicketMessageDto dto = new TicketMessageDto();
         dto.setId(null);
         dto.setBody(ticket.getDescription());
+        dto.setInitial(true);
+        dto.setStaff(false);
         if (ticket.getRequester() != null) {
             dto.setAuthorId(ticket.getRequester().getId());
             dto.setAuthorEmail(ticket.getRequester().getEmail());
@@ -409,12 +515,14 @@ public class TicketService {
         dto.setId(message.getId());
         dto.setBody(message.getBody());
         dto.setCreatedAt(message.getCreatedAt());
+        dto.setInitial(false);
         if (message.getAuthor() != null) {
             dto.setAuthorId(message.getAuthor().getId());
             dto.setAuthorEmail(message.getAuthor().getEmail());
             dto.setAuthorName(displayName(message.getAuthor()));
             dto.setMine(viewer != null && viewer.getId() != null
                     && viewer.getId().equals(message.getAuthor().getId()));
+            dto.setStaff(isStaffUser(message.getAuthor()));
         }
 
         List<TicketAttachmentDto> attachmentDtos = new ArrayList<>();
@@ -428,6 +536,10 @@ public class TicketService {
         }
         dto.setAttachments(attachmentDtos);
         return dto;
+    }
+
+    private boolean isStaffUser(User user) {
+        return user != null && user.getRole() == User.Role.ADMIN;
     }
 
     private String displayName(User user) {
@@ -471,9 +583,17 @@ public class TicketService {
         dto.setPriority(ticket.getPriority());
         dto.setStatus(ticket.getStatus());
         dto.setChannel(ticket.getChannel());
+        dto.setDueAt(ticket.getDueAt());
+        dto.setOverdue(AdminTicketService.isOverdue(ticket, Instant.now()));
         if (ticket.getRequester() != null) {
             dto.setRequesterId(ticket.getRequester().getId());
             dto.setRequesterEmail(ticket.getRequester().getEmail());
+            dto.setRequesterName(displayName(ticket.getRequester()));
+        }
+        if (ticket.getAssignee() != null) {
+            dto.setAssigneeId(ticket.getAssignee().getId());
+            dto.setAssigneeEmail(ticket.getAssignee().getEmail());
+            dto.setAssigneeName(displayName(ticket.getAssignee()));
         }
         dto.setCreatedAt(ticket.getCreatedAt());
         dto.setUpdatedAt(ticket.getUpdatedAt());

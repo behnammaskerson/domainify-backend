@@ -10,6 +10,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
@@ -19,13 +21,17 @@ import jakarta.persistence.Index;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "tickets", indexes = {
         @Index(name = "idx_tickets_public_number", columnList = "public_number", unique = true),
         @Index(name = "idx_tickets_requester", columnList = "requester_id"),
-        @Index(name = "idx_tickets_status", columnList = "status")
+        @Index(name = "idx_tickets_status", columnList = "status"),
+        @Index(name = "idx_tickets_assignee", columnList = "assignee_id"),
+        @Index(name = "idx_tickets_due_at", columnList = "due_at")
 })
 public class Ticket {
 
@@ -62,8 +68,23 @@ public class Ticket {
     @JoinColumn(name = "requester_id", nullable = false)
     private User requester;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private User assignee;
+
+    @Column(name = "due_at")
+    private Instant dueAt;
+
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TicketAttachment> attachments = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "ticket_tag_links",
+            joinColumns = @JoinColumn(name = "ticket_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private Set<TicketTag> tags = new HashSet<>();
 
     @Column(nullable = false)
     private Instant createdAt;
@@ -161,6 +182,22 @@ public class Ticket {
         this.requester = requester;
     }
 
+    public User getAssignee() {
+        return assignee;
+    }
+
+    public void setAssignee(User assignee) {
+        this.assignee = assignee;
+    }
+
+    public Instant getDueAt() {
+        return dueAt;
+    }
+
+    public void setDueAt(Instant dueAt) {
+        this.dueAt = dueAt;
+    }
+
     public List<TicketAttachment> getAttachments() {
         return attachments;
     }
@@ -172,6 +209,14 @@ public class Ticket {
     public void addAttachment(TicketAttachment attachment) {
         attachments.add(attachment);
         attachment.setTicket(this);
+    }
+
+    public Set<TicketTag> getTags() {
+        return tags;
+    }
+
+    public void setTags(Set<TicketTag> tags) {
+        this.tags = tags != null ? tags : new HashSet<>();
     }
 
     public Instant getCreatedAt() {
