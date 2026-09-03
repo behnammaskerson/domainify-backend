@@ -7,6 +7,7 @@ import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketInboxFilter;
 import com.domainify.dto.TicketTagDto;
 import com.domainify.dto.UpdateTicketStatusRequest;
+import com.domainify.dto.UpdateTicketTagsRequest;
 import com.domainify.entity.TicketInboxView;
 import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketStatus;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -111,6 +113,28 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @Valid @RequestBody UpdateTicketStatusRequest request) {
         return ResponseEntity.ok(ticketService.updateStatusAsStaff(agent, id, request.getStatus()));
+    }
+
+    @PostMapping("/{id}/close")
+    public ResponseEntity<TicketDetailDto> close(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.closeAsStaff(agent, id));
+    }
+
+    @PostMapping("/{id}/reopen")
+    public ResponseEntity<TicketDetailDto> reopen(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.reopenAsStaff(agent, id));
+    }
+
+    @PutMapping("/{id}/tags")
+    public ResponseEntity<TicketDetailDto> updateTags(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody UpdateTicketTagsRequest request) {
+        return ResponseEntity.ok(ticketService.updateTagsAsStaff(agent, id, request));
     }
 
     @GetMapping("/{id}/attachments/{attachmentId}")

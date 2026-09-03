@@ -26,6 +26,7 @@ public class TicketDto {
     private String assigneeName;
     private Instant dueAt;
     private Boolean overdue;
+    private Instant closedAt;
     private List<TicketTagDto> tags = new ArrayList<>();
     private Instant createdAt;
     private Instant updatedAt;
@@ -157,6 +158,14 @@ public class TicketDto {
 
     public void setOverdue(Boolean overdue) {
         this.overdue = overdue;
+    }
+
+    public Instant getClosedAt() {
+        return closedAt;
+    }
+
+    public void setClosedAt(Instant closedAt) {
+        this.closedAt = closedAt;
     }
 
     public List<TicketTagDto> getTags() {

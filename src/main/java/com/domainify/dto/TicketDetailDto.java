@@ -2,6 +2,7 @@ package com.domainify.dto;
 
 import com.domainify.entity.TicketStatus;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +11,10 @@ public class TicketDetailDto {
     private TicketDto ticket;
     private List<TicketMessageDto> messages = new ArrayList<>();
     private boolean canReply;
+    private boolean canClose;
+    private boolean canReopen;
+    private Instant reopenUntil;
+    private Integer reopenWindowDays;
     private List<TicketStatus> allowedNextStatuses = new ArrayList<>();
 
     public TicketDetailDto() {
@@ -52,6 +57,38 @@ public class TicketDetailDto {
 
     public void setCanReply(boolean canReply) {
         this.canReply = canReply;
+    }
+
+    public boolean isCanClose() {
+        return canClose;
+    }
+
+    public void setCanClose(boolean canClose) {
+        this.canClose = canClose;
+    }
+
+    public boolean isCanReopen() {
+        return canReopen;
+    }
+
+    public void setCanReopen(boolean canReopen) {
+        this.canReopen = canReopen;
+    }
+
+    public Instant getReopenUntil() {
+        return reopenUntil;
+    }
+
+    public void setReopenUntil(Instant reopenUntil) {
+        this.reopenUntil = reopenUntil;
+    }
+
+    public Integer getReopenWindowDays() {
+        return reopenWindowDays;
+    }
+
+    public void setReopenWindowDays(Integer reopenWindowDays) {
+        this.reopenWindowDays = reopenWindowDays;
     }
 
     public List<TicketStatus> getAllowedNextStatuses() {

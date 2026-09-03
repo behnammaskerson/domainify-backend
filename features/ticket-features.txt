@@ -10,8 +10,9 @@ done - Priority levels: Low / Medium / High / Urgent
 done - Categories / types: Billing, Technical, Domains, SMS, Account, Other (admin-configurable)
 done - Status workflow: New → Open → Pending → On Hold → Resolved → Closed (customizable statuses)
 
-Tags / labels (multi-select, free-form or predefined)
-Reopen closed tickets (within a time window)
+done - Tags / labels (multi-select, free-form or predefined)
+done - Reopen closed tickets (within a time window)
+
 Soft-delete / archive old tickets
 Merge duplicate tickets
 Split one ticket into multiple

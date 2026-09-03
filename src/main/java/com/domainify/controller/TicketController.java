@@ -68,6 +68,20 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.reply(user, id, body, attachments));
     }
 
+    @PostMapping("/mine/{id}/close")
+    public ResponseEntity<TicketDetailDto> closeMine(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.closeMine(user, id));
+    }
+
+    @PostMapping("/mine/{id}/reopen")
+    public ResponseEntity<TicketDetailDto> reopenMine(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.reopenMine(user, id));
+    }
+
     @GetMapping("/mine/{id}/attachments/{attachmentId}")
     public ResponseEntity<Resource> downloadTicketAttachment(
             @AuthenticationPrincipal User user,

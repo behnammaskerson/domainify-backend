@@ -5,6 +5,7 @@ import com.domainify.dto.TicketAttachmentDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketMessageDto;
+import com.domainify.dto.UpdateTicketTagsRequest;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketAttachment;
 import com.domainify.entity.TicketCategory;
@@ -13,6 +14,7 @@ import com.domainify.entity.TicketMessage;
 import com.domainify.entity.TicketMessageAttachment;
 import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketStatus;
+import com.domainify.entity.TicketTag;
 import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
@@ -39,9 +41,12 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.Year;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -74,6 +79,8 @@ public class TicketService {
     private final TicketCategoryService ticketCategoryService;
     private final TicketMentionService ticketMentionService;
     private final TicketStatusWorkflowService ticketStatusWorkflowService;
+    private final TicketTagService ticketTagService;
+    private final TicketSettingsService ticketSettingsService;
 
     public TicketService(
             TicketRepository ticketRepository,
@@ -82,7 +89,9 @@ public class TicketService {
             TicketMessageAttachmentRepository ticketMessageAttachmentRepository,
             TicketCategoryService ticketCategoryService,
             TicketMentionService ticketMentionService,
-            TicketStatusWorkflowService ticketStatusWorkflowService) {
+            TicketStatusWorkflowService ticketStatusWorkflowService,
+            TicketTagService ticketTagService,
+            TicketSettingsService ticketSettingsService) {
         this.ticketRepository = ticketRepository;
         this.ticketMessageRepository = ticketMessageRepository;
         this.ticketAttachmentRepository = ticketAttachmentRepository;
@@ -90,6 +99,8 @@ public class TicketService {
         this.ticketCategoryService = ticketCategoryService;
         this.ticketMentionService = ticketMentionService;
         this.ticketStatusWorkflowService = ticketStatusWorkflowService;
+        this.ticketTagService = ticketTagService;
+        this.ticketSettingsService = ticketSettingsService;
     }
 
     @Transactional(readOnly = true)
@@ -195,10 +206,74 @@ public class TicketService {
         }
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        if (ticket.getStatus() == TicketStatus.CLOSED && nextStatus != TicketStatus.CLOSED) {
+            assertReopenAllowed(ticket);
+        }
         ticketStatusWorkflowService.assertTransitionAllowed(ticket.getStatus(), nextStatus);
-        ticket.setStatus(nextStatus);
+        applyStatus(ticket, nextStatus);
         ticketRepository.save(ticket);
         return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto closeAsStaff(User agent, Long ticketId) {
+        requireAgent(agent);
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        return closeTicket(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto closeMine(User requester, Long ticketId) {
+        Ticket ticket = requireOwnedTicket(requester, ticketId);
+        return closeTicket(ticket, requester, false);
+    }
+
+    @Transactional
+    public TicketDetailDto reopenAsStaff(User agent, Long ticketId) {
+        requireAgent(agent);
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        return reopenTicket(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto reopenMine(User requester, Long ticketId) {
+        Ticket ticket = requireOwnedTicket(requester, ticketId);
+        return reopenTicket(ticket, requester, false);
+    }
+
+    @Transactional
+    public TicketDetailDto updateTagsAsStaff(User agent, Long ticketId, UpdateTicketTagsRequest request) {
+        requireAgent(agent);
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        Set<TicketTag> tags = ticketTagService.resolveTags(
+                request != null ? request.getTagIds() : null,
+                request != null ? request.getNames() : null
+        );
+        ticket.setTags(new HashSet<>(tags));
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    private TicketDetailDto closeTicket(Ticket ticket, User viewer, boolean asStaff) {
+        if (ticket.getStatus() == TicketStatus.CLOSED) {
+            throw new ApiException(ErrorCode.TICKET_ALREADY_CLOSED);
+        }
+        applyStatus(ticket, TicketStatus.CLOSED);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, viewer, asStaff);
+    }
+
+    private TicketDetailDto reopenTicket(Ticket ticket, User viewer, boolean asStaff) {
+        if (ticket.getStatus() != TicketStatus.CLOSED) {
+            throw new ApiException(ErrorCode.TICKET_NOT_CLOSED);
+        }
+        assertReopenAllowed(ticket);
+        applyStatus(ticket, TicketStatus.OPEN);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, viewer, asStaff);
     }
 
     private void maybeAutoTransition(Ticket ticket, TicketStatus nextStatus) {
@@ -206,8 +281,46 @@ public class TicketService {
             return;
         }
         if (ticketStatusWorkflowService.isTransitionAllowed(ticket.getStatus(), nextStatus)) {
-            ticket.setStatus(nextStatus);
+            applyStatus(ticket, nextStatus);
         }
+    }
+
+    private void applyStatus(Ticket ticket, TicketStatus nextStatus) {
+        TicketStatus previous = ticket.getStatus();
+        if (previous == nextStatus) {
+            return;
+        }
+        ticket.setStatus(nextStatus);
+        if (nextStatus == TicketStatus.CLOSED) {
+            if (ticket.getClosedAt() == null) {
+                ticket.setClosedAt(Instant.now());
+            }
+        } else if (previous == TicketStatus.CLOSED) {
+            ticket.setClosedAt(null);
+        }
+    }
+
+    private void assertReopenAllowed(Ticket ticket) {
+        Instant deadline = reopenDeadline(ticket);
+        if (deadline == null || Instant.now().isAfter(deadline)) {
+            throw new ApiException(ErrorCode.TICKET_REOPEN_WINDOW_EXPIRED);
+        }
+    }
+
+    private Instant reopenDeadline(Ticket ticket) {
+        if (ticket.getStatus() != TicketStatus.CLOSED) {
+            return null;
+        }
+        Instant closedAt = ticket.getClosedAt() != null ? ticket.getClosedAt() : ticket.getUpdatedAt();
+        if (closedAt == null) {
+            return null;
+        }
+        return closedAt.plus(Duration.ofDays(ticketSettingsService.getReopenWindowDays()));
+    }
+
+    private boolean canReopen(Ticket ticket) {
+        Instant deadline = reopenDeadline(ticket);
+        return deadline != null && !Instant.now().isAfter(deadline);
     }
 
     private void requireAgent(User agent) {
@@ -475,11 +588,20 @@ public class TicketService {
             messages.add(toMessageDto(message, viewer));
         }
 
-        boolean canReply = ticket.getStatus() != TicketStatus.CLOSED;
+        boolean closed = ticket.getStatus() == TicketStatus.CLOSED;
+        boolean canReply = !closed;
         List<TicketStatus> allowedNext = includeWorkflow
                 ? ticketStatusWorkflowService.allowedNextStatuses(ticket.getStatus())
                 : List.of();
-        return new TicketDetailDto(toDto(ticket), messages, canReply, allowedNext);
+        if (closed && !canReopen(ticket)) {
+            allowedNext = List.of();
+        }
+        TicketDetailDto detail = new TicketDetailDto(toDto(ticket), messages, canReply, allowedNext);
+        detail.setCanClose(!closed);
+        detail.setCanReopen(canReopen(ticket));
+        detail.setReopenUntil(reopenDeadline(ticket));
+        detail.setReopenWindowDays(ticketSettingsService.getReopenWindowDays());
+        return detail;
     }
 
     private TicketMessageDto toInitialMessageDto(Ticket ticket, User viewer) {
@@ -584,6 +706,7 @@ public class TicketService {
         dto.setStatus(ticket.getStatus());
         dto.setChannel(ticket.getChannel());
         dto.setDueAt(ticket.getDueAt());
+        dto.setClosedAt(ticket.getClosedAt());
         dto.setOverdue(AdminTicketService.isOverdue(ticket, Instant.now()));
         if (ticket.getRequester() != null) {
             dto.setRequesterId(ticket.getRequester().getId());
@@ -594,6 +717,12 @@ public class TicketService {
             dto.setAssigneeId(ticket.getAssignee().getId());
             dto.setAssigneeEmail(ticket.getAssignee().getEmail());
             dto.setAssigneeName(displayName(ticket.getAssignee()));
+        }
+        if (ticket.getTags() != null && !ticket.getTags().isEmpty()) {
+            dto.setTags(ticket.getTags().stream()
+                    .sorted(Comparator.comparing(TicketTag::getName, String.CASE_INSENSITIVE_ORDER))
+                    .map(ticketTagService::toDto)
+                    .toList());
         }
         dto.setCreatedAt(ticket.getCreatedAt());
         dto.setUpdatedAt(ticket.getUpdatedAt());

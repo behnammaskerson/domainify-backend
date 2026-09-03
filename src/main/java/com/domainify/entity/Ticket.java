@@ -75,6 +75,9 @@ public class Ticket {
     @Column(name = "due_at")
     private Instant dueAt;
 
+    @Column(name = "closed_at")
+    private Instant closedAt;
+
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TicketAttachment> attachments = new ArrayList<>();
 
@@ -196,6 +199,14 @@ public class Ticket {
 
     public void setDueAt(Instant dueAt) {
         this.dueAt = dueAt;
+    }
+
+    public Instant getClosedAt() {
+        return closedAt;
+    }
+
+    public void setClosedAt(Instant closedAt) {
+        this.closedAt = closedAt;
     }
 
     public List<TicketAttachment> getAttachments() {
