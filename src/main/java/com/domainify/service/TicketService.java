@@ -10,7 +10,9 @@ import com.domainify.dto.TicketAttachmentDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketMessageDto;
+import com.domainify.dto.TicketMessageRevisionDto;
 import com.domainify.dto.UpdateTicketDueDateRequest;
+import com.domainify.dto.UpdateTicketMessageRequest;
 import com.domainify.dto.UpdateTicketTagsRequest;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketAttachment;
@@ -19,6 +21,7 @@ import com.domainify.entity.TicketChannel;
 import com.domainify.entity.TicketMention;
 import com.domainify.entity.TicketMessage;
 import com.domainify.entity.TicketMessageAttachment;
+import com.domainify.entity.TicketMessageRevision;
 import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketRelatedLink;
 import com.domainify.entity.TicketStatus;
@@ -30,6 +33,7 @@ import com.domainify.repository.TicketAttachmentRepository;
 import com.domainify.repository.TicketMentionRepository;
 import com.domainify.repository.TicketMessageAttachmentRepository;
 import com.domainify.repository.TicketMessageRepository;
+import com.domainify.repository.TicketMessageRevisionRepository;
 import com.domainify.repository.TicketRelatedLinkRepository;
 import com.domainify.repository.TicketRepository;
 import jakarta.persistence.criteria.Predicate;
@@ -73,6 +77,7 @@ public class TicketService {
 
     private final TicketRepository ticketRepository;
     private final TicketMessageRepository ticketMessageRepository;
+    private final TicketMessageRevisionRepository ticketMessageRevisionRepository;
     private final TicketAttachmentRepository ticketAttachmentRepository;
     private final TicketMessageAttachmentRepository ticketMessageAttachmentRepository;
     private final TicketMentionRepository ticketMentionRepository;
@@ -86,6 +91,7 @@ public class TicketService {
     public TicketService(
             TicketRepository ticketRepository,
             TicketMessageRepository ticketMessageRepository,
+            TicketMessageRevisionRepository ticketMessageRevisionRepository,
             TicketAttachmentRepository ticketAttachmentRepository,
             TicketMessageAttachmentRepository ticketMessageAttachmentRepository,
             TicketMentionRepository ticketMentionRepository,
@@ -97,6 +103,7 @@ public class TicketService {
             TicketSettingsService ticketSettingsService) {
         this.ticketRepository = ticketRepository;
         this.ticketMessageRepository = ticketMessageRepository;
+        this.ticketMessageRevisionRepository = ticketMessageRevisionRepository;
         this.ticketAttachmentRepository = ticketAttachmentRepository;
         this.ticketMessageAttachmentRepository = ticketMessageAttachmentRepository;
         this.ticketMentionRepository = ticketMentionRepository;
@@ -204,6 +211,100 @@ public class TicketService {
         ticketRepository.save(ticket);
 
         return toDetailDto(ticket, author, isStaffUser(author));
+    }
+
+    @Transactional
+    public TicketDetailDto editMessage(
+            User actor,
+            Long ticketId,
+            Long messageId,
+            UpdateTicketMessageRequest request,
+            boolean asStaff) {
+        Ticket ticket = asStaff ? requireStaffTicket(ticketId, false) : requireOwnedTicket(actor, ticketId);
+        TicketMessage message = requireEditableMessage(actor, ticket, messageId, asStaff);
+
+        String trimmedBody = request.getBody() == null ? "" : request.getBody().trim();
+        if (!StringUtils.hasText(trimmedBody)) {
+            throw new ApiException(ErrorCode.TICKET_REPLY_BODY_REQUIRED);
+        }
+        if (trimmedBody.length() > REPLY_MAX) {
+            throw new ApiException(ErrorCode.TICKET_REPLY_BODY_TOO_LONG);
+        }
+        if (trimmedBody.equals(message.getBody())) {
+            return toDetailDto(ticket, actor, asStaff);
+        }
+
+        recordRevision(message, actor, TicketMessageRevision.Action.EDIT, message.getBody(), trimmedBody);
+        message.setBody(trimmedBody);
+        message.setEditedAt(Instant.now());
+        ticketMessageRepository.save(message);
+        ticketMentionService.syncMentions(ticket, message, trimmedBody, actor);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, actor, asStaff);
+    }
+
+    @Transactional
+    public TicketDetailDto deleteMessage(User actor, Long ticketId, Long messageId, boolean asStaff) {
+        Ticket ticket = asStaff ? requireStaffTicket(ticketId, false) : requireOwnedTicket(actor, ticketId);
+        TicketMessage message = requireEditableMessage(actor, ticket, messageId, asStaff);
+
+        recordRevision(message, actor, TicketMessageRevision.Action.DELETE, message.getBody(), null);
+        message.getAttachments().clear();
+        message.setDeletedAt(Instant.now());
+        ticketMessageRepository.save(message);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, actor, asStaff);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TicketMessageRevisionDto> listMessageRevisions(User agent, Long ticketId, Long messageId) {
+        requireAgent(agent);
+        requireStaffTicket(ticketId, true);
+        TicketMessage message = ticketMessageRepository.findByIdAndTicketId(messageId, ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_MESSAGE_NOT_FOUND));
+        return ticketMessageRevisionRepository.findByMessageIdOrderByCreatedAtAscIdAsc(message.getId())
+                .stream()
+                .map(this::toRevisionDto)
+                .toList();
+    }
+
+    @Transactional
+    public TicketDetailDto editDescription(User actor, Long ticketId, String body, boolean asStaff) {
+        Ticket ticket = asStaff ? requireStaffTicket(ticketId, false) : requireOwnedTicket(actor, ticketId);
+        if (!canEditInitialDescription(ticket, actor)) {
+            if (ticket.getRequester() == null
+                    || actor.getId() == null
+                    || !actor.getId().equals(ticket.getRequester().getId())) {
+                throw new ApiException(ErrorCode.TICKET_MESSAGE_NOT_OWNED);
+            }
+            throw new ApiException(ErrorCode.TICKET_MESSAGE_NOT_EDITABLE);
+        }
+
+        String trimmedBody = body == null ? "" : body.trim();
+        if (!StringUtils.hasText(trimmedBody)) {
+            throw new ApiException(ErrorCode.TICKET_REPLY_BODY_REQUIRED);
+        }
+        if (trimmedBody.length() > DESCRIPTION_MAX) {
+            throw new ApiException(ErrorCode.TICKET_REPLY_BODY_TOO_LONG);
+        }
+        if (trimmedBody.equals(ticket.getDescription())) {
+            return toDetailDto(ticket, actor, asStaff);
+        }
+
+        recordDescriptionRevision(ticket, actor, ticket.getDescription(), trimmedBody);
+        ticket.setDescription(trimmedBody);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, actor, asStaff);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TicketMessageRevisionDto> listDescriptionRevisions(User agent, Long ticketId) {
+        requireAgent(agent);
+        requireStaffTicket(ticketId, true);
+        return ticketMessageRevisionRepository.findByTicketIdAndMessageIsNullOrderByCreatedAtAscIdAsc(ticketId)
+                .stream()
+                .map(this::toRevisionDto)
+                .toList();
     }
 
     @Transactional
@@ -720,6 +821,9 @@ public class TicketService {
         }
         TicketMessage message = ticketMessageRepository.findByIdAndTicketId(messageId, ticketId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        if (message.isDeleted()) {
+            throw new ApiException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
+        }
         TicketMessageAttachment attachment = ticketMessageAttachmentRepository
                 .findByIdAndMessageId(attachmentId, messageId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND));
@@ -741,6 +845,9 @@ public class TicketService {
         TicketMessage message = ticketMessageRepository.findByIdAndTicketId(messageId, ticketId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
         if (message.isInternalNote()) {
+            throw new ApiException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
+        }
+        if (message.isDeleted()) {
             throw new ApiException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
         }
         TicketMessageAttachment attachment = ticketMessageAttachmentRepository
@@ -969,7 +1076,7 @@ public class TicketService {
                 ? ticketMessageRepository.findByTicketOrderByCreatedAtAscIdAsc(ticket)
                 : ticketMessageRepository.findByTicketAndInternalNoteFalseOrderByCreatedAtAscIdAsc(ticket);
         for (TicketMessage message : replies) {
-            messages.add(toMessageDto(message, viewer));
+            messages.add(toMessageDto(message, ticket, viewer, includeWorkflow));
         }
 
         boolean closed = ticket.getStatus() == TicketStatus.CLOSED;
@@ -1013,6 +1120,14 @@ public class TicketService {
                     && viewer.getId().equals(ticket.getRequester().getId()));
         }
         dto.setCreatedAt(ticket.getCreatedAt());
+        boolean editable = canEditInitialDescription(ticket, viewer);
+        dto.setCanEdit(editable);
+        dto.setCanDelete(false);
+        if (ticket.getId() != null) {
+            dto.setHasRevisions(ticketMessageRevisionRepository.existsByTicketIdAndMessageIsNull(ticket.getId()));
+        }
+        dto.setEdited(ticket.getId() != null
+                && ticketMessageRevisionRepository.existsByTicketIdAndMessageIsNull(ticket.getId()));
 
         List<TicketAttachmentDto> attachmentDtos = new ArrayList<>();
         for (TicketAttachment attachment : ticket.getAttachments()) {
@@ -1027,11 +1142,20 @@ public class TicketService {
         return dto;
     }
 
-    private TicketMessageDto toMessageDto(TicketMessage message, User viewer) {
+    private TicketMessageDto toMessageDto(
+            TicketMessage message,
+            Ticket ticket,
+            User viewer,
+            boolean includeWorkflow) {
         TicketMessageDto dto = new TicketMessageDto();
         dto.setId(message.getId());
-        dto.setBody(message.getBody());
+        boolean deleted = message.isDeleted();
+        dto.setDeleted(deleted);
+        dto.setBody(deleted ? null : message.getBody());
         dto.setCreatedAt(message.getCreatedAt());
+        dto.setEditedAt(message.getEditedAt());
+        dto.setDeletedAt(message.getDeletedAt());
+        dto.setEdited(message.getEditedAt() != null);
         dto.setInitial(false);
         if (message.getAuthor() != null) {
             dto.setAuthorId(message.getAuthor().getId());
@@ -1042,18 +1166,128 @@ public class TicketService {
             dto.setStaff(isStaffUser(message.getAuthor()));
         }
         dto.setInternalNote(message.isInternalNote());
+        boolean editable = canEditMessage(message, ticket, viewer, includeWorkflow);
+        dto.setCanEdit(editable);
+        dto.setCanDelete(editable);
+        dto.setHasRevisions(ticketMessageRevisionRepository.existsByMessageId(message.getId()));
 
         List<TicketAttachmentDto> attachmentDtos = new ArrayList<>();
-        for (TicketMessageAttachment attachment : message.getAttachments()) {
-            attachmentDtos.add(new TicketAttachmentDto(
-                    attachment.getId(),
-                    attachment.getFileName(),
-                    attachment.getContentType(),
-                    attachment.getSizeBytes()
-            ));
+        if (!deleted) {
+            for (TicketMessageAttachment attachment : message.getAttachments()) {
+                attachmentDtos.add(new TicketAttachmentDto(
+                        attachment.getId(),
+                        attachment.getFileName(),
+                        attachment.getContentType(),
+                        attachment.getSizeBytes()
+                ));
+            }
         }
         dto.setAttachments(attachmentDtos);
         return dto;
+    }
+
+    private boolean canEditMessage(
+            TicketMessage message,
+            Ticket ticket,
+            User viewer,
+            boolean asStaff) {
+        if (message.isDeleted()) {
+            return false;
+        }
+        if (viewer == null || viewer.getId() == null || message.getAuthor() == null) {
+            return false;
+        }
+        if (!viewer.getId().equals(message.getAuthor().getId())) {
+            return false;
+        }
+        assertNotDeleted(ticket);
+        if (ticket.isArchived() || ticket.getStatus() == TicketStatus.CLOSED) {
+            return false;
+        }
+        if (!asStaff) {
+            if (message.isInternalNote()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean canEditInitialDescription(Ticket ticket, User viewer) {
+        if (ticket == null || ticket.isDeleted() || ticket.isArchived()
+                || ticket.getStatus() == TicketStatus.CLOSED) {
+            return false;
+        }
+        if (viewer == null || viewer.getId() == null || ticket.getRequester() == null) {
+            return false;
+        }
+        return viewer.getId().equals(ticket.getRequester().getId());
+    }
+
+    private TicketMessage requireEditableMessage(
+            User actor,
+            Ticket ticket,
+            Long messageId,
+            boolean asStaff) {
+        TicketMessage message = ticketMessageRepository.findByIdAndTicketId(messageId, ticket.getId())
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_MESSAGE_NOT_FOUND));
+        if (!canEditMessage(message, ticket, actor, asStaff)) {
+            if (message.getAuthor() == null
+                    || actor.getId() == null
+                    || !actor.getId().equals(message.getAuthor().getId())) {
+                throw new ApiException(ErrorCode.TICKET_MESSAGE_NOT_OWNED);
+            }
+            throw new ApiException(ErrorCode.TICKET_MESSAGE_NOT_EDITABLE);
+        }
+        return message;
+    }
+
+    private void recordRevision(
+            TicketMessage message,
+            User actor,
+            TicketMessageRevision.Action action,
+            String previousBody,
+            String newBody) {
+        TicketMessageRevision revision = new TicketMessageRevision();
+        revision.setTicket(message.getTicket());
+        revision.setMessage(message);
+        revision.setActor(actor);
+        revision.setAction(action);
+        revision.setPreviousBody(previousBody);
+        revision.setNewBody(newBody);
+        ticketMessageRevisionRepository.save(revision);
+    }
+
+    private void recordDescriptionRevision(
+            Ticket ticket,
+            User actor,
+            String previousBody,
+            String newBody) {
+        TicketMessageRevision revision = new TicketMessageRevision();
+        revision.setTicket(ticket);
+        revision.setActor(actor);
+        revision.setAction(TicketMessageRevision.Action.EDIT);
+        revision.setPreviousBody(previousBody);
+        revision.setNewBody(newBody);
+        ticketMessageRevisionRepository.save(revision);
+    }
+
+    private TicketMessageRevisionDto toRevisionDto(TicketMessageRevision revision) {
+        TicketMessageRevisionDto dto = new TicketMessageRevisionDto();
+        dto.setId(revision.getId());
+        dto.setAction(revision.getAction());
+        dto.setPreviousBody(revision.getPreviousBody());
+        dto.setNewBody(revision.getNewBody());
+        dto.setCreatedAt(revision.getCreatedAt());
+        if (revision.getActor() != null) {
+            dto.setActorId(revision.getActor().getId());
+            dto.setActorEmail(revision.getActor().getEmail());
+            dto.setActorName(displayName(revision.getActor()));
+        }
+        return dto;
+    }
+
+    private TicketMessageDto toMessageDto(TicketMessage message, User viewer) {
+        return toMessageDto(message, message.getTicket(), viewer, isStaffUser(viewer));
     }
 
     private boolean isStaffUser(User user) {

@@ -52,6 +52,10 @@ public class TicketMessage {
     @Column(nullable = false)
     private Instant createdAt;
 
+    private Instant editedAt;
+
+    private Instant deletedAt;
+
     @PrePersist
     void onCreate() {
         if (createdAt == null) {
@@ -118,5 +122,25 @@ public class TicketMessage {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getEditedAt() {
+        return editedAt;
+    }
+
+    public void setEditedAt(Instant editedAt) {
+        this.editedAt = editedAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 }

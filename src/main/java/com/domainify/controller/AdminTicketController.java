@@ -9,8 +9,10 @@ import com.domainify.dto.TicketAssigneeOptionDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketInboxFilter;
+import com.domainify.dto.TicketMessageRevisionDto;
 import com.domainify.dto.TicketTagDto;
 import com.domainify.dto.UpdateTicketDueDateRequest;
+import com.domainify.dto.UpdateTicketMessageRequest;
 import com.domainify.dto.UpdateTicketStatusRequest;
 import com.domainify.dto.UpdateTicketTagsRequest;
 import com.domainify.entity.TicketInboxView;
@@ -113,6 +115,46 @@ public class AdminTicketController {
             @RequestParam(value = "internalNote", defaultValue = "false") boolean internalNote,
             @RequestParam(value = "attachments", required = false) MultipartFile[] attachments) {
         return ResponseEntity.ok(ticketService.replyAsStaff(agent, id, body, internalNote, attachments));
+    }
+
+    @PatchMapping("/{id}/messages/{messageId}")
+    public ResponseEntity<TicketDetailDto> editMessage(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @PathVariable("messageId") Long messageId,
+            @Valid @RequestBody UpdateTicketMessageRequest request) {
+        return ResponseEntity.ok(ticketService.editMessage(agent, id, messageId, request, true));
+    }
+
+    @DeleteMapping("/{id}/messages/{messageId}")
+    public ResponseEntity<TicketDetailDto> deleteMessage(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @PathVariable("messageId") Long messageId) {
+        return ResponseEntity.ok(ticketService.deleteMessage(agent, id, messageId, true));
+    }
+
+    @GetMapping("/{id}/messages/{messageId}/revisions")
+    public ResponseEntity<List<TicketMessageRevisionDto>> messageRevisions(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @PathVariable("messageId") Long messageId) {
+        return ResponseEntity.ok(ticketService.listMessageRevisions(agent, id, messageId));
+    }
+
+    @GetMapping("/{id}/description/revisions")
+    public ResponseEntity<List<TicketMessageRevisionDto>> descriptionRevisions(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.listDescriptionRevisions(agent, id));
+    }
+
+    @PatchMapping("/{id}/description")
+    public ResponseEntity<TicketDetailDto> editDescription(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @Valid @RequestBody UpdateTicketMessageRequest request) {
+        return ResponseEntity.ok(ticketService.editDescription(agent, id, request.getBody(), true));
     }
 
     @PatchMapping("/{id}/status")

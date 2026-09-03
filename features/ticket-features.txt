@@ -23,9 +23,10 @@ done - Threaded replies (chronological conversation)
 done - Rich text / Markdown replies
 done - Attachments (images, PDF, logs) with size/type limits in setting
 
+done - Edit / delete own replies (with audit trail)
+
 Canned responses / reply templates (with variables: name, ticket ID, domain)
 Mentions (@agent) in internal notes
-Edit / delete own replies (with audit trail)
 Read receipts / “seen by customer/agent”
 Draft replies (auto-save)
 Email-in / email-out (create & reply by email) — later phase

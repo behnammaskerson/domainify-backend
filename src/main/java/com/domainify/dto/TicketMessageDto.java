@@ -18,6 +18,13 @@ public class TicketMessageDto {
     private boolean initial;
     /** True for staff-only notes hidden from the customer portal. */
     private boolean internalNote;
+    private boolean edited;
+    private boolean deleted;
+    private boolean canEdit;
+    private boolean canDelete;
+    private boolean hasRevisions;
+    private Instant editedAt;
+    private Instant deletedAt;
     private Instant createdAt;
     private List<TicketAttachmentDto> attachments = new ArrayList<>();
 
@@ -91,6 +98,62 @@ public class TicketMessageDto {
 
     public void setInternalNote(boolean internalNote) {
         this.internalNote = internalNote;
+    }
+
+    public boolean isEdited() {
+        return edited;
+    }
+
+    public void setEdited(boolean edited) {
+        this.edited = edited;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
+    }
+
+    public boolean isCanEdit() {
+        return canEdit;
+    }
+
+    public void setCanEdit(boolean canEdit) {
+        this.canEdit = canEdit;
+    }
+
+    public boolean isCanDelete() {
+        return canDelete;
+    }
+
+    public void setCanDelete(boolean canDelete) {
+        this.canDelete = canDelete;
+    }
+
+    public boolean isHasRevisions() {
+        return hasRevisions;
+    }
+
+    public void setHasRevisions(boolean hasRevisions) {
+        this.hasRevisions = hasRevisions;
+    }
+
+    public Instant getEditedAt() {
+        return editedAt;
+    }
+
+    public void setEditedAt(Instant editedAt) {
+        this.editedAt = editedAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
     }
 
     public Instant getCreatedAt() {
