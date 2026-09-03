@@ -72,4 +72,17 @@ public class AuthController {
     public ResponseEntity<PasswordPolicyDto> passwordPolicy() {
         return ResponseEntity.ok(authService.getPasswordPolicy());
     }
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<Map<String, String>> verifyEmail(@RequestParam("token") String token) {
+        authService.verifyEmail(token);
+        return ResponseEntity.ok(Map.of("message", messageService.get("auth.email_verified")));
+    }
+
+    @PostMapping("/resend-verification-email")
+    public ResponseEntity<Map<String, String>> resendVerificationEmail(
+            @Valid @RequestBody ResendVerificationEmailRequest request) {
+        authService.resendVerificationEmail(request);
+        return ResponseEntity.ok(Map.of("message", messageService.get("auth.verification_email_sent")));
+    }
 }

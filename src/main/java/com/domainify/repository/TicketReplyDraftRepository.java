@@ -12,4 +12,6 @@ public interface TicketReplyDraftRepository extends JpaRepository<TicketReplyDra
     Optional<TicketReplyDraft> findByTicketAndAuthor(Ticket ticket, User author);
 
     void deleteByTicketAndAuthor(Ticket ticket, User author);
+
+    boolean existsByAuthorId(Long authorId);
 }

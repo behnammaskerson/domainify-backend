@@ -8,6 +8,7 @@ public class AuthResponse {
     private boolean requiresTotp;
     private String preAuthToken;
     private boolean requiresPasswordChange;
+    private boolean requiresEmailVerification;
 
     public AuthResponse() {
     }
@@ -19,6 +20,7 @@ public class AuthResponse {
         this.user = user;
         this.requiresTotp = false;
         this.requiresPasswordChange = false;
+        this.requiresEmailVerification = false;
     }
 
     public static AuthResponse totpRequired(String preAuthToken) {
@@ -26,6 +28,13 @@ public class AuthResponse {
         response.requiresTotp = true;
         response.preAuthToken = preAuthToken;
         response.tokenType = "Bearer";
+        return response;
+    }
+
+    public static AuthResponse emailVerificationRequired(UserDto user) {
+        AuthResponse response = new AuthResponse();
+        response.requiresEmailVerification = true;
+        response.user = user;
         return response;
     }
 
@@ -83,5 +92,13 @@ public class AuthResponse {
 
     public void setRequiresPasswordChange(boolean requiresPasswordChange) {
         this.requiresPasswordChange = requiresPasswordChange;
+    }
+
+    public boolean isRequiresEmailVerification() {
+        return requiresEmailVerification;
+    }
+
+    public void setRequiresEmailVerification(boolean requiresEmailVerification) {
+        this.requiresEmailVerification = requiresEmailVerification;
     }
 }

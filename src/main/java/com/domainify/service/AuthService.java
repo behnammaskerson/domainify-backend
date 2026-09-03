@@ -22,17 +22,20 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final TwoFactorService twoFactorService;
     private final PasswordPolicyService passwordPolicyService;
+    private final EmailVerificationService emailVerificationService;
 
     public AuthService(UserRepository userRepository,
                        JwtUtil jwtUtil,
                        AuthenticationManager authenticationManager,
                        TwoFactorService twoFactorService,
-                       PasswordPolicyService passwordPolicyService) {
+                       PasswordPolicyService passwordPolicyService,
+                       EmailVerificationService emailVerificationService) {
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
         this.authenticationManager = authenticationManager;
         this.twoFactorService = twoFactorService;
         this.passwordPolicyService = passwordPolicyService;
+        this.emailVerificationService = emailVerificationService;
     }
 
     @Transactional
@@ -56,7 +59,13 @@ public class AuthService {
         user.setCreatorUsername(null);
 
         user = userRepository.save(user);
-        return issueTokens(user);
+        emailVerificationService.sendVerificationEmailSilently(user);
+        return AuthResponse.emailVerificationRequired(UserDto.fromUser(user));
+    }
+
+    @Transactional
+    public void resendVerificationEmail(ResendVerificationEmailRequest request) {
+        emailVerificationService.resendVerificationEmailPublic(request.getEmail());
     }
 
     @Transactional
@@ -78,6 +87,8 @@ public class AuthService {
         if (!user.isEnabled()) {
             throw new ApiException(ErrorCode.ACCOUNT_DISABLED);
         }
+
+        assertEmailVerifiedForLogin(user);
 
         if (user.isTotpEnabled()) {
             return AuthResponse.totpRequired(jwtUtil.generatePreAuthToken(user));
@@ -106,6 +117,7 @@ public class AuthService {
         if (!user.isEnabled()) {
             throw new ApiException(ErrorCode.ACCOUNT_DISABLED);
         }
+        assertEmailVerifiedForLogin(user);
         if (!user.isTotpEnabled()) {
             throw new ApiException(ErrorCode.TOTP_NOT_ENABLED);
         }
@@ -129,6 +141,8 @@ public class AuthService {
         if (jwtUtil.isTokenExpired(refreshToken)) {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_EXPIRED);
         }
+
+        assertEmailVerifiedForLogin(user);
 
         String newAccessToken = jwtUtil.generateToken(user, new HashMap<>());
 
@@ -168,11 +182,17 @@ public class AuthService {
         userRepository.save(user);
     }
 
+    @Transactional
+    public void verifyEmail(String token) {
+        emailVerificationService.verifyEmail(token);
+    }
+
     public PasswordPolicyDto getPasswordPolicy() {
         return passwordPolicyService.getDto();
     }
 
     private AuthResponse issueTokens(User user) {
+        assertEmailVerifiedForLogin(user);
         String accessToken = jwtUtil.generateToken(user, new HashMap<>());
         String refreshToken = jwtUtil.generateRefreshToken(user);
         user.setRefreshToken(refreshToken);
@@ -180,5 +200,11 @@ public class AuthService {
         AuthResponse response = new AuthResponse(accessToken, refreshToken, "Bearer", UserDto.fromUser(user));
         response.setRequiresPasswordChange(passwordPolicyService.isPasswordExpired(user));
         return response;
+    }
+
+    private void assertEmailVerifiedForLogin(User user) {
+        if (user.requiresEmailVerificationForLogin()) {
+            throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
     }
 }

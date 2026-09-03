@@ -15,6 +15,10 @@ public class UserDto {
     private String phoneCountryCode;
     private String phoneNumber;
     private boolean totpEnabled;
+    private boolean emailVerified;
+    private Instant emailVerifiedAt;
+    private boolean phoneVerified;
+    private Instant phoneVerifiedAt;
     private Instant createdAt;
     private Instant updatedAt;
     private String creatorUsername;
@@ -25,6 +29,8 @@ public class UserDto {
 
     public UserDto(Long id, String firstName, String lastName, String email, User.Role role, boolean enabled,
                    String avatarUrl, String phoneCountryCode, String phoneNumber, boolean totpEnabled,
+                   boolean emailVerified, Instant emailVerifiedAt,
+                   boolean phoneVerified, Instant phoneVerifiedAt,
                    Instant createdAt, Instant updatedAt, String creatorUsername, User.CreateMethod createMethod) {
         this.id = id;
         this.firstName = firstName;
@@ -36,6 +42,10 @@ public class UserDto {
         this.phoneCountryCode = phoneCountryCode;
         this.phoneNumber = phoneNumber;
         this.totpEnabled = totpEnabled;
+        this.emailVerified = emailVerified;
+        this.emailVerifiedAt = emailVerifiedAt;
+        this.phoneVerified = phoneVerified;
+        this.phoneVerifiedAt = phoneVerifiedAt;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.creatorUsername = creatorUsername;
@@ -54,6 +64,10 @@ public class UserDto {
             user.getPhoneCountryCode(),
             user.getPhoneNumber(),
             user.isTotpEnabled(),
+            user.isEmailVerified(),
+            user.getEmailVerifiedAt(),
+            user.isPhoneVerified(),
+            user.getPhoneVerifiedAt(),
             user.getCreatedAt(),
             user.getUpdatedAt(),
             user.getCreatorUsername(),
@@ -139,6 +153,38 @@ public class UserDto {
 
     public void setTotpEnabled(boolean totpEnabled) {
         this.totpEnabled = totpEnabled;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public Instant getEmailVerifiedAt() {
+        return emailVerifiedAt;
+    }
+
+    public void setEmailVerifiedAt(Instant emailVerifiedAt) {
+        this.emailVerifiedAt = emailVerifiedAt;
+    }
+
+    public boolean isPhoneVerified() {
+        return phoneVerified;
+    }
+
+    public void setPhoneVerified(boolean phoneVerified) {
+        this.phoneVerified = phoneVerified;
+    }
+
+    public Instant getPhoneVerifiedAt() {
+        return phoneVerifiedAt;
+    }
+
+    public void setPhoneVerifiedAt(Instant phoneVerifiedAt) {
+        this.phoneVerifiedAt = phoneVerifiedAt;
     }
 
     public Instant getCreatedAt() {

@@ -83,7 +83,7 @@ Auto-close if customer silent for N days after resolve
 Business rules engine (if/then) — later phase
 
 8. Notifications
-In-app notifications (bell)
+done - In-app notifications (bell)
 Email notifications (new reply, assignment, status change)
 SMS notifications (urgent / opt-in)
 Digest / daily summary for agents

@@ -5,6 +5,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import org.hibernate.annotations.ColumnDefault;
+
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -86,6 +88,27 @@ public class User implements UserDetails {
 
     /** When the password was last set or changed; used for expiry policy. */
     private Instant passwordChangedAt;
+
+    @ColumnDefault("true")
+    @Column(nullable = true)
+    private Boolean emailVerified = true;
+
+    private Instant emailVerifiedAt;
+
+    @ColumnDefault("true")
+    @Column(nullable = true)
+    private Boolean phoneVerified = true;
+
+    private Instant phoneVerifiedAt;
+
+    @Column(length = 72)
+    private String phoneVerificationOtpHash;
+
+    private Instant phoneVerificationOtpExpiresAt;
+
+    private Instant phoneVerificationOtpSentAt;
+
+    private int phoneVerificationOtpAttempts;
     
     @PrePersist
     public void prePersist() {
@@ -102,6 +125,9 @@ public class User implements UserDetails {
         }
         if (createMethod == null) {
             createMethod = CreateMethod.REGISTER;
+        }
+        if (createMethod == CreateMethod.REGISTER) {
+            emailVerified = false;
         }
     }
 
@@ -298,6 +324,86 @@ public class User implements UserDetails {
 
     public void setPasswordChangedAt(Instant passwordChangedAt) {
         this.passwordChangedAt = passwordChangedAt;
+    }
+
+    public boolean isEmailVerified() {
+        return Boolean.TRUE.equals(emailVerified);
+    }
+
+    public boolean requiresEmailVerificationForLogin() {
+        return createMethod == CreateMethod.REGISTER && !isEmailVerified();
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public Instant getEmailVerifiedAt() {
+        return emailVerifiedAt;
+    }
+
+    public void setEmailVerifiedAt(Instant emailVerifiedAt) {
+        this.emailVerifiedAt = emailVerifiedAt;
+    }
+
+    public boolean isPhoneVerified() {
+        return Boolean.TRUE.equals(phoneVerified);
+    }
+
+    public void setPhoneVerified(boolean phoneVerified) {
+        this.phoneVerified = phoneVerified;
+    }
+
+    public Instant getPhoneVerifiedAt() {
+        return phoneVerifiedAt;
+    }
+
+    public void setPhoneVerifiedAt(Instant phoneVerifiedAt) {
+        this.phoneVerifiedAt = phoneVerifiedAt;
+    }
+
+    public String getPhoneVerificationOtpHash() {
+        return phoneVerificationOtpHash;
+    }
+
+    public void setPhoneVerificationOtpHash(String phoneVerificationOtpHash) {
+        this.phoneVerificationOtpHash = phoneVerificationOtpHash;
+    }
+
+    public Instant getPhoneVerificationOtpExpiresAt() {
+        return phoneVerificationOtpExpiresAt;
+    }
+
+    public void setPhoneVerificationOtpExpiresAt(Instant phoneVerificationOtpExpiresAt) {
+        this.phoneVerificationOtpExpiresAt = phoneVerificationOtpExpiresAt;
+    }
+
+    public Instant getPhoneVerificationOtpSentAt() {
+        return phoneVerificationOtpSentAt;
+    }
+
+    public void setPhoneVerificationOtpSentAt(Instant phoneVerificationOtpSentAt) {
+        this.phoneVerificationOtpSentAt = phoneVerificationOtpSentAt;
+    }
+
+    public int getPhoneVerificationOtpAttempts() {
+        return phoneVerificationOtpAttempts;
+    }
+
+    public void setPhoneVerificationOtpAttempts(int phoneVerificationOtpAttempts) {
+        this.phoneVerificationOtpAttempts = phoneVerificationOtpAttempts;
+    }
+
+    public void clearPhoneVerificationOtp() {
+        this.phoneVerificationOtpHash = null;
+        this.phoneVerificationOtpExpiresAt = null;
+        this.phoneVerificationOtpSentAt = null;
+        this.phoneVerificationOtpAttempts = 0;
+    }
+
+    public boolean hasPhoneNumber() {
+        return phoneCountryCode != null && !phoneCountryCode.isBlank()
+                && phoneNumber != null && !phoneNumber.isBlank();
     }
 
     /** Falls back to createdAt for users created before passwordChangedAt existed. */

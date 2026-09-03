@@ -31,12 +31,15 @@ public class TicketMentionService {
 
     private final TicketMentionRepository ticketMentionRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public TicketMentionService(
             TicketMentionRepository ticketMentionRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            NotificationService notificationService) {
         this.ticketMentionRepository = ticketMentionRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     public void syncMentions(Ticket ticket, TicketMessage message, String body, User author) {
@@ -69,6 +72,7 @@ public class TicketMentionService {
             mention.setMentionedUser(user);
             mention.setMessage(message);
             ticketMentionRepository.save(mention);
+            notificationService.onMention(ticket, user, author);
         }
     }
 

@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -32,17 +33,26 @@ public class UserService {
     private final AvatarStorageService avatarStorageService;
     private final PasswordPolicyService passwordPolicyService;
     private final PasswordHistoryRepository passwordHistoryRepository;
+    private final EmailVerificationService emailVerificationService;
+    private final PhoneVerificationService phoneVerificationService;
+    private final UserDeletionGuard userDeletionGuard;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        AvatarStorageService avatarStorageService,
                        PasswordPolicyService passwordPolicyService,
-                       PasswordHistoryRepository passwordHistoryRepository) {
+                       PasswordHistoryRepository passwordHistoryRepository,
+                       EmailVerificationService emailVerificationService,
+                       PhoneVerificationService phoneVerificationService,
+                       UserDeletionGuard userDeletionGuard) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.avatarStorageService = avatarStorageService;
         this.passwordPolicyService = passwordPolicyService;
         this.passwordHistoryRepository = passwordHistoryRepository;
+        this.emailVerificationService = emailVerificationService;
+        this.phoneVerificationService = phoneVerificationService;
+        this.userDeletionGuard = userDeletionGuard;
     }
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
@@ -160,6 +170,7 @@ public class UserService {
         user.setEnabled(true);
         user.setCreateMethod(User.CreateMethod.ADMIN);
         user.setCreatorUsername(creator != null ? creator.getUsername() : null);
+        user.setEmailVerified(true);
 
         return UserDto.fromUser(userRepository.save(user));
     }
@@ -179,6 +190,7 @@ public class UserService {
         if (!userRepository.existsById(id)) {
             throw new ApiException(ErrorCode.USER_NOT_FOUND);
         }
+        userDeletionGuard.assertDeletable(id);
         avatarStorageService.deleteForUser(id);
         passwordHistoryRepository.deleteByUserId(id);
         userRepository.deleteById(id);
@@ -204,9 +216,46 @@ public class UserService {
     @Transactional
     public UserDto updateProfile(User currentUser, UpdateProfileRequest request) {
         User user = findUser(currentUser.getId());
+        String previousEmail = user.getEmail();
+        String previousPhoneCountry = user.getPhoneCountryCode();
+        String previousPhoneNumber = user.getPhoneNumber();
         applyIdentity(user, request.getFirstName(), request.getLastName(), request.getEmail());
         applyPhone(user, request.getPhoneCountryCode(), request.getPhoneNumber());
-        return UserDto.fromUser(userRepository.save(user));
+        boolean emailChanged = !previousEmail.equalsIgnoreCase(user.getEmail());
+        boolean phoneChanged = !Objects.equals(
+                normalizePhoneKey(previousPhoneCountry, previousPhoneNumber),
+                normalizePhoneKey(user.getPhoneCountryCode(), user.getPhoneNumber()));
+        if (emailChanged) {
+            user.setEmailVerified(false);
+            user.setEmailVerifiedAt(null);
+        }
+        if (phoneChanged) {
+            phoneVerificationService.invalidateAfterPhoneChange(user);
+        }
+        User saved = userRepository.save(user);
+        if (emailChanged) {
+            emailVerificationService.sendVerificationEmailSilently(saved);
+        }
+        return UserDto.fromUser(saved);
+    }
+
+    @Transactional
+    public void sendVerificationEmail(User currentUser) {
+        User user = findUser(currentUser.getId());
+        emailVerificationService.sendVerificationEmail(user);
+    }
+
+    @Transactional
+    public void sendPhoneVerificationCode(User currentUser) {
+        User user = findUser(currentUser.getId());
+        phoneVerificationService.sendVerificationCode(user);
+    }
+
+    @Transactional
+    public UserDto verifyPhone(User currentUser, String code) {
+        User user = findUser(currentUser.getId());
+        phoneVerificationService.verifyCode(user, code);
+        return UserDto.fromUser(findUser(currentUser.getId()));
     }
 
     @Transactional
@@ -279,5 +328,14 @@ public class UserService {
 
         user.setPhoneCountryCode(country);
         user.setPhoneNumber(number);
+    }
+
+    private String normalizePhoneKey(String country, String number) {
+        String c = country == null ? "" : country.trim().toUpperCase(Locale.ROOT);
+        String n = number == null ? "" : number.replaceAll("\\D", "");
+        if (!StringUtils.hasText(c) || !StringUtils.hasText(n)) {
+            return "";
+        }
+        return c + ":" + n;
     }
 }

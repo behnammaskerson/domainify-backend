@@ -14,4 +14,6 @@ public interface TicketMessageRevisionRepository extends JpaRepository<TicketMes
     boolean existsByTicketIdAndMessageIsNull(Long ticketId);
 
     List<TicketMessageRevision> findByTicketIdAndMessageIsNullOrderByCreatedAtAscIdAsc(Long ticketId);
+
+    boolean existsByActorId(Long actorId);
 }

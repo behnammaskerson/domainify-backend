@@ -12,4 +12,6 @@ public interface TicketMentionRepository extends JpaRepository<TicketMention, Lo
     List<TicketMention> findByTicketId(Long ticketId);
 
     void deleteByMessageId(Long messageId);
+
+    boolean existsByMentionedUserId(Long mentionedUserId);
 }

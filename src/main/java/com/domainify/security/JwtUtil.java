@@ -19,6 +19,8 @@ public class JwtUtil {
     public static final String CLAIM_TOKEN_TYPE = "token_type";
     public static final String TOKEN_TYPE_ACCESS = "access";
     public static final String TOKEN_TYPE_PRE_AUTH = "pre_auth";
+    public static final String TOKEN_TYPE_EMAIL_VERIFY = "email_verify";
+    public static final String CLAIM_VERIFY_EMAIL = "email";
 
     @Value("${jwt.secret}")
     private String secret;
@@ -31,6 +33,9 @@ public class JwtUtil {
 
     @Value("${jwt.pre-auth-expiration:300000}")
     private Long preAuthExpiration;
+
+    @Value("${jwt.email-verify-expiration:86400000}")
+    private Long emailVerifyExpiration;
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
@@ -50,6 +55,39 @@ public class JwtUtil {
         Map<String, Object> claims = new HashMap<>();
         claims.put(CLAIM_TOKEN_TYPE, TOKEN_TYPE_PRE_AUTH);
         return buildToken(userDetails, claims, preAuthExpiration);
+    }
+
+    public String generateEmailVerificationToken(Long userId, String email) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(CLAIM_TOKEN_TYPE, TOKEN_TYPE_EMAIL_VERIFY);
+        claims.put(CLAIM_VERIFY_EMAIL, email);
+        return Jwts.builder()
+                .claims(claims)
+                .subject(String.valueOf(userId))
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + emailVerifyExpiration))
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public boolean isEmailVerifyToken(String token) {
+        return TOKEN_TYPE_EMAIL_VERIFY.equals(extractTokenType(token));
+    }
+
+    public Long extractUserId(String token) {
+        String subject = extractUsername(token);
+        if (subject == null || subject.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(subject.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    public String extractVerifyEmail(String token) {
+        return extractClaim(token, claims -> claims.get(CLAIM_VERIFY_EMAIL, String.class));
     }
 
     private String buildToken(UserDetails userDetails, Map<String, Object> extraClaims, long expirationMs) {

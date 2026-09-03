@@ -1,0 +1,12 @@
+package com.domainify.entity;
+
+public enum NotificationType {
+    TICKET_CREATED,
+    TICKET_CUSTOMER_REPLY,
+    TICKET_STAFF_REPLY,
+    TICKET_MENTION,
+    TICKET_STATUS_CHANGED,
+    TICKET_ASSIGNED,
+    TICKET_CLOSED,
+    TICKET_REOPENED
+}

@@ -35,6 +35,24 @@ public class UserController {
         return ResponseEntity.ok(userService.getById(user.getId()));
     }
 
+    @PostMapping("/me/send-verification-email")
+    public ResponseEntity<ApiResponse<Void>> sendVerificationEmail(@AuthenticationPrincipal User user) {
+        userService.sendVerificationEmail(user);
+        return ResponseEntity.ok(ApiResponse.success(messageService.get("auth.verification_email_sent"), null));
+    }
+
+    @PostMapping("/me/send-phone-verification")
+    public ResponseEntity<ApiResponse<Void>> sendPhoneVerification(@AuthenticationPrincipal User user) {
+        userService.sendPhoneVerificationCode(user);
+        return ResponseEntity.ok(ApiResponse.success(messageService.get("auth.verification_sms_sent"), null));
+    }
+
+    @PostMapping("/me/verify-phone")
+    public ResponseEntity<UserDto> verifyPhone(@AuthenticationPrincipal User user,
+                                             @Valid @RequestBody VerifyPhoneRequest request) {
+        return ResponseEntity.ok(userService.verifyPhone(user, request.getCode()));
+    }
+
     @PutMapping("/me")
     public ResponseEntity<UserDto> updateProfile(@AuthenticationPrincipal User user,
                                                  @Valid @RequestBody UpdateProfileRequest request) {

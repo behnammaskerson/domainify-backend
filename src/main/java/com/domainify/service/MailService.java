@@ -16,13 +16,18 @@ import java.util.Properties;
 public class MailService {
 
     public void sendTestEmail(EmailConfig config, String to) throws MessagingException {
+        sendEmail(config, to, "Domainify email test",
+                "This is a test email from your Domainify email server configuration.");
+    }
+
+    public void sendEmail(EmailConfig config, String to, String subject, String text) throws MessagingException {
         JavaMailSenderImpl sender = buildMailSender(config);
         MimeMessage message = sender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
         helper.setTo(to);
         helper.setFrom(resolveFromAddress(config));
-        helper.setSubject("Domainify email test");
-        helper.setText("This is a test email from your Domainify email server configuration.", false);
+        helper.setSubject(subject);
+        helper.setText(text, false);
         sender.send(message);
     }
 

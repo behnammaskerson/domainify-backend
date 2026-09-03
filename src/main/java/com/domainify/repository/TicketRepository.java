@@ -26,6 +26,10 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
 
     long countBySplitFromIdAndDeletedAtIsNull(Long splitFromId);
 
+    boolean existsByRequesterId(Long requesterId);
+
+    boolean existsByAssigneeId(Long assigneeId);
+
     @Query("select count(t) from Ticket t join t.tags tag where tag = :tag")
     long countByTag(@Param("tag") TicketTag tag);
 

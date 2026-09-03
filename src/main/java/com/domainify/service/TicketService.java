@@ -92,6 +92,7 @@ public class TicketService {
     private final TicketStatusWorkflowService ticketStatusWorkflowService;
     private final TicketTagService ticketTagService;
     private final TicketSettingsService ticketSettingsService;
+    private final NotificationService notificationService;
 
     public TicketService(
             TicketRepository ticketRepository,
@@ -106,7 +107,8 @@ public class TicketService {
             TicketMentionService ticketMentionService,
             TicketStatusWorkflowService ticketStatusWorkflowService,
             TicketTagService ticketTagService,
-            TicketSettingsService ticketSettingsService) {
+            TicketSettingsService ticketSettingsService,
+            NotificationService notificationService) {
         this.ticketRepository = ticketRepository;
         this.ticketMessageRepository = ticketMessageRepository;
         this.ticketMessageRevisionRepository = ticketMessageRevisionRepository;
@@ -120,6 +122,7 @@ public class TicketService {
         this.ticketStatusWorkflowService = ticketStatusWorkflowService;
         this.ticketTagService = ticketTagService;
         this.ticketSettingsService = ticketSettingsService;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -214,6 +217,7 @@ public class TicketService {
         ticketMessageRepository.save(message);
         ticketMentionService.syncMentions(ticket, message, trimmedBody, author);
 
+        User previousAssignee = ticket.getAssignee();
         if (asStaff && !internalNote) {
             if (ticket.getStatus() == TicketStatus.NEW || ticket.getStatus() == TicketStatus.OPEN) {
                 maybeAutoTransition(ticket, TicketStatus.PENDING);
@@ -232,6 +236,15 @@ public class TicketService {
         }
         ticketRepository.save(ticket);
         clearReplyDraft(ticket, author);
+
+        if (asStaff && !internalNote) {
+            notificationService.onStaffPublicReply(ticket, author);
+            if (previousAssignee == null && ticket.getAssignee() != null) {
+                notificationService.onAssigned(ticket, ticket.getAssignee(), author);
+            }
+        } else if (!asStaff) {
+            notificationService.onCustomerReply(ticket, author);
+        }
 
         return toDetailDto(ticket, author, isStaffUser(author));
     }
@@ -337,6 +350,7 @@ public class TicketService {
             throw new ApiException(ErrorCode.TICKET_STATUS_INVALID);
         }
         Ticket ticket = requireStaffTicket(ticketId, false);
+        TicketStatus previous = ticket.getStatus();
         if (ticket.getStatus() == TicketStatus.CLOSED && nextStatus != TicketStatus.CLOSED) {
             assertReopenAllowed(ticket);
         }
@@ -346,6 +360,7 @@ public class TicketService {
             ticket.setArchivedAt(null);
         }
         ticketRepository.save(ticket);
+        notificationService.onStatusChanged(ticket, agent, previous, nextStatus, true);
         return toDetailDto(ticket, agent, true);
     }
 
@@ -753,6 +768,7 @@ public class TicketService {
         }
         applyStatus(ticket, TicketStatus.CLOSED);
         ticketRepository.save(ticket);
+        notificationService.onClosed(ticket, viewer, asStaff);
         return toDetailDto(ticket, viewer, asStaff);
     }
 
@@ -765,6 +781,7 @@ public class TicketService {
         applyStatus(ticket, TicketStatus.OPEN);
         ticket.setArchivedAt(null);
         ticketRepository.save(ticket);
+        notificationService.onReopened(ticket, viewer, asStaff);
         return toDetailDto(ticket, viewer, asStaff);
     }
 
@@ -1023,6 +1040,7 @@ public class TicketService {
         Ticket saved = ticketRepository.saveAndFlush(ticket);
         saved.setPublicNumber(buildPublicNumber(saved.getId()));
         saved = ticketRepository.save(saved);
+        notificationService.onTicketCreated(saved, requester);
         return toDto(saved);
     }
 
