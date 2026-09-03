@@ -6,7 +6,9 @@ import com.domainify.dto.PagedResponse;
 import com.domainify.dto.SplitTicketRequest;
 import com.domainify.dto.SplitTicketResultDto;
 import com.domainify.dto.TicketAssigneeOptionDto;
+import com.domainify.dto.SaveTicketReplyDraftRequest;
 import com.domainify.dto.TicketDetailDto;
+import com.domainify.dto.TicketReplyDraftDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketInboxFilter;
 import com.domainify.dto.TicketMessageRevisionDto;
@@ -105,6 +107,15 @@ public class AdminTicketController {
             @AuthenticationPrincipal User agent,
             @PathVariable("id") Long id) {
         return ResponseEntity.ok(ticketService.getForStaff(agent, id));
+    }
+
+    @PutMapping("/{id}/reply-draft")
+    public ResponseEntity<TicketReplyDraftDto> saveReplyDraft(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody SaveTicketReplyDraftRequest request) {
+        TicketReplyDraftDto draft = ticketService.saveReplyDraftAsStaff(agent, id, request);
+        return draft == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(draft);
     }
 
     @PostMapping(value = "/{id}/replies", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

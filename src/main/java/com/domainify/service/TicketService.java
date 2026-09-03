@@ -6,7 +6,9 @@ import com.domainify.dto.PagedResponse;
 import com.domainify.dto.RelatedTicketDto;
 import com.domainify.dto.SplitTicketRequest;
 import com.domainify.dto.SplitTicketResultDto;
+import com.domainify.dto.SaveTicketReplyDraftRequest;
 import com.domainify.dto.TicketAttachmentDto;
+import com.domainify.dto.TicketReplyDraftDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketMessageDto;
@@ -23,6 +25,7 @@ import com.domainify.entity.TicketMessage;
 import com.domainify.entity.TicketMessageAttachment;
 import com.domainify.entity.TicketMessageRevision;
 import com.domainify.entity.TicketPriority;
+import com.domainify.entity.TicketReplyDraft;
 import com.domainify.entity.TicketRelatedLink;
 import com.domainify.entity.TicketStatus;
 import com.domainify.entity.TicketTag;
@@ -34,6 +37,7 @@ import com.domainify.repository.TicketMentionRepository;
 import com.domainify.repository.TicketMessageAttachmentRepository;
 import com.domainify.repository.TicketMessageRepository;
 import com.domainify.repository.TicketMessageRevisionRepository;
+import com.domainify.repository.TicketReplyDraftRepository;
 import com.domainify.repository.TicketRelatedLinkRepository;
 import com.domainify.repository.TicketRepository;
 import jakarta.persistence.criteria.Predicate;
@@ -81,6 +85,7 @@ public class TicketService {
     private final TicketAttachmentRepository ticketAttachmentRepository;
     private final TicketMessageAttachmentRepository ticketMessageAttachmentRepository;
     private final TicketMentionRepository ticketMentionRepository;
+    private final TicketReplyDraftRepository ticketReplyDraftRepository;
     private final TicketRelatedLinkRepository ticketRelatedLinkRepository;
     private final TicketCategoryService ticketCategoryService;
     private final TicketMentionService ticketMentionService;
@@ -95,6 +100,7 @@ public class TicketService {
             TicketAttachmentRepository ticketAttachmentRepository,
             TicketMessageAttachmentRepository ticketMessageAttachmentRepository,
             TicketMentionRepository ticketMentionRepository,
+            TicketReplyDraftRepository ticketReplyDraftRepository,
             TicketRelatedLinkRepository ticketRelatedLinkRepository,
             TicketCategoryService ticketCategoryService,
             TicketMentionService ticketMentionService,
@@ -107,6 +113,7 @@ public class TicketService {
         this.ticketAttachmentRepository = ticketAttachmentRepository;
         this.ticketMessageAttachmentRepository = ticketMessageAttachmentRepository;
         this.ticketMentionRepository = ticketMentionRepository;
+        this.ticketReplyDraftRepository = ticketReplyDraftRepository;
         this.ticketRelatedLinkRepository = ticketRelatedLinkRepository;
         this.ticketCategoryService = ticketCategoryService;
         this.ticketMentionService = ticketMentionService;
@@ -127,17 +134,32 @@ public class TicketService {
         return PagedResponse.from(page);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public TicketDetailDto getMine(User requester, Long ticketId) {
         Ticket ticket = requireOwnedTicket(requester, ticketId);
+        markReadByCustomer(ticket);
         return toDetailDto(ticket, requester, false);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public TicketDetailDto getForStaff(User agent, Long ticketId) {
         requireAgent(agent);
         Ticket ticket = requireStaffTicket(ticketId, true);
+        markReadByStaff(ticket);
         return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketReplyDraftDto saveReplyDraft(User requester, Long ticketId, SaveTicketReplyDraftRequest request) {
+        Ticket ticket = requireOwnedTicket(requester, ticketId);
+        return saveReplyDraft(ticket, requester, request, false);
+    }
+
+    @Transactional
+    public TicketReplyDraftDto saveReplyDraftAsStaff(User agent, Long ticketId, SaveTicketReplyDraftRequest request) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        return saveReplyDraft(ticket, agent, request, true);
     }
 
     @Transactional
@@ -209,6 +231,7 @@ public class TicketService {
             }
         }
         ticketRepository.save(ticket);
+        clearReplyDraft(ticket, author);
 
         return toDetailDto(ticket, author, isStaffUser(author));
     }
@@ -1103,6 +1126,11 @@ public class TicketService {
         detail.setCanEditDueDate(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setReopenUntil(reopenDeadline(ticket));
         detail.setReopenWindowDays(ticketSettingsService.getReopenWindowDays());
+        if (viewer != null) {
+            ticketReplyDraftRepository.findByTicketAndAuthor(ticket, viewer)
+                    .filter(draft -> StringUtils.hasText(draft.getBody()))
+                    .ifPresent(draft -> detail.setReplyDraft(toDraftDto(draft)));
+        }
         return detail;
     }
 
@@ -1139,6 +1167,7 @@ public class TicketService {
             ));
         }
         dto.setAttachments(attachmentDtos);
+        applyReadReceipts(dto, ticket, false, ticket.getCreatedAt());
         return dto;
     }
 
@@ -1183,7 +1212,77 @@ public class TicketService {
             }
         }
         dto.setAttachments(attachmentDtos);
+        applyReadReceipts(dto, ticket, dto.isStaff(), message.getCreatedAt());
         return dto;
+    }
+
+    private void applyReadReceipts(
+            TicketMessageDto dto,
+            Ticket ticket,
+            boolean staffMessage,
+            Instant messageAt) {
+        if (dto.isDeleted() || dto.isInternalNote() || messageAt == null) {
+            return;
+        }
+        if (staffMessage) {
+            dto.setSeenByCustomer(isReadAtOrAfter(ticket.getCustomerLastReadAt(), messageAt));
+        } else {
+            dto.setSeenByStaff(isReadAtOrAfter(ticket.getStaffLastReadAt(), messageAt));
+        }
+    }
+
+    private boolean isReadAtOrAfter(Instant readAt, Instant messageAt) {
+        return readAt != null && !readAt.isBefore(messageAt);
+    }
+
+    private void markReadByCustomer(Ticket ticket) {
+        ticket.setCustomerLastReadAt(Instant.now());
+        ticketRepository.save(ticket);
+    }
+
+    private void markReadByStaff(Ticket ticket) {
+        ticket.setStaffLastReadAt(Instant.now());
+        ticketRepository.save(ticket);
+    }
+
+    private TicketReplyDraftDto saveReplyDraft(
+            Ticket ticket,
+            User author,
+            SaveTicketReplyDraftRequest request,
+            boolean asStaff) {
+        assertNotDeleted(ticket);
+        String body = request != null && request.getBody() != null ? request.getBody().trim() : "";
+        if (body.length() > REPLY_MAX) {
+            throw new ApiException(ErrorCode.TICKET_REPLY_BODY_TOO_LONG);
+        }
+        boolean internalNote = asStaff && request != null && Boolean.TRUE.equals(request.getInternalNote());
+
+        if (!StringUtils.hasText(body)) {
+            clearReplyDraft(ticket, author);
+            return null;
+        }
+
+        TicketReplyDraft draft = ticketReplyDraftRepository.findByTicketAndAuthor(ticket, author)
+                .orElseGet(() -> {
+                    TicketReplyDraft created = new TicketReplyDraft();
+                    created.setTicket(ticket);
+                    created.setAuthor(author);
+                    return created;
+                });
+        draft.setBody(body);
+        draft.setInternalNote(internalNote);
+        return toDraftDto(ticketReplyDraftRepository.save(draft));
+    }
+
+    private void clearReplyDraft(Ticket ticket, User author) {
+        if (ticket == null || author == null) {
+            return;
+        }
+        ticketReplyDraftRepository.deleteByTicketAndAuthor(ticket, author);
+    }
+
+    private TicketReplyDraftDto toDraftDto(TicketReplyDraft draft) {
+        return new TicketReplyDraftDto(draft.getBody(), draft.isInternalNote(), draft.getUpdatedAt());
     }
 
     private boolean canEditMessage(

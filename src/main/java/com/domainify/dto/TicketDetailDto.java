@@ -24,6 +24,7 @@ public class TicketDetailDto {
     private Instant reopenUntil;
     private Integer reopenWindowDays;
     private List<TicketStatus> allowedNextStatuses = new ArrayList<>();
+    private TicketReplyDraftDto replyDraft;
 
     public TicketDetailDto() {
     }
@@ -169,5 +170,13 @@ public class TicketDetailDto {
 
     public void setAllowedNextStatuses(List<TicketStatus> allowedNextStatuses) {
         this.allowedNextStatuses = allowedNextStatuses != null ? new ArrayList<>(allowedNextStatuses) : new ArrayList<>();
+    }
+
+    public TicketReplyDraftDto getReplyDraft() {
+        return replyDraft;
+    }
+
+    public void setReplyDraft(TicketReplyDraftDto replyDraft) {
+        this.replyDraft = replyDraft;
     }
 }

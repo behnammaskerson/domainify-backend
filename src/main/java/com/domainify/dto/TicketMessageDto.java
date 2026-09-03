@@ -27,6 +27,8 @@ public class TicketMessageDto {
     private Instant deletedAt;
     private Instant createdAt;
     private List<TicketAttachmentDto> attachments = new ArrayList<>();
+    private boolean seenByCustomer;
+    private boolean seenByStaff;
 
     public Long getId() {
         return id;
@@ -170,5 +172,21 @@ public class TicketMessageDto {
 
     public void setAttachments(List<TicketAttachmentDto> attachments) {
         this.attachments = attachments != null ? attachments : new ArrayList<>();
+    }
+
+    public boolean isSeenByCustomer() {
+        return seenByCustomer;
+    }
+
+    public void setSeenByCustomer(boolean seenByCustomer) {
+        this.seenByCustomer = seenByCustomer;
+    }
+
+    public boolean isSeenByStaff() {
+        return seenByStaff;
+    }
+
+    public void setSeenByStaff(boolean seenByStaff) {
+        this.seenByStaff = seenByStaff;
     }
 }

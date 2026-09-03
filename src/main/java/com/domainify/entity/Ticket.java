@@ -84,6 +84,12 @@ public class Ticket {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Column(name = "customer_last_read_at")
+    private Instant customerLastReadAt;
+
+    @Column(name = "staff_last_read_at")
+    private Instant staffLastReadAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "merged_into_ticket_id")
     private Ticket mergedInto;
@@ -237,6 +243,22 @@ public class Ticket {
 
     public void setDeletedAt(Instant deletedAt) {
         this.deletedAt = deletedAt;
+    }
+
+    public Instant getCustomerLastReadAt() {
+        return customerLastReadAt;
+    }
+
+    public void setCustomerLastReadAt(Instant customerLastReadAt) {
+        this.customerLastReadAt = customerLastReadAt;
+    }
+
+    public Instant getStaffLastReadAt() {
+        return staffLastReadAt;
+    }
+
+    public void setStaffLastReadAt(Instant staffLastReadAt) {
+        this.staffLastReadAt = staffLastReadAt;
     }
 
     public boolean isArchived() {

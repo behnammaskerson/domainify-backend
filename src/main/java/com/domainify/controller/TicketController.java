@@ -3,7 +3,9 @@ package com.domainify.controller;
 import com.domainify.dto.PagedResponse;
 import com.domainify.dto.TicketAttachmentPolicyDto;
 import com.domainify.dto.TicketCategoryDto;
+import com.domainify.dto.SaveTicketReplyDraftRequest;
 import com.domainify.dto.TicketDetailDto;
+import com.domainify.dto.TicketReplyDraftDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.UpdateTicketMessageRequest;
 import com.domainify.entity.TicketPriority;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -74,6 +77,15 @@ public class TicketController {
             @AuthenticationPrincipal User user,
             @PathVariable("id") Long id) {
         return ResponseEntity.ok(ticketService.getMine(user, id));
+    }
+
+    @PutMapping("/mine/{id}/reply-draft")
+    public ResponseEntity<TicketReplyDraftDto> saveReplyDraft(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id,
+            @RequestBody SaveTicketReplyDraftRequest request) {
+        TicketReplyDraftDto draft = ticketService.saveReplyDraft(user, id, request);
+        return draft == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(draft);
     }
 
     @PostMapping(value = "/mine/{id}/replies", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
