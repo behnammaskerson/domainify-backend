@@ -34,6 +34,9 @@ public class TicketDto {
     private Long mergedIntoId;
     private String mergedIntoPublicNumber;
     private List<String> mergedSourcePublicNumbers = new ArrayList<>();
+    private Long splitFromId;
+    private String splitFromPublicNumber;
+    private List<String> splitChildPublicNumbers = new ArrayList<>();
     private List<TicketTagDto> tags = new ArrayList<>();
     private Instant createdAt;
     private Instant updatedAt;
@@ -230,6 +233,32 @@ public class TicketDto {
     public void setMergedSourcePublicNumbers(List<String> mergedSourcePublicNumbers) {
         this.mergedSourcePublicNumbers = mergedSourcePublicNumbers != null
                 ? mergedSourcePublicNumbers
+                : new ArrayList<>();
+    }
+
+    public Long getSplitFromId() {
+        return splitFromId;
+    }
+
+    public void setSplitFromId(Long splitFromId) {
+        this.splitFromId = splitFromId;
+    }
+
+    public String getSplitFromPublicNumber() {
+        return splitFromPublicNumber;
+    }
+
+    public void setSplitFromPublicNumber(String splitFromPublicNumber) {
+        this.splitFromPublicNumber = splitFromPublicNumber;
+    }
+
+    public List<String> getSplitChildPublicNumbers() {
+        return splitChildPublicNumbers;
+    }
+
+    public void setSplitChildPublicNumbers(List<String> splitChildPublicNumbers) {
+        this.splitChildPublicNumbers = splitChildPublicNumbers != null
+                ? splitChildPublicNumbers
                 : new ArrayList<>();
     }
 

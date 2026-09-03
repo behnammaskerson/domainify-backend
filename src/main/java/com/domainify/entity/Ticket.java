@@ -88,6 +88,10 @@ public class Ticket {
     @JoinColumn(name = "merged_into_ticket_id")
     private Ticket mergedInto;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "split_from_ticket_id")
+    private Ticket splitFrom;
+
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TicketAttachment> attachments = new ArrayList<>();
 
@@ -253,6 +257,14 @@ public class Ticket {
 
     public boolean isMerged() {
         return mergedInto != null;
+    }
+
+    public Ticket getSplitFrom() {
+        return splitFrom;
+    }
+
+    public void setSplitFrom(Ticket splitFrom) {
+        this.splitFrom = splitFrom;
     }
 
     public List<TicketAttachment> getAttachments() {

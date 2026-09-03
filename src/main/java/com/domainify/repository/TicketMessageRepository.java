@@ -13,5 +13,7 @@ public interface TicketMessageRepository extends JpaRepository<TicketMessage, Lo
 
     List<TicketMessage> findByTicketOrderByCreatedAtAscIdAsc(Ticket ticket);
 
+    List<TicketMessage> findByTicketIdAndIdInOrderByCreatedAtAscIdAsc(Long ticketId, List<Long> ids);
+
     Optional<TicketMessage> findByIdAndTicketId(Long id, Long ticketId);
 }

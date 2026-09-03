@@ -2,6 +2,8 @@ package com.domainify.service;
 
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
+import com.domainify.dto.SplitTicketRequest;
+import com.domainify.dto.SplitTicketResultDto;
 import com.domainify.dto.TicketAttachmentDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
@@ -379,6 +381,108 @@ public class TicketService {
         ticketRepository.save(target);
 
         return toDetailDto(target, agent, true);
+    }
+
+    @Transactional
+    public SplitTicketResultDto splitAsStaff(User agent, Long sourceTicketId, SplitTicketRequest request) {
+        requireAgent(agent);
+        if (request == null) {
+            throw new ApiException(ErrorCode.TICKET_SPLIT_INVALID);
+        }
+
+        String subject = request.getSubject() == null ? "" : request.getSubject().trim();
+        if (!StringUtils.hasText(subject)) {
+            throw new ApiException(ErrorCode.TICKET_SPLIT_SUBJECT_REQUIRED);
+        }
+        if (subject.length() > SUBJECT_MAX) {
+            throw new ApiException(ErrorCode.TICKET_SUBJECT_TOO_LONG);
+        }
+
+        List<Long> messageIds = request.getMessageIds() == null
+                ? List.of()
+                : request.getMessageIds().stream().filter(id -> id != null).distinct().toList();
+        if (messageIds.isEmpty()) {
+            throw new ApiException(ErrorCode.TICKET_SPLIT_MESSAGES_REQUIRED);
+        }
+
+        Ticket source = requireStaffTicket(sourceTicketId, false);
+        if (source.isMerged()) {
+            throw new ApiException(ErrorCode.TICKET_SPLIT_INVALID);
+        }
+        if (source.isArchived()) {
+            throw new ApiException(ErrorCode.TICKET_SPLIT_INVALID);
+        }
+
+        List<TicketMessage> toMove = ticketMessageRepository
+                .findByTicketIdAndIdInOrderByCreatedAtAscIdAsc(source.getId(), messageIds);
+        if (toMove.size() != messageIds.size()) {
+            throw new ApiException(ErrorCode.TICKET_SPLIT_MESSAGE_NOT_FOUND);
+        }
+
+        List<TicketMessage> allReplies = ticketMessageRepository
+                .findByTicketOrderByCreatedAtAscIdAsc(source);
+        if (toMove.size() >= allReplies.size()) {
+            throw new ApiException(ErrorCode.TICKET_SPLIT_INVALID);
+        }
+
+        String description = toMove.get(0).getBody();
+        if (description != null && description.length() > DESCRIPTION_MAX) {
+            description = description.substring(0, DESCRIPTION_MAX);
+        }
+        if (!StringUtils.hasText(description)) {
+            description = "Split from ticket " + source.getPublicNumber();
+        }
+
+        Ticket child = new Ticket();
+        child.setSubject(subject);
+        child.setDescription(description);
+        child.setCategory(source.getCategory());
+        child.setPriority(source.getPriority());
+        child.setStatus(TicketStatus.NEW);
+        child.setChannel(source.getChannel());
+        child.setRequester(source.getRequester());
+        child.setAssignee(source.getAssignee());
+        child.setSplitFrom(source);
+        child.setPublicNumber("TMP-" + System.nanoTime());
+        child.setDueAt(AdminTicketService.computeDueAt(source.getPriority(), Instant.now()));
+
+        Ticket savedChild = ticketRepository.saveAndFlush(child);
+        savedChild.setPublicNumber(buildPublicNumber(savedChild.getId()));
+        savedChild = ticketRepository.save(savedChild);
+
+        for (TicketMessage message : toMove) {
+            message.setTicket(savedChild);
+            ticketMessageRepository.save(message);
+        }
+
+        for (TicketMention mention : ticketMentionRepository.findByTicketId(source.getId())) {
+            if (mention.getMessage() != null && messageIds.contains(mention.getMessage().getId())) {
+                mention.setTicket(savedChild);
+                ticketMentionRepository.save(mention);
+            }
+        }
+
+        TicketMessage sourceNotice = new TicketMessage();
+        sourceNotice.setTicket(source);
+        sourceNotice.setAuthor(agent);
+        sourceNotice.setBody("Split " + toMove.size() + " message(s) into ticket "
+                + savedChild.getPublicNumber() + " (\"" + savedChild.getSubject() + "\").");
+        sourceNotice.setInternalNote(false);
+        ticketMessageRepository.save(sourceNotice);
+
+        TicketMessage childNotice = new TicketMessage();
+        childNotice.setTicket(savedChild);
+        childNotice.setAuthor(agent);
+        childNotice.setBody("Split from ticket " + source.getPublicNumber()
+                + " (\"" + source.getSubject() + "\").");
+        childNotice.setInternalNote(false);
+        ticketMessageRepository.save(childNotice);
+
+        ticketRepository.save(source);
+
+        return new SplitTicketResultDto(
+                toDetailDto(source, agent, true),
+                toDto(savedChild));
     }
 
     private Ticket resolveMergeSource(MergeTicketRequest request) {
@@ -783,6 +887,8 @@ public class TicketService {
         detail.setCanSoftDelete(includeWorkflow && !deleted);
         detail.setCanRestore(includeWorkflow && deleted);
         detail.setCanMerge(includeWorkflow && !deleted && !archived && !ticket.isMerged());
+        long replyCount = ticketMessageRepository.findByTicketOrderByCreatedAtAscIdAsc(ticket).size();
+        detail.setCanSplit(includeWorkflow && !deleted && !archived && !ticket.isMerged() && replyCount > 0);
         detail.setReopenUntil(reopenDeadline(ticket));
         detail.setReopenWindowDays(ticketSettingsService.getReopenWindowDays());
         return detail;
@@ -883,6 +989,14 @@ public class TicketService {
                     .filter(StringUtils::hasText)
                     .toList();
             dto.setMergedSourcePublicNumbers(mergedSources);
+
+            List<String> splitChildren = ticketRepository
+                    .findBySplitFromIdAndDeletedAtIsNullOrderByCreatedAtAsc(ticket.getId())
+                    .stream()
+                    .map(Ticket::getPublicNumber)
+                    .filter(StringUtils::hasText)
+                    .toList();
+            dto.setSplitChildPublicNumbers(splitChildren);
         }
         return dto;
     }
@@ -908,6 +1022,10 @@ public class TicketService {
         if (ticket.getMergedInto() != null) {
             dto.setMergedIntoId(ticket.getMergedInto().getId());
             dto.setMergedIntoPublicNumber(ticket.getMergedInto().getPublicNumber());
+        }
+        if (ticket.getSplitFrom() != null) {
+            dto.setSplitFromId(ticket.getSplitFrom().getId());
+            dto.setSplitFromPublicNumber(ticket.getSplitFrom().getPublicNumber());
         }
         dto.setOverdue(AdminTicketService.isOverdue(ticket, Instant.now()));
         if (ticket.getRequester() != null) {

@@ -2,6 +2,8 @@ package com.domainify.controller;
 
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
+import com.domainify.dto.SplitTicketRequest;
+import com.domainify.dto.SplitTicketResultDto;
 import com.domainify.dto.TicketAssigneeOptionDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
@@ -166,6 +168,14 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @RequestBody MergeTicketRequest request) {
         return ResponseEntity.ok(ticketService.mergeAsStaff(agent, id, request));
+    }
+
+    @PostMapping("/{id}/split")
+    public ResponseEntity<SplitTicketResultDto> split(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @Valid @RequestBody SplitTicketRequest request) {
+        return ResponseEntity.ok(ticketService.splitAsStaff(agent, id, request));
     }
 
     @PutMapping("/{id}/tags")

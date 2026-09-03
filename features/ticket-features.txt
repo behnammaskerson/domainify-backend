@@ -13,8 +13,7 @@ done - Tags / labels (multi-select, free-form or predefined)
 done - Reopen closed tickets (within a time window)
 done - Soft-delete / archive old tickets
 done - Merge duplicate tickets
-
-Split one ticket into multiple
+done - Split one ticket into multiple
 Link related tickets
 Due date / SLA deadline on ticket
 Internal notes vs public replies (customer never sees internal notes)

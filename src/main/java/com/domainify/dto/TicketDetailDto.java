@@ -18,6 +18,7 @@ public class TicketDetailDto {
     private boolean canSoftDelete;
     private boolean canRestore;
     private boolean canMerge;
+    private boolean canSplit;
     private Instant reopenUntil;
     private Integer reopenWindowDays;
     private List<TicketStatus> allowedNextStatuses = new ArrayList<>();
@@ -118,6 +119,14 @@ public class TicketDetailDto {
 
     public void setCanMerge(boolean canMerge) {
         this.canMerge = canMerge;
+    }
+
+    public boolean isCanSplit() {
+        return canSplit;
+    }
+
+    public void setCanSplit(boolean canSplit) {
+        this.canSplit = canSplit;
     }
 
     public Instant getReopenUntil() {

@@ -22,6 +22,10 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
 
     List<Ticket> findByMergedIntoIdAndDeletedAtIsNullOrderByCreatedAtAsc(Long mergedIntoId);
 
+    List<Ticket> findBySplitFromIdAndDeletedAtIsNullOrderByCreatedAtAsc(Long splitFromId);
+
+    long countBySplitFromIdAndDeletedAtIsNull(Long splitFromId);
+
     @Query("select count(t) from Ticket t join t.tags tag where tag = :tag")
     long countByTag(@Param("tag") TicketTag tag);
 
