@@ -37,6 +37,7 @@ public class TicketDto {
     private Long splitFromId;
     private String splitFromPublicNumber;
     private List<String> splitChildPublicNumbers = new ArrayList<>();
+    private List<RelatedTicketDto> relatedTickets = new ArrayList<>();
     private List<TicketTagDto> tags = new ArrayList<>();
     private Instant createdAt;
     private Instant updatedAt;
@@ -260,6 +261,14 @@ public class TicketDto {
         this.splitChildPublicNumbers = splitChildPublicNumbers != null
                 ? splitChildPublicNumbers
                 : new ArrayList<>();
+    }
+
+    public List<RelatedTicketDto> getRelatedTickets() {
+        return relatedTickets;
+    }
+
+    public void setRelatedTickets(List<RelatedTicketDto> relatedTickets) {
+        this.relatedTickets = relatedTickets != null ? relatedTickets : new ArrayList<>();
     }
 
     public List<TicketTagDto> getTags() {

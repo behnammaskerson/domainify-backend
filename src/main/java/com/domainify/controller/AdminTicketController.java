@@ -1,5 +1,6 @@
 package com.domainify.controller;
 
+import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
 import com.domainify.dto.SplitTicketRequest;
@@ -176,6 +177,22 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @Valid @RequestBody SplitTicketRequest request) {
         return ResponseEntity.ok(ticketService.splitAsStaff(agent, id, request));
+    }
+
+    @PostMapping("/{id}/related")
+    public ResponseEntity<TicketDetailDto> linkRelated(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody LinkTicketsRequest request) {
+        return ResponseEntity.ok(ticketService.linkRelatedAsStaff(agent, id, request));
+    }
+
+    @DeleteMapping("/{id}/related/{relatedId}")
+    public ResponseEntity<TicketDetailDto> unlinkRelated(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @PathVariable("relatedId") Long relatedId) {
+        return ResponseEntity.ok(ticketService.unlinkRelatedAsStaff(agent, id, relatedId));
     }
 
     @PutMapping("/{id}/tags")

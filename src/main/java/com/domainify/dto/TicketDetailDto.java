@@ -19,6 +19,7 @@ public class TicketDetailDto {
     private boolean canRestore;
     private boolean canMerge;
     private boolean canSplit;
+    private boolean canLinkRelated;
     private Instant reopenUntil;
     private Integer reopenWindowDays;
     private List<TicketStatus> allowedNextStatuses = new ArrayList<>();
@@ -127,6 +128,14 @@ public class TicketDetailDto {
 
     public void setCanSplit(boolean canSplit) {
         this.canSplit = canSplit;
+    }
+
+    public boolean isCanLinkRelated() {
+        return canLinkRelated;
+    }
+
+    public void setCanLinkRelated(boolean canLinkRelated) {
+        this.canLinkRelated = canLinkRelated;
     }
 
     public Instant getReopenUntil() {

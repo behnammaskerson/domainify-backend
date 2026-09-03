@@ -1,7 +1,9 @@
 package com.domainify.service;
 
+import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
+import com.domainify.dto.RelatedTicketDto;
 import com.domainify.dto.SplitTicketRequest;
 import com.domainify.dto.SplitTicketResultDto;
 import com.domainify.dto.TicketAttachmentDto;
@@ -17,6 +19,7 @@ import com.domainify.entity.TicketMention;
 import com.domainify.entity.TicketMessage;
 import com.domainify.entity.TicketMessageAttachment;
 import com.domainify.entity.TicketPriority;
+import com.domainify.entity.TicketRelatedLink;
 import com.domainify.entity.TicketStatus;
 import com.domainify.entity.TicketTag;
 import com.domainify.entity.User;
@@ -26,6 +29,7 @@ import com.domainify.repository.TicketAttachmentRepository;
 import com.domainify.repository.TicketMentionRepository;
 import com.domainify.repository.TicketMessageAttachmentRepository;
 import com.domainify.repository.TicketMessageRepository;
+import com.domainify.repository.TicketRelatedLinkRepository;
 import com.domainify.repository.TicketRepository;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.core.io.ByteArrayResource;
@@ -71,6 +75,7 @@ public class TicketService {
     private final TicketAttachmentRepository ticketAttachmentRepository;
     private final TicketMessageAttachmentRepository ticketMessageAttachmentRepository;
     private final TicketMentionRepository ticketMentionRepository;
+    private final TicketRelatedLinkRepository ticketRelatedLinkRepository;
     private final TicketCategoryService ticketCategoryService;
     private final TicketMentionService ticketMentionService;
     private final TicketStatusWorkflowService ticketStatusWorkflowService;
@@ -83,6 +88,7 @@ public class TicketService {
             TicketAttachmentRepository ticketAttachmentRepository,
             TicketMessageAttachmentRepository ticketMessageAttachmentRepository,
             TicketMentionRepository ticketMentionRepository,
+            TicketRelatedLinkRepository ticketRelatedLinkRepository,
             TicketCategoryService ticketCategoryService,
             TicketMentionService ticketMentionService,
             TicketStatusWorkflowService ticketStatusWorkflowService,
@@ -93,6 +99,7 @@ public class TicketService {
         this.ticketAttachmentRepository = ticketAttachmentRepository;
         this.ticketMessageAttachmentRepository = ticketMessageAttachmentRepository;
         this.ticketMentionRepository = ticketMentionRepository;
+        this.ticketRelatedLinkRepository = ticketRelatedLinkRepository;
         this.ticketCategoryService = ticketCategoryService;
         this.ticketMentionService = ticketMentionService;
         this.ticketStatusWorkflowService = ticketStatusWorkflowService;
@@ -483,6 +490,73 @@ public class TicketService {
         return new SplitTicketResultDto(
                 toDetailDto(source, agent, true),
                 toDto(savedChild));
+    }
+
+    @Transactional
+    public TicketDetailDto linkRelatedAsStaff(User agent, Long ticketId, LinkTicketsRequest request) {
+        requireAgent(agent);
+        if (request == null || request.getRelatedTicketIds() == null || request.getRelatedTicketIds().isEmpty()) {
+            throw new ApiException(ErrorCode.TICKET_LINK_TARGET_REQUIRED);
+        }
+
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (ticket.isMerged()) {
+            throw new ApiException(ErrorCode.TICKET_LINK_INVALID);
+        }
+
+        List<Long> relatedIds = request.getRelatedTicketIds().stream()
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        if (relatedIds.isEmpty()) {
+            throw new ApiException(ErrorCode.TICKET_LINK_TARGET_REQUIRED);
+        }
+
+        for (Long relatedId : relatedIds) {
+            if (relatedId.equals(ticketId)) {
+                throw new ApiException(ErrorCode.TICKET_LINK_SAME);
+            }
+            Ticket related = ticketRepository.findById(relatedId)
+                    .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+            assertNotDeleted(related);
+            if (related.isMerged()) {
+                throw new ApiException(ErrorCode.TICKET_LINK_INVALID);
+            }
+            if (ticketRelatedLinkRepository.existsByTicketIdAndRelatedTicketId(ticketId, relatedId)) {
+                throw new ApiException(ErrorCode.TICKET_LINK_ALREADY_EXISTS);
+            }
+
+            TicketRelatedLink forward = new TicketRelatedLink();
+            forward.setTicket(ticket);
+            forward.setRelatedTicket(related);
+            ticketRelatedLinkRepository.save(forward);
+
+            TicketRelatedLink reverse = new TicketRelatedLink();
+            reverse.setTicket(related);
+            reverse.setRelatedTicket(ticket);
+            ticketRelatedLinkRepository.save(reverse);
+        }
+
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto unlinkRelatedAsStaff(User agent, Long ticketId, Long relatedTicketId) {
+        requireAgent(agent);
+        if (relatedTicketId == null) {
+            throw new ApiException(ErrorCode.TICKET_NOT_FOUND);
+        }
+        if (relatedTicketId.equals(ticketId)) {
+            throw new ApiException(ErrorCode.TICKET_LINK_SAME);
+        }
+
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (!ticketRelatedLinkRepository.existsByTicketIdAndRelatedTicketId(ticketId, relatedTicketId)) {
+            throw new ApiException(ErrorCode.TICKET_LINK_INVALID);
+        }
+
+        ticketRelatedLinkRepository.deleteBidirectional(ticketId, relatedTicketId);
+        return toDetailDto(ticket, agent, true);
     }
 
     private Ticket resolveMergeSource(MergeTicketRequest request) {
@@ -889,6 +963,7 @@ public class TicketService {
         detail.setCanMerge(includeWorkflow && !deleted && !archived && !ticket.isMerged());
         long replyCount = ticketMessageRepository.findByTicketOrderByCreatedAtAscIdAsc(ticket).size();
         detail.setCanSplit(includeWorkflow && !deleted && !archived && !ticket.isMerged() && replyCount > 0);
+        detail.setCanLinkRelated(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setReopenUntil(reopenDeadline(ticket));
         detail.setReopenWindowDays(ticketSettingsService.getReopenWindowDays());
         return detail;
@@ -997,6 +1072,25 @@ public class TicketService {
                     .filter(StringUtils::hasText)
                     .toList();
             dto.setSplitChildPublicNumbers(splitChildren);
+
+            List<RelatedTicketDto> relatedTickets = ticketRelatedLinkRepository
+                    .findByTicketIdOrderByCreatedAtAsc(ticket.getId())
+                    .stream()
+                    .map(link -> toRelatedDto(link.getRelatedTicket()))
+                    .toList();
+            dto.setRelatedTickets(relatedTickets);
+        }
+        return dto;
+    }
+
+    private RelatedTicketDto toRelatedDto(Ticket related) {
+        RelatedTicketDto dto = new RelatedTicketDto();
+        dto.setId(related.getId());
+        dto.setPublicNumber(related.getPublicNumber());
+        dto.setSubject(related.getSubject());
+        dto.setStatus(related.getStatus());
+        if (related.getRequester() != null) {
+            dto.setRequesterName(displayName(related.getRequester()));
         }
         return dto;
     }
