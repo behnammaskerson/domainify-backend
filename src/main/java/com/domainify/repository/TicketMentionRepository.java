@@ -10,4 +10,6 @@ public interface TicketMentionRepository extends JpaRepository<TicketMention, Lo
     boolean existsByTicketIdAndMentionedUserIdAndMessageId(Long ticketId, Long mentionedUserId, Long messageId);
 
     List<TicketMention> findByTicketId(Long ticketId);
+
+    void deleteByMessageId(Long messageId);
 }
