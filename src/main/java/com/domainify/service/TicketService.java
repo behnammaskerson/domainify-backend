@@ -10,6 +10,7 @@ import com.domainify.dto.TicketAttachmentDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketMessageDto;
+import com.domainify.dto.UpdateTicketDueDateRequest;
 import com.domainify.dto.UpdateTicketTagsRequest;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketAttachment;
@@ -451,7 +452,7 @@ public class TicketService {
         child.setAssignee(source.getAssignee());
         child.setSplitFrom(source);
         child.setPublicNumber("TMP-" + System.nanoTime());
-        child.setDueAt(AdminTicketService.computeDueAt(source.getPriority(), Instant.now()));
+        child.setDueAt(ticketSettingsService.computeDueAt(source.getPriority(), Instant.now()));
 
         Ticket savedChild = ticketRepository.saveAndFlush(child);
         savedChild.setPublicNumber(buildPublicNumber(savedChild.getId()));
@@ -556,6 +557,29 @@ public class TicketService {
         }
 
         ticketRelatedLinkRepository.deleteBidirectional(ticketId, relatedTicketId);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto updateDueDateAsStaff(User agent, Long ticketId, UpdateTicketDueDateRequest request) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (ticket.isMerged()) {
+            throw new ApiException(ErrorCode.TICKET_DUE_DATE_INVALID);
+        }
+
+        Instant nextDueAt;
+        if (request != null && Boolean.TRUE.equals(request.getRecalculateFromPriority())) {
+            Instant base = ticket.getCreatedAt() != null ? ticket.getCreatedAt() : Instant.now();
+            nextDueAt = ticketSettingsService.computeDueAt(ticket.getPriority(), base);
+        } else if (request != null) {
+            nextDueAt = request.getDueAt();
+        } else {
+            throw new ApiException(ErrorCode.TICKET_DUE_DATE_INVALID);
+        }
+
+        ticket.setDueAt(nextDueAt);
+        ticketRepository.save(ticket);
         return toDetailDto(ticket, agent, true);
     }
 
@@ -857,7 +881,7 @@ public class TicketService {
         ticket.setChannel(TicketChannel.PORTAL);
         ticket.setRequester(requester);
         ticket.setPublicNumber("TMP-" + System.nanoTime());
-        ticket.setDueAt(AdminTicketService.computeDueAt(priority, Instant.now()));
+        ticket.setDueAt(ticketSettingsService.computeDueAt(priority, Instant.now()));
 
         for (MultipartFile file : files) {
             ticket.addAttachment(toTicketAttachment(file));
@@ -964,6 +988,7 @@ public class TicketService {
         long replyCount = ticketMessageRepository.findByTicketOrderByCreatedAtAscIdAsc(ticket).size();
         detail.setCanSplit(includeWorkflow && !deleted && !archived && !ticket.isMerged() && replyCount > 0);
         detail.setCanLinkRelated(includeWorkflow && !deleted && !ticket.isMerged());
+        detail.setCanEditDueDate(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setReopenUntil(reopenDeadline(ticket));
         detail.setReopenWindowDays(ticketSettingsService.getReopenWindowDays());
         return detail;

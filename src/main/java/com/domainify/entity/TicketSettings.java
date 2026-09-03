@@ -20,6 +20,10 @@ public class TicketSettings {
     public static final int DEFAULT_MAX_ATTACHMENTS = 5;
     public static final int DEFAULT_MAX_ATTACHMENT_SIZE_MB = 5;
     public static final int DEFAULT_AUTO_ARCHIVE_CLOSED_AFTER_DAYS = 90;
+    public static final int DEFAULT_SLA_URGENT_HOURS = 4;
+    public static final int DEFAULT_SLA_HIGH_HOURS = 24;
+    public static final int DEFAULT_SLA_MEDIUM_HOURS = 72;
+    public static final int DEFAULT_SLA_LOW_HOURS = 168;
     public static final String DEFAULT_ALLOWED_ATTACHMENT_KINDS = "IMAGE,PDF,LOG,DOCUMENT";
 
     @Id
@@ -56,6 +60,18 @@ public class TicketSettings {
     )
     private int autoArchiveClosedAfterDays = DEFAULT_AUTO_ARCHIVE_CLOSED_AFTER_DAYS;
 
+    @Column(name = "sla_urgent_hours", nullable = false, columnDefinition = "integer not null default 4")
+    private int slaUrgentHours = DEFAULT_SLA_URGENT_HOURS;
+
+    @Column(name = "sla_high_hours", nullable = false, columnDefinition = "integer not null default 24")
+    private int slaHighHours = DEFAULT_SLA_HIGH_HOURS;
+
+    @Column(name = "sla_medium_hours", nullable = false, columnDefinition = "integer not null default 72")
+    private int slaMediumHours = DEFAULT_SLA_MEDIUM_HOURS;
+
+    @Column(name = "sla_low_hours", nullable = false, columnDefinition = "integer not null default 168")
+    private int slaLowHours = DEFAULT_SLA_LOW_HOURS;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -79,6 +95,18 @@ public class TicketSettings {
         if (autoArchiveClosedAfterDays < 0) {
             autoArchiveClosedAfterDays = DEFAULT_AUTO_ARCHIVE_CLOSED_AFTER_DAYS;
         }
+        if (slaUrgentHours < 1) {
+            slaUrgentHours = DEFAULT_SLA_URGENT_HOURS;
+        }
+        if (slaHighHours < 1) {
+            slaHighHours = DEFAULT_SLA_HIGH_HOURS;
+        }
+        if (slaMediumHours < 1) {
+            slaMediumHours = DEFAULT_SLA_MEDIUM_HOURS;
+        }
+        if (slaLowHours < 1) {
+            slaLowHours = DEFAULT_SLA_LOW_HOURS;
+        }
         Set<TicketAttachmentKind> kinds = TicketAttachmentKind.parseCsv(allowedAttachmentKinds);
         if (kinds.isEmpty()) {
             kinds = EnumSet.allOf(TicketAttachmentKind.class);
@@ -93,6 +121,10 @@ public class TicketSettings {
         settings.setMaxAttachments(DEFAULT_MAX_ATTACHMENTS);
         settings.setMaxAttachmentSizeMb(DEFAULT_MAX_ATTACHMENT_SIZE_MB);
         settings.setAutoArchiveClosedAfterDays(DEFAULT_AUTO_ARCHIVE_CLOSED_AFTER_DAYS);
+        settings.setSlaUrgentHours(DEFAULT_SLA_URGENT_HOURS);
+        settings.setSlaHighHours(DEFAULT_SLA_HIGH_HOURS);
+        settings.setSlaMediumHours(DEFAULT_SLA_MEDIUM_HOURS);
+        settings.setSlaLowHours(DEFAULT_SLA_LOW_HOURS);
         settings.setAllowedAttachmentKinds(DEFAULT_ALLOWED_ATTACHMENT_KINDS);
         settings.normalize();
         return settings;
@@ -156,6 +188,38 @@ public class TicketSettings {
 
     public void setAutoArchiveClosedAfterDays(int autoArchiveClosedAfterDays) {
         this.autoArchiveClosedAfterDays = autoArchiveClosedAfterDays;
+    }
+
+    public int getSlaUrgentHours() {
+        return slaUrgentHours;
+    }
+
+    public void setSlaUrgentHours(int slaUrgentHours) {
+        this.slaUrgentHours = slaUrgentHours;
+    }
+
+    public int getSlaHighHours() {
+        return slaHighHours;
+    }
+
+    public void setSlaHighHours(int slaHighHours) {
+        this.slaHighHours = slaHighHours;
+    }
+
+    public int getSlaMediumHours() {
+        return slaMediumHours;
+    }
+
+    public void setSlaMediumHours(int slaMediumHours) {
+        this.slaMediumHours = slaMediumHours;
+    }
+
+    public int getSlaLowHours() {
+        return slaLowHours;
+    }
+
+    public void setSlaLowHours(int slaLowHours) {
+        this.slaLowHours = slaLowHours;
     }
 
     public Instant getUpdatedAt() {

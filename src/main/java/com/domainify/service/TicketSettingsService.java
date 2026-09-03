@@ -3,6 +3,7 @@ package com.domainify.service;
 import com.domainify.dto.TicketAttachmentPolicyDto;
 import com.domainify.dto.TicketSettingsDto;
 import com.domainify.entity.TicketAttachmentKind;
+import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketSettings;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
@@ -18,6 +19,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.time.Instant;
 
 @Service
 public class TicketSettingsService {
@@ -66,7 +68,11 @@ public class TicketSettingsService {
                 || request.getReopenWindowDays() == null
                 || request.getMaxAttachments() == null
                 || request.getMaxAttachmentSizeMb() == null
-                || request.getAutoArchiveClosedAfterDays() == null) {
+                || request.getAutoArchiveClosedAfterDays() == null
+                || request.getSlaUrgentHours() == null
+                || request.getSlaHighHours() == null
+                || request.getSlaMediumHours() == null
+                || request.getSlaLowHours() == null) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
@@ -74,10 +80,18 @@ public class TicketSettingsService {
         int maxAttachments = request.getMaxAttachments();
         int maxSizeMb = request.getMaxAttachmentSizeMb();
         int autoArchiveDays = request.getAutoArchiveClosedAfterDays();
+        int slaUrgent = request.getSlaUrgentHours();
+        int slaHigh = request.getSlaHighHours();
+        int slaMedium = request.getSlaMediumHours();
+        int slaLow = request.getSlaLowHours();
         if (days < 1 || days > 3650
                 || maxAttachments < 1 || maxAttachments > 20
                 || maxSizeMb < 1 || maxSizeMb > 50
-                || autoArchiveDays < 0 || autoArchiveDays > 3650) {
+                || autoArchiveDays < 0 || autoArchiveDays > 3650
+                || slaUrgent < 1 || slaUrgent > 8760
+                || slaHigh < 1 || slaHigh > 8760
+                || slaMedium < 1 || slaMedium > 8760
+                || slaLow < 1 || slaLow > 8760) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
@@ -91,6 +105,10 @@ public class TicketSettingsService {
         settings.setMaxAttachments(maxAttachments);
         settings.setMaxAttachmentSizeMb(maxSizeMb);
         settings.setAutoArchiveClosedAfterDays(autoArchiveDays);
+        settings.setSlaUrgentHours(slaUrgent);
+        settings.setSlaHighHours(slaHigh);
+        settings.setSlaMediumHours(slaMedium);
+        settings.setSlaLowHours(slaLow);
         settings.setAllowedAttachmentKinds(TicketAttachmentKind.toCsv(kinds));
         settings.normalize();
         return toDto(ticketSettingsRepository.save(settings));
@@ -117,6 +135,21 @@ public class TicketSettingsService {
         if (!isAllowedFile(file, settings.resolvedAttachmentKinds())) {
             throw new ApiException(ErrorCode.TICKET_ATTACHMENT_INVALID);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Instant computeDueAt(TicketPriority priority, Instant from) {
+        if (priority == null || from == null) {
+            return null;
+        }
+        TicketSettings settings = getOrCreate();
+        long hours = switch (priority) {
+            case URGENT -> settings.getSlaUrgentHours();
+            case HIGH -> settings.getSlaHighHours();
+            case MEDIUM -> settings.getSlaMediumHours();
+            case LOW -> settings.getSlaLowHours();
+        };
+        return from.plusSeconds(hours * 3600L);
     }
 
     public boolean isAllowedFile(MultipartFile file, Set<TicketAttachmentKind> kinds) {
@@ -175,7 +208,11 @@ public class TicketSettingsService {
                 settings.getMaxAttachments(),
                 settings.getMaxAttachmentSizeMb(),
                 kinds,
-                settings.getAutoArchiveClosedAfterDays()
+                settings.getAutoArchiveClosedAfterDays(),
+                settings.getSlaUrgentHours(),
+                settings.getSlaHighHours(),
+                settings.getSlaMediumHours(),
+                settings.getSlaLowHours()
         );
     }
 

@@ -36,6 +36,26 @@ public class TicketSettingsDto {
     @Max(3650)
     private Integer autoArchiveClosedAfterDays;
 
+    @NotNull
+    @Min(1)
+    @Max(8760)
+    private Integer slaUrgentHours;
+
+    @NotNull
+    @Min(1)
+    @Max(8760)
+    private Integer slaHighHours;
+
+    @NotNull
+    @Min(1)
+    @Max(8760)
+    private Integer slaMediumHours;
+
+    @NotNull
+    @Min(1)
+    @Max(8760)
+    private Integer slaLowHours;
+
     public TicketSettingsDto() {
     }
 
@@ -44,12 +64,20 @@ public class TicketSettingsDto {
             Integer maxAttachments,
             Integer maxAttachmentSizeMb,
             List<String> allowedAttachmentKinds,
-            Integer autoArchiveClosedAfterDays) {
+            Integer autoArchiveClosedAfterDays,
+            Integer slaUrgentHours,
+            Integer slaHighHours,
+            Integer slaMediumHours,
+            Integer slaLowHours) {
         this.reopenWindowDays = reopenWindowDays;
         this.maxAttachments = maxAttachments;
         this.maxAttachmentSizeMb = maxAttachmentSizeMb;
         this.allowedAttachmentKinds = allowedAttachmentKinds != null ? allowedAttachmentKinds : new ArrayList<>();
         this.autoArchiveClosedAfterDays = autoArchiveClosedAfterDays;
+        this.slaUrgentHours = slaUrgentHours;
+        this.slaHighHours = slaHighHours;
+        this.slaMediumHours = slaMediumHours;
+        this.slaLowHours = slaLowHours;
     }
 
     public Integer getReopenWindowDays() {
@@ -90,5 +118,37 @@ public class TicketSettingsDto {
 
     public void setAutoArchiveClosedAfterDays(Integer autoArchiveClosedAfterDays) {
         this.autoArchiveClosedAfterDays = autoArchiveClosedAfterDays;
+    }
+
+    public Integer getSlaUrgentHours() {
+        return slaUrgentHours;
+    }
+
+    public void setSlaUrgentHours(Integer slaUrgentHours) {
+        this.slaUrgentHours = slaUrgentHours;
+    }
+
+    public Integer getSlaHighHours() {
+        return slaHighHours;
+    }
+
+    public void setSlaHighHours(Integer slaHighHours) {
+        this.slaHighHours = slaHighHours;
+    }
+
+    public Integer getSlaMediumHours() {
+        return slaMediumHours;
+    }
+
+    public void setSlaMediumHours(Integer slaMediumHours) {
+        this.slaMediumHours = slaMediumHours;
+    }
+
+    public Integer getSlaLowHours() {
+        return slaLowHours;
+    }
+
+    public void setSlaLowHours(Integer slaLowHours) {
+        this.slaLowHours = slaLowHours;
     }
 }

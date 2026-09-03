@@ -10,6 +10,7 @@ import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketInboxFilter;
 import com.domainify.dto.TicketTagDto;
+import com.domainify.dto.UpdateTicketDueDateRequest;
 import com.domainify.dto.UpdateTicketStatusRequest;
 import com.domainify.dto.UpdateTicketTagsRequest;
 import com.domainify.entity.TicketInboxView;
@@ -193,6 +194,14 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @PathVariable("relatedId") Long relatedId) {
         return ResponseEntity.ok(ticketService.unlinkRelatedAsStaff(agent, id, relatedId));
+    }
+
+    @PatchMapping("/{id}/due-date")
+    public ResponseEntity<TicketDetailDto> updateDueDate(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody UpdateTicketDueDateRequest request) {
+        return ResponseEntity.ok(ticketService.updateDueDateAsStaff(agent, id, request));
     }
 
     @PutMapping("/{id}/tags")

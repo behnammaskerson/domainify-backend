@@ -15,8 +15,7 @@ done - Soft-delete / archive old tickets
 done - Merge duplicate tickets
 done - Split one ticket into multiple
 done - Link related tickets
-
-Due date / SLA deadline on ticket
+done - Due date / SLA deadline on ticket
 Internal notes vs public replies (customer never sees internal notes)
 
 2. Conversation & messaging

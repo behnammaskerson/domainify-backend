@@ -20,6 +20,7 @@ public class TicketDetailDto {
     private boolean canMerge;
     private boolean canSplit;
     private boolean canLinkRelated;
+    private boolean canEditDueDate;
     private Instant reopenUntil;
     private Integer reopenWindowDays;
     private List<TicketStatus> allowedNextStatuses = new ArrayList<>();
@@ -136,6 +137,14 @@ public class TicketDetailDto {
 
     public void setCanLinkRelated(boolean canLinkRelated) {
         this.canLinkRelated = canLinkRelated;
+    }
+
+    public boolean isCanEditDueDate() {
+        return canEditDueDate;
+    }
+
+    public void setCanEditDueDate(boolean canEditDueDate) {
+        this.canEditDueDate = canEditDueDate;
     }
 
     public Instant getReopenUntil() {
