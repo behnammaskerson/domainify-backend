@@ -5,5 +5,7 @@ public enum TicketInboxView {
     UNASSIGNED,
     MINE,
     MENTIONS,
-    OVERDUE
+    OVERDUE,
+    ARCHIVED,
+    DELETED
 }

@@ -30,6 +30,12 @@ public class TicketSettingsDto {
     @Size(max = 4)
     private List<String> allowedAttachmentKinds = new ArrayList<>();
 
+    /** 0 disables auto-archive. */
+    @NotNull
+    @Min(0)
+    @Max(3650)
+    private Integer autoArchiveClosedAfterDays;
+
     public TicketSettingsDto() {
     }
 
@@ -37,11 +43,13 @@ public class TicketSettingsDto {
             Integer reopenWindowDays,
             Integer maxAttachments,
             Integer maxAttachmentSizeMb,
-            List<String> allowedAttachmentKinds) {
+            List<String> allowedAttachmentKinds,
+            Integer autoArchiveClosedAfterDays) {
         this.reopenWindowDays = reopenWindowDays;
         this.maxAttachments = maxAttachments;
         this.maxAttachmentSizeMb = maxAttachmentSizeMb;
         this.allowedAttachmentKinds = allowedAttachmentKinds != null ? allowedAttachmentKinds : new ArrayList<>();
+        this.autoArchiveClosedAfterDays = autoArchiveClosedAfterDays;
     }
 
     public Integer getReopenWindowDays() {
@@ -74,5 +82,13 @@ public class TicketSettingsDto {
 
     public void setAllowedAttachmentKinds(List<String> allowedAttachmentKinds) {
         this.allowedAttachmentKinds = allowedAttachmentKinds != null ? allowedAttachmentKinds : new ArrayList<>();
+    }
+
+    public Integer getAutoArchiveClosedAfterDays() {
+        return autoArchiveClosedAfterDays;
+    }
+
+    public void setAutoArchiveClosedAfterDays(Integer autoArchiveClosedAfterDays) {
+        this.autoArchiveClosedAfterDays = autoArchiveClosedAfterDays;
     }
 }

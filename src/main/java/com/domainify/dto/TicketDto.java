@@ -27,6 +27,10 @@ public class TicketDto {
     private Instant dueAt;
     private Boolean overdue;
     private Instant closedAt;
+    private Instant archivedAt;
+    private Instant deletedAt;
+    private Boolean archived;
+    private Boolean deleted;
     private List<TicketTagDto> tags = new ArrayList<>();
     private Instant createdAt;
     private Instant updatedAt;
@@ -166,6 +170,38 @@ public class TicketDto {
 
     public void setClosedAt(Instant closedAt) {
         this.closedAt = closedAt;
+    }
+
+    public Instant getArchivedAt() {
+        return archivedAt;
+    }
+
+    public void setArchivedAt(Instant archivedAt) {
+        this.archivedAt = archivedAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public Boolean getArchived() {
+        return archived;
+    }
+
+    public void setArchived(Boolean archived) {
+        this.archived = archived;
+    }
+
+    public Boolean getDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(Boolean deleted) {
+        this.deleted = deleted;
     }
 
     public List<TicketTagDto> getTags() {

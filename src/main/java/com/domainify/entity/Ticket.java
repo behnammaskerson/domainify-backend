@@ -78,6 +78,12 @@ public class Ticket {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    @Column(name = "archived_at")
+    private Instant archivedAt;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TicketAttachment> attachments = new ArrayList<>();
 
@@ -207,6 +213,30 @@ public class Ticket {
 
     public void setClosedAt(Instant closedAt) {
         this.closedAt = closedAt;
+    }
+
+    public Instant getArchivedAt() {
+        return archivedAt;
+    }
+
+    public void setArchivedAt(Instant archivedAt) {
+        this.archivedAt = archivedAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public boolean isArchived() {
+        return archivedAt != null;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 
     public List<TicketAttachment> getAttachments() {

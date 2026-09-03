@@ -13,6 +13,10 @@ public class TicketDetailDto {
     private boolean canReply;
     private boolean canClose;
     private boolean canReopen;
+    private boolean canArchive;
+    private boolean canUnarchive;
+    private boolean canSoftDelete;
+    private boolean canRestore;
     private Instant reopenUntil;
     private Integer reopenWindowDays;
     private List<TicketStatus> allowedNextStatuses = new ArrayList<>();
@@ -73,6 +77,38 @@ public class TicketDetailDto {
 
     public void setCanReopen(boolean canReopen) {
         this.canReopen = canReopen;
+    }
+
+    public boolean isCanArchive() {
+        return canArchive;
+    }
+
+    public void setCanArchive(boolean canArchive) {
+        this.canArchive = canArchive;
+    }
+
+    public boolean isCanUnarchive() {
+        return canUnarchive;
+    }
+
+    public void setCanUnarchive(boolean canUnarchive) {
+        this.canUnarchive = canUnarchive;
+    }
+
+    public boolean isCanSoftDelete() {
+        return canSoftDelete;
+    }
+
+    public void setCanSoftDelete(boolean canSoftDelete) {
+        this.canSoftDelete = canSoftDelete;
+    }
+
+    public boolean isCanRestore() {
+        return canRestore;
+    }
+
+    public void setCanRestore(boolean canRestore) {
+        this.canRestore = canRestore;
     }
 
     public Instant getReopenUntil() {

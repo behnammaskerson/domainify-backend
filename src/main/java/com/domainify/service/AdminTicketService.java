@@ -109,15 +109,26 @@ public class AdminTicketService {
             Join<Object, Object> requesterJoin = null;
 
             switch (view) {
+                case DELETED -> predicates.add(cb.isNotNull(root.get("deletedAt")));
+                case ARCHIVED -> {
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNotNull(root.get("archivedAt")));
+                }
                 case UNASSIGNED -> {
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNull(root.get("archivedAt")));
                     predicates.add(cb.isNull(root.get("assignee")));
                     predicates.add(root.get("status").in(ACTIVE_STATUSES));
                 }
                 case MINE -> {
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNull(root.get("archivedAt")));
                     predicates.add(cb.equal(root.get("assignee").get("id"), agentId));
                     predicates.add(root.get("status").in(ACTIVE_STATUSES));
                 }
                 case MENTIONS -> {
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNull(root.get("archivedAt")));
                     Subquery<Long> mentionSubquery = query.subquery(Long.class);
                     var mentionRoot = mentionSubquery.from(TicketMention.class);
                     mentionSubquery.select(mentionRoot.get("ticket").get("id"))
@@ -126,15 +137,19 @@ public class AdminTicketService {
                 }
                 case OVERDUE -> {
                     Instant now = Instant.now();
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNull(root.get("archivedAt")));
                     predicates.add(cb.isNotNull(root.get("dueAt")));
                     predicates.add(cb.lessThan(root.get("dueAt"), now));
                     predicates.add(root.get("status").in(ACTIVE_STATUSES));
                 }
                 case ALL -> {
-                    // no view-specific filter
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNull(root.get("archivedAt")));
                 }
                 default -> {
-                    // no view-specific filter
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNull(root.get("archivedAt")));
                 }
             }
 
@@ -232,6 +247,11 @@ public class AdminTicketService {
         dto.setStatus(ticket.getStatus());
         dto.setChannel(ticket.getChannel());
         dto.setDueAt(ticket.getDueAt());
+        dto.setClosedAt(ticket.getClosedAt());
+        dto.setArchivedAt(ticket.getArchivedAt());
+        dto.setDeletedAt(ticket.getDeletedAt());
+        dto.setArchived(ticket.isArchived());
+        dto.setDeleted(ticket.isDeleted());
         dto.setOverdue(isOverdue(ticket, now));
         if (ticket.getRequester() != null) {
             dto.setRequesterId(ticket.getRequester().getId());

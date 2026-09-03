@@ -24,6 +24,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -68,6 +69,7 @@ public class AdminTicketController {
             @RequestParam(value = "tagId", required = false) Long tagId,
             @RequestParam(value = "customer", required = false) String customer,
             @PageableDefault(size = 10, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        ticketService.autoArchiveClosedTickets();
         TicketInboxFilter filter = new TicketInboxFilter();
         filter.setStatus(status);
         filter.setPriority(priority);
@@ -127,6 +129,34 @@ public class AdminTicketController {
             @AuthenticationPrincipal User agent,
             @PathVariable("id") Long id) {
         return ResponseEntity.ok(ticketService.reopenAsStaff(agent, id));
+    }
+
+    @PostMapping("/{id}/archive")
+    public ResponseEntity<TicketDetailDto> archive(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.archiveAsStaff(agent, id));
+    }
+
+    @PostMapping("/{id}/unarchive")
+    public ResponseEntity<TicketDetailDto> unarchive(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.unarchiveAsStaff(agent, id));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<TicketDetailDto> softDelete(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.softDeleteAsStaff(agent, id));
+    }
+
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<TicketDetailDto> restore(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.restoreAsStaff(agent, id));
     }
 
     @PutMapping("/{id}/tags")

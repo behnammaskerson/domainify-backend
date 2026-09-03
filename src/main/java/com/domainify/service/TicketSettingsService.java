@@ -53,21 +53,31 @@ public class TicketSettingsService {
                 .orElse(TicketSettings.DEFAULT_REOPEN_WINDOW_DAYS));
     }
 
+    @Transactional(readOnly = true)
+    public int getAutoArchiveClosedAfterDays() {
+        return Math.max(0, ticketSettingsRepository.findById(TicketSettings.SINGLETON_ID)
+                .map(TicketSettings::getAutoArchiveClosedAfterDays)
+                .orElse(TicketSettings.DEFAULT_AUTO_ARCHIVE_CLOSED_AFTER_DAYS));
+    }
+
     @Transactional
     public TicketSettingsDto update(TicketSettingsDto request) {
         if (request == null
                 || request.getReopenWindowDays() == null
                 || request.getMaxAttachments() == null
-                || request.getMaxAttachmentSizeMb() == null) {
+                || request.getMaxAttachmentSizeMb() == null
+                || request.getAutoArchiveClosedAfterDays() == null) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
         int days = request.getReopenWindowDays();
         int maxAttachments = request.getMaxAttachments();
         int maxSizeMb = request.getMaxAttachmentSizeMb();
+        int autoArchiveDays = request.getAutoArchiveClosedAfterDays();
         if (days < 1 || days > 3650
                 || maxAttachments < 1 || maxAttachments > 20
-                || maxSizeMb < 1 || maxSizeMb > 50) {
+                || maxSizeMb < 1 || maxSizeMb > 50
+                || autoArchiveDays < 0 || autoArchiveDays > 3650) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
@@ -80,6 +90,7 @@ public class TicketSettingsService {
         settings.setReopenWindowDays(days);
         settings.setMaxAttachments(maxAttachments);
         settings.setMaxAttachmentSizeMb(maxSizeMb);
+        settings.setAutoArchiveClosedAfterDays(autoArchiveDays);
         settings.setAllowedAttachmentKinds(TicketAttachmentKind.toCsv(kinds));
         settings.normalize();
         return toDto(ticketSettingsRepository.save(settings));
@@ -163,7 +174,8 @@ public class TicketSettingsService {
                 settings.getReopenWindowDays(),
                 settings.getMaxAttachments(),
                 settings.getMaxAttachmentSizeMb(),
-                kinds
+                kinds,
+                settings.getAutoArchiveClosedAfterDays()
         );
     }
 

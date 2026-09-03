@@ -113,8 +113,7 @@ public class TicketService {
     @Transactional(readOnly = true)
     public TicketDetailDto getForStaff(User agent, Long ticketId) {
         requireAgent(agent);
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        Ticket ticket = requireStaffTicket(ticketId, true);
         return toDetailDto(ticket, agent, true);
     }
 
@@ -127,8 +126,7 @@ public class TicketService {
     @Transactional
     public TicketDetailDto replyAsStaff(User agent, Long ticketId, String body, MultipartFile[] attachments) {
         requireAgent(agent);
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        Ticket ticket = requireStaffTicket(ticketId, false);
         return addReply(ticket, agent, body, attachments, true);
     }
 
@@ -138,7 +136,8 @@ public class TicketService {
             String body,
             MultipartFile[] attachments,
             boolean asStaff) {
-        if (ticket.getStatus() == TicketStatus.CLOSED) {
+        assertNotDeleted(ticket);
+        if (ticket.isArchived() || ticket.getStatus() == TicketStatus.CLOSED) {
             throw new ApiException(ErrorCode.TICKET_CLOSED_NO_REPLY);
         }
 
@@ -191,13 +190,15 @@ public class TicketService {
         if (nextStatus == null) {
             throw new ApiException(ErrorCode.TICKET_STATUS_INVALID);
         }
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        Ticket ticket = requireStaffTicket(ticketId, false);
         if (ticket.getStatus() == TicketStatus.CLOSED && nextStatus != TicketStatus.CLOSED) {
             assertReopenAllowed(ticket);
         }
         ticketStatusWorkflowService.assertTransitionAllowed(ticket.getStatus(), nextStatus);
         applyStatus(ticket, nextStatus);
+        if (nextStatus != TicketStatus.CLOSED) {
+            ticket.setArchivedAt(null);
+        }
         ticketRepository.save(ticket);
         return toDetailDto(ticket, agent, true);
     }
@@ -205,8 +206,7 @@ public class TicketService {
     @Transactional
     public TicketDetailDto closeAsStaff(User agent, Long ticketId) {
         requireAgent(agent);
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        Ticket ticket = requireStaffTicket(ticketId, false);
         return closeTicket(ticket, agent, true);
     }
 
@@ -219,8 +219,7 @@ public class TicketService {
     @Transactional
     public TicketDetailDto reopenAsStaff(User agent, Long ticketId) {
         requireAgent(agent);
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        Ticket ticket = requireStaffTicket(ticketId, false);
         return reopenTicket(ticket, agent, true);
     }
 
@@ -233,8 +232,7 @@ public class TicketService {
     @Transactional
     public TicketDetailDto updateTagsAsStaff(User agent, Long ticketId, UpdateTicketTagsRequest request) {
         requireAgent(agent);
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        Ticket ticket = requireStaffTicket(ticketId, false);
         Set<TicketTag> tags = ticketTagService.resolveTags(
                 request != null ? request.getTagIds() : null,
                 request != null ? request.getNames() : null
@@ -242,6 +240,76 @@ public class TicketService {
         ticket.setTags(new HashSet<>(tags));
         ticketRepository.save(ticket);
         return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto archiveAsStaff(User agent, Long ticketId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (ticket.isArchived()) {
+            throw new ApiException(ErrorCode.TICKET_ALREADY_ARCHIVED);
+        }
+        if (ticket.getStatus() != TicketStatus.CLOSED) {
+            throw new ApiException(ErrorCode.TICKET_ARCHIVE_REQUIRES_CLOSED);
+        }
+        ticket.setArchivedAt(Instant.now());
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto unarchiveAsStaff(User agent, Long ticketId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (!ticket.isArchived()) {
+            throw new ApiException(ErrorCode.TICKET_NOT_ARCHIVED);
+        }
+        ticket.setArchivedAt(null);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto softDeleteAsStaff(User agent, Long ticketId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (ticket.isDeleted()) {
+            throw new ApiException(ErrorCode.TICKET_ALREADY_DELETED);
+        }
+        ticket.setDeletedAt(Instant.now());
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto restoreAsStaff(User agent, Long ticketId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, true);
+        if (!ticket.isDeleted()) {
+            throw new ApiException(ErrorCode.TICKET_NOT_DELETED);
+        }
+        ticket.setDeletedAt(null);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public int autoArchiveClosedTickets() {
+        int days = ticketSettingsService.getAutoArchiveClosedAfterDays();
+        if (days <= 0) {
+            return 0;
+        }
+        Instant cutoff = Instant.now().minus(Duration.ofDays(days));
+        List<Ticket> eligible = ticketRepository.findClosedEligibleForAutoArchive(cutoff);
+        if (eligible.isEmpty()) {
+            return 0;
+        }
+        Instant now = Instant.now();
+        for (Ticket ticket : eligible) {
+            ticket.setArchivedAt(now);
+        }
+        ticketRepository.saveAll(eligible);
+        return eligible.size();
     }
 
     private TicketDetailDto closeTicket(Ticket ticket, User viewer, boolean asStaff) {
@@ -254,11 +322,13 @@ public class TicketService {
     }
 
     private TicketDetailDto reopenTicket(Ticket ticket, User viewer, boolean asStaff) {
+        assertNotDeleted(ticket);
         if (ticket.getStatus() != TicketStatus.CLOSED) {
             throw new ApiException(ErrorCode.TICKET_NOT_CLOSED);
         }
         assertReopenAllowed(ticket);
         applyStatus(ticket, TicketStatus.OPEN);
+        ticket.setArchivedAt(null);
         ticketRepository.save(ticket);
         return toDetailDto(ticket, viewer, asStaff);
     }
@@ -306,6 +376,9 @@ public class TicketService {
     }
 
     private boolean canReopen(Ticket ticket) {
+        if (ticket.isDeleted() || ticket.isArchived()) {
+            return false;
+        }
         Instant deadline = reopenDeadline(ticket);
         return deadline != null && !Instant.now().isAfter(deadline);
     }
@@ -390,14 +463,35 @@ public class TicketService {
         if (ticketId == null) {
             throw new ApiException(ErrorCode.TICKET_NOT_FOUND);
         }
-        return ticketRepository.findByIdAndRequesterId(ticketId, requester.getId())
+        Ticket ticket = ticketRepository.findByIdAndRequesterId(ticketId, requester.getId())
                 .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        assertNotDeleted(ticket);
+        return ticket;
+    }
+
+    private Ticket requireStaffTicket(Long ticketId, boolean allowDeleted) {
+        if (ticketId == null) {
+            throw new ApiException(ErrorCode.TICKET_NOT_FOUND);
+        }
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+        if (!allowDeleted) {
+            assertNotDeleted(ticket);
+        }
+        return ticket;
+    }
+
+    private void assertNotDeleted(Ticket ticket) {
+        if (ticket != null && ticket.isDeleted()) {
+            throw new ApiException(ErrorCode.TICKET_DELETED);
+        }
     }
 
     private Specification<Ticket> buildMineSpec(Long requesterId, TicketStatus status, String q) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("requester").get("id"), requesterId));
+            predicates.add(cb.isNull(root.get("deletedAt")));
 
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
@@ -569,16 +663,22 @@ public class TicketService {
         }
 
         boolean closed = ticket.getStatus() == TicketStatus.CLOSED;
-        boolean canReply = !closed;
-        List<TicketStatus> allowedNext = includeWorkflow
+        boolean deleted = ticket.isDeleted();
+        boolean archived = ticket.isArchived();
+        boolean canReply = !closed && !archived && !deleted;
+        List<TicketStatus> allowedNext = includeWorkflow && !deleted
                 ? ticketStatusWorkflowService.allowedNextStatuses(ticket.getStatus())
                 : List.of();
-        if (closed && !canReopen(ticket)) {
+        if ((closed && !canReopen(ticket)) || archived || deleted) {
             allowedNext = List.of();
         }
         TicketDetailDto detail = new TicketDetailDto(toDto(ticket), messages, canReply, allowedNext);
-        detail.setCanClose(!closed);
-        detail.setCanReopen(canReopen(ticket));
+        detail.setCanClose(!closed && !deleted && !archived);
+        detail.setCanReopen(canReopen(ticket) && !deleted);
+        detail.setCanArchive(includeWorkflow && closed && !archived && !deleted);
+        detail.setCanUnarchive(includeWorkflow && archived && !deleted);
+        detail.setCanSoftDelete(includeWorkflow && !deleted);
+        detail.setCanRestore(includeWorkflow && deleted);
         detail.setReopenUntil(reopenDeadline(ticket));
         detail.setReopenWindowDays(ticketSettingsService.getReopenWindowDays());
         return detail;
@@ -687,6 +787,10 @@ public class TicketService {
         dto.setChannel(ticket.getChannel());
         dto.setDueAt(ticket.getDueAt());
         dto.setClosedAt(ticket.getClosedAt());
+        dto.setArchivedAt(ticket.getArchivedAt());
+        dto.setDeletedAt(ticket.getDeletedAt());
+        dto.setArchived(ticket.isArchived());
+        dto.setDeleted(ticket.isDeleted());
         dto.setOverdue(AdminTicketService.isOverdue(ticket, Instant.now()));
         if (ticket.getRequester() != null) {
             dto.setRequesterId(ticket.getRequester().getId());

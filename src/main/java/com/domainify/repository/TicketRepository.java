@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecificationExecutor<Ticket> {
@@ -18,4 +20,14 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
 
     @Query("select count(t) from Ticket t join t.tags tag where tag = :tag")
     long countByTag(@Param("tag") TicketTag tag);
+
+    @Query("""
+            select t from Ticket t
+            where t.status = com.domainify.entity.TicketStatus.CLOSED
+              and t.deletedAt is null
+              and t.archivedAt is null
+              and t.closedAt is not null
+              and t.closedAt < :cutoff
+            """)
+    List<Ticket> findClosedEligibleForAutoArchive(@Param("cutoff") Instant cutoff);
 }

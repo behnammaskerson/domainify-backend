@@ -19,6 +19,7 @@ public class TicketSettings {
     public static final int DEFAULT_REOPEN_WINDOW_DAYS = 14;
     public static final int DEFAULT_MAX_ATTACHMENTS = 5;
     public static final int DEFAULT_MAX_ATTACHMENT_SIZE_MB = 5;
+    public static final int DEFAULT_AUTO_ARCHIVE_CLOSED_AFTER_DAYS = 90;
     public static final String DEFAULT_ALLOWED_ATTACHMENT_KINDS = "IMAGE,PDF,LOG,DOCUMENT";
 
     @Id
@@ -45,6 +46,16 @@ public class TicketSettings {
     )
     private String allowedAttachmentKinds = DEFAULT_ALLOWED_ATTACHMENT_KINDS;
 
+    /**
+     * Days after close when a ticket is auto-archived. {@code 0} disables auto-archive.
+     */
+    @Column(
+            name = "auto_archive_closed_after_days",
+            nullable = false,
+            columnDefinition = "integer not null default 90"
+    )
+    private int autoArchiveClosedAfterDays = DEFAULT_AUTO_ARCHIVE_CLOSED_AFTER_DAYS;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -65,6 +76,9 @@ public class TicketSettings {
         if (maxAttachmentSizeMb < 1) {
             maxAttachmentSizeMb = DEFAULT_MAX_ATTACHMENT_SIZE_MB;
         }
+        if (autoArchiveClosedAfterDays < 0) {
+            autoArchiveClosedAfterDays = DEFAULT_AUTO_ARCHIVE_CLOSED_AFTER_DAYS;
+        }
         Set<TicketAttachmentKind> kinds = TicketAttachmentKind.parseCsv(allowedAttachmentKinds);
         if (kinds.isEmpty()) {
             kinds = EnumSet.allOf(TicketAttachmentKind.class);
@@ -78,6 +92,7 @@ public class TicketSettings {
         settings.setReopenWindowDays(DEFAULT_REOPEN_WINDOW_DAYS);
         settings.setMaxAttachments(DEFAULT_MAX_ATTACHMENTS);
         settings.setMaxAttachmentSizeMb(DEFAULT_MAX_ATTACHMENT_SIZE_MB);
+        settings.setAutoArchiveClosedAfterDays(DEFAULT_AUTO_ARCHIVE_CLOSED_AFTER_DAYS);
         settings.setAllowedAttachmentKinds(DEFAULT_ALLOWED_ATTACHMENT_KINDS);
         settings.normalize();
         return settings;
@@ -133,6 +148,14 @@ public class TicketSettings {
 
     public void setAllowedAttachmentKinds(String allowedAttachmentKinds) {
         this.allowedAttachmentKinds = allowedAttachmentKinds;
+    }
+
+    public int getAutoArchiveClosedAfterDays() {
+        return autoArchiveClosedAfterDays;
+    }
+
+    public void setAutoArchiveClosedAfterDays(int autoArchiveClosedAfterDays) {
+        this.autoArchiveClosedAfterDays = autoArchiveClosedAfterDays;
     }
 
     public Instant getUpdatedAt() {
