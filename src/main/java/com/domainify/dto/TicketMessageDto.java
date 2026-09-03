@@ -16,6 +16,8 @@ public class TicketMessageDto {
     private boolean staff;
     /** True for the opening ticket description (not a reply row). */
     private boolean initial;
+    /** True for staff-only notes hidden from the customer portal. */
+    private boolean internalNote;
     private Instant createdAt;
     private List<TicketAttachmentDto> attachments = new ArrayList<>();
 
@@ -81,6 +83,14 @@ public class TicketMessageDto {
 
     public void setInitial(boolean initial) {
         this.initial = initial;
+    }
+
+    public boolean isInternalNote() {
+        return internalNote;
+    }
+
+    public void setInternalNote(boolean internalNote) {
+        this.internalNote = internalNote;
     }
 
     public Instant getCreatedAt() {

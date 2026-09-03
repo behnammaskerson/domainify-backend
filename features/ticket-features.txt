@@ -16,7 +16,7 @@ done - Merge duplicate tickets
 done - Split one ticket into multiple
 done - Link related tickets
 done - Due date / SLA deadline on ticket
-Internal notes vs public replies (customer never sees internal notes)
+done - Internal notes vs public replies (customer never sees internal notes)
 
 2. Conversation & messaging
 done - Threaded replies (chronological conversation)

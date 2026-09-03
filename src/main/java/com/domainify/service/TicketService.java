@@ -136,20 +136,26 @@ public class TicketService {
     @Transactional
     public TicketDetailDto reply(User requester, Long ticketId, String body, MultipartFile[] attachments) {
         Ticket ticket = requireOwnedTicket(requester, ticketId);
-        return addReply(ticket, requester, body, attachments, false);
+        return addReply(ticket, requester, body, false, attachments, false);
     }
 
     @Transactional
-    public TicketDetailDto replyAsStaff(User agent, Long ticketId, String body, MultipartFile[] attachments) {
+    public TicketDetailDto replyAsStaff(
+            User agent,
+            Long ticketId,
+            String body,
+            boolean internalNote,
+            MultipartFile[] attachments) {
         requireAgent(agent);
         Ticket ticket = requireStaffTicket(ticketId, false);
-        return addReply(ticket, agent, body, attachments, true);
+        return addReply(ticket, agent, body, internalNote, attachments, true);
     }
 
     private TicketDetailDto addReply(
             Ticket ticket,
             User author,
             String body,
+            boolean internalNote,
             MultipartFile[] attachments,
             boolean asStaff) {
         assertNotDeleted(ticket);
@@ -172,21 +178,21 @@ public class TicketService {
         message.setTicket(ticket);
         message.setAuthor(author);
         message.setBody(trimmedBody);
-        message.setInternalNote(false);
+        message.setInternalNote(asStaff && internalNote);
         for (MultipartFile file : files) {
             message.addAttachment(toMessageAttachment(file));
         }
         ticketMessageRepository.save(message);
         ticketMentionService.syncMentions(ticket, message, trimmedBody, author);
 
-        if (asStaff) {
+        if (asStaff && !internalNote) {
             if (ticket.getStatus() == TicketStatus.NEW || ticket.getStatus() == TicketStatus.OPEN) {
                 maybeAutoTransition(ticket, TicketStatus.PENDING);
             }
             if (ticket.getAssignee() == null) {
                 ticket.setAssignee(author);
             }
-        } else {
+        } else if (!asStaff) {
             if (ticket.getStatus() == TicketStatus.RESOLVED
                     || ticket.getStatus() == TicketStatus.PENDING
                     || ticket.getStatus() == TicketStatus.ON_HOLD) {
@@ -714,9 +720,6 @@ public class TicketService {
         }
         TicketMessage message = ticketMessageRepository.findByIdAndTicketId(messageId, ticketId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
-        if (message.isInternalNote()) {
-            throw new ApiException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
-        }
         TicketMessageAttachment attachment = ticketMessageAttachmentRepository
                 .findByIdAndMessageId(attachmentId, messageId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND));
@@ -962,8 +965,10 @@ public class TicketService {
         List<TicketMessageDto> messages = new ArrayList<>();
         messages.add(toInitialMessageDto(ticket, viewer));
 
-        for (TicketMessage message : ticketMessageRepository
-                .findByTicketAndInternalNoteFalseOrderByCreatedAtAscIdAsc(ticket)) {
+        List<TicketMessage> replies = includeWorkflow
+                ? ticketMessageRepository.findByTicketOrderByCreatedAtAscIdAsc(ticket)
+                : ticketMessageRepository.findByTicketAndInternalNoteFalseOrderByCreatedAtAscIdAsc(ticket);
+        for (TicketMessage message : replies) {
             messages.add(toMessageDto(message, viewer));
         }
 
@@ -1036,6 +1041,7 @@ public class TicketService {
                     && viewer.getId().equals(message.getAuthor().getId()));
             dto.setStaff(isStaffUser(message.getAuthor()));
         }
+        dto.setInternalNote(message.isInternalNote());
 
         List<TicketAttachmentDto> attachmentDtos = new ArrayList<>();
         for (TicketMessageAttachment attachment : message.getAttachments()) {

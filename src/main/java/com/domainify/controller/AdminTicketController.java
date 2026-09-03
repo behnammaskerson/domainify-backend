@@ -110,8 +110,9 @@ public class AdminTicketController {
             @AuthenticationPrincipal User agent,
             @PathVariable("id") Long id,
             @RequestParam("body") String body,
+            @RequestParam(value = "internalNote", defaultValue = "false") boolean internalNote,
             @RequestParam(value = "attachments", required = false) MultipartFile[] attachments) {
-        return ResponseEntity.ok(ticketService.replyAsStaff(agent, id, body, attachments));
+        return ResponseEntity.ok(ticketService.replyAsStaff(agent, id, body, internalNote, attachments));
     }
 
     @PatchMapping("/{id}/status")
