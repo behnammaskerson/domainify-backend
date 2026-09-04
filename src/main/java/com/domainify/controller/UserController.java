@@ -65,6 +65,12 @@ public class UserController {
         return ResponseEntity.ok(userService.setSmsNotificationsEnabled(user, Boolean.TRUE.equals(request.getEnabled())));
     }
 
+    @PatchMapping("/me/ticket-availability")
+    public ResponseEntity<UserDto> setTicketAvailability(@AuthenticationPrincipal User user,
+                                                         @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setTicketAvailable(user, Boolean.TRUE.equals(request.getEnabled())));
+    }
+
     @PatchMapping("/me/preferred-language")
     public ResponseEntity<UserDto> setPreferredLanguage(@AuthenticationPrincipal User user,
                                                         @Valid @RequestBody UpdatePreferredLanguageRequest request) {
@@ -152,6 +158,13 @@ public class UserController {
     public ResponseEntity<UserDto> setUserSmsNotifications(@PathVariable Long id,
                                                            @Valid @RequestBody UpdateEmailNotificationsRequest request) {
         return ResponseEntity.ok(userService.setSmsNotificationsEnabled(id, Boolean.TRUE.equals(request.getEnabled())));
+    }
+
+    @PatchMapping("/{id}/ticket-availability")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> setUserTicketAvailability(@PathVariable Long id,
+                                                             @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setTicketAvailable(id, Boolean.TRUE.equals(request.getEnabled())));
     }
 
     @PatchMapping("/{id}/enabled")

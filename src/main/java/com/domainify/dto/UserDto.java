@@ -21,6 +21,7 @@ public class UserDto {
     private Instant phoneVerifiedAt;
     private boolean emailNotificationsEnabled;
     private boolean smsNotificationsEnabled;
+    private boolean ticketAvailable;
     private String preferredLanguage;
     private Instant createdAt;
     private Instant updatedAt;
@@ -36,6 +37,7 @@ public class UserDto {
                    boolean phoneVerified, Instant phoneVerifiedAt,
                    boolean emailNotificationsEnabled,
                    boolean smsNotificationsEnabled,
+                   boolean ticketAvailable,
                    String preferredLanguage,
                    Instant createdAt, Instant updatedAt, String creatorUsername, User.CreateMethod createMethod) {
         this.id = id;
@@ -54,6 +56,7 @@ public class UserDto {
         this.phoneVerifiedAt = phoneVerifiedAt;
         this.emailNotificationsEnabled = emailNotificationsEnabled;
         this.smsNotificationsEnabled = smsNotificationsEnabled;
+        this.ticketAvailable = ticketAvailable;
         this.preferredLanguage = preferredLanguage;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -79,6 +82,7 @@ public class UserDto {
             user.getPhoneVerifiedAt(),
             user.isEmailNotificationsEnabled(),
             user.isSmsNotificationsEnabled(),
+            user.isTicketAvailable(),
             com.domainify.util.UserPreferredLanguage.normalize(user.getPreferredLanguage()),
             user.getCreatedAt(),
             user.getUpdatedAt(),
@@ -213,6 +217,14 @@ public class UserDto {
 
     public void setSmsNotificationsEnabled(boolean smsNotificationsEnabled) {
         this.smsNotificationsEnabled = smsNotificationsEnabled;
+    }
+
+    public boolean isTicketAvailable() {
+        return ticketAvailable;
+    }
+
+    public void setTicketAvailable(boolean ticketAvailable) {
+        this.ticketAvailable = ticketAvailable;
     }
 
     public String getPreferredLanguage() {

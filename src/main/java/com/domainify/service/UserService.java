@@ -273,6 +273,20 @@ public class UserService {
     }
 
     @Transactional
+    public UserDto setTicketAvailable(Long id, boolean available) {
+        User user = findUser(id);
+        user.setTicketAvailable(available);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserDto setTicketAvailable(User currentUser, boolean available) {
+        User user = findUser(currentUser.getId());
+        user.setTicketAvailable(available);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
     public UserDto setPreferredLanguage(User currentUser, String language) {
         User user = findUser(currentUser.getId());
         user.setPreferredLanguage(com.domainify.util.UserPreferredLanguage.normalize(language));

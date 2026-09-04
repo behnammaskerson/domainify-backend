@@ -1602,7 +1602,8 @@ public class TicketService {
                     .stream()
                     .map(TicketWatcher::getUser)
                     .filter(user -> user != null && user.isEnabled())
-                    .map(user -> new TicketAssigneeOptionDto(user.getId(), displayName(user), user.getEmail()))
+                    .map(user -> new TicketAssigneeOptionDto(
+                            user.getId(), displayName(user), user.getEmail(), user.isTicketAvailable()))
                     .toList();
             detail.setWatchers(watchers);
             detail.setTransfers(ticketTransferRepository

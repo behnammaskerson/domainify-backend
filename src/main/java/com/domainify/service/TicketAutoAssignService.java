@@ -55,27 +55,27 @@ public class TicketAutoAssignService {
         if (mode == TicketAutoAssignMode.CATEGORY_SKILL) {
             TicketCategory category = ticket.getCategory();
             pool = category != null && category.getId() != null
-                    ? skillRepository.findEnabledAgentsByCategoryId(category.getId(), User.Role.ADMIN)
+                    ? onlyAvailable(skillRepository.findEnabledAgentsByCategoryId(category.getId(), User.Role.ADMIN))
                     : List.of();
             if (pool.isEmpty()) {
                 if (!settings.isAutoAssignFallbackRoundRobin()) {
                     return null;
                 }
-                pool = listEnabledAdmins();
+                pool = listAvailableAdmins();
             }
         } else if (mode == TicketAutoAssignMode.QUEUE_MEMBERSHIP) {
             TicketQueue queue = ticket.getQueue();
             pool = queue != null && queue.getId() != null
-                    ? queueMembershipRepository.findEnabledAgentsByQueueId(queue.getId(), User.Role.ADMIN)
+                    ? onlyAvailable(queueMembershipRepository.findEnabledAgentsByQueueId(queue.getId(), User.Role.ADMIN))
                     : List.of();
             if (pool.isEmpty()) {
                 if (!settings.isAutoAssignFallbackRoundRobin()) {
                     return null;
                 }
-                pool = listEnabledAdmins();
+                pool = listAvailableAdmins();
             }
         } else {
-            pool = listEnabledAdmins();
+            pool = listAvailableAdmins();
         }
 
         if (pool.isEmpty()) {
@@ -92,8 +92,15 @@ public class TicketAutoAssignService {
         return next;
     }
 
-    private List<User> listEnabledAdmins() {
-        return userRepository.findByRoleAndEnabledTrueOrderByFirstNameAscLastNameAsc(User.Role.ADMIN);
+    private List<User> listAvailableAdmins() {
+        return onlyAvailable(userRepository.findByRoleAndEnabledTrueOrderByFirstNameAscLastNameAsc(User.Role.ADMIN));
+    }
+
+    private List<User> onlyAvailable(List<User> users) {
+        if (users == null || users.isEmpty()) {
+            return List.of();
+        }
+        return users.stream().filter(User::isTicketAvailable).toList();
     }
 
     private User pickNext(List<User> pool, Long lastUserId) {

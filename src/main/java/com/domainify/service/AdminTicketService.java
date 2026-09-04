@@ -95,7 +95,8 @@ public class AdminTicketService {
     @Transactional(readOnly = true)
     public List<TicketAssigneeOptionDto> listAssignees() {
         return userRepository.findByRoleAndEnabledTrueOrderByFirstNameAscLastNameAsc(User.Role.ADMIN).stream()
-                .map(user -> new TicketAssigneeOptionDto(user.getId(), displayName(user), user.getEmail()))
+                .map(user -> new TicketAssigneeOptionDto(
+                        user.getId(), displayName(user), user.getEmail(), user.isTicketAvailable()))
                 .toList();
     }
 

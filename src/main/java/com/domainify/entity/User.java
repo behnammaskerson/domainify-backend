@@ -111,6 +111,14 @@ public class User implements UserDetails {
     @Column(nullable = true)
     private Boolean smsNotificationsEnabled = false;
 
+    /**
+     * Agent presence for ticket auto-assign. Default available.
+     * Manual assign/transfer/escalate can still target unavailable agents.
+     */
+    @ColumnDefault("true")
+    @Column(nullable = true)
+    private Boolean ticketAvailable = true;
+
     /** UI / notification language: en, fa, ar, or tr. */
     @ColumnDefault("'en'")
     @Column(nullable = true, length = 5)
@@ -391,6 +399,14 @@ public class User implements UserDetails {
 
     public void setSmsNotificationsEnabled(boolean smsNotificationsEnabled) {
         this.smsNotificationsEnabled = smsNotificationsEnabled;
+    }
+
+    public boolean isTicketAvailable() {
+        return ticketAvailable == null || Boolean.TRUE.equals(ticketAvailable);
+    }
+
+    public void setTicketAvailable(boolean ticketAvailable) {
+        this.ticketAvailable = ticketAvailable;
     }
 
     public String getPreferredLanguage() {
