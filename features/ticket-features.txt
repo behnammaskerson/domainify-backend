@@ -32,9 +32,9 @@ Email-in / email-out (create & reply by email) — later phase
 SMS notification of ticket updates (fits your SMS.ir stack) — later phase
 
 3. Assignment & team workflow
+done - Assign to agent / unassign
+done - Auto-assign round-robin or by category skill
 
-Assign to agent / unassign
-Auto-assign round-robin or by category skill
 Assignment queues / departments (Support, Billing, Technical)
 Watchers / followers (notify without being assignee)
 Transfer ticket between agents/departments

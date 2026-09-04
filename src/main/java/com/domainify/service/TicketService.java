@@ -40,6 +40,7 @@ import com.domainify.repository.TicketMessageRevisionRepository;
 import com.domainify.repository.TicketReplyDraftRepository;
 import com.domainify.repository.TicketRelatedLinkRepository;
 import com.domainify.repository.TicketRepository;
+import com.domainify.repository.UserRepository;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -93,6 +94,8 @@ public class TicketService {
     private final TicketTagService ticketTagService;
     private final TicketSettingsService ticketSettingsService;
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
+    private final TicketAutoAssignService ticketAutoAssignService;
 
     public TicketService(
             TicketRepository ticketRepository,
@@ -108,7 +111,9 @@ public class TicketService {
             TicketStatusWorkflowService ticketStatusWorkflowService,
             TicketTagService ticketTagService,
             TicketSettingsService ticketSettingsService,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            UserRepository userRepository,
+            TicketAutoAssignService ticketAutoAssignService) {
         this.ticketRepository = ticketRepository;
         this.ticketMessageRepository = ticketMessageRepository;
         this.ticketMessageRevisionRepository = ticketMessageRevisionRepository;
@@ -123,6 +128,8 @@ public class TicketService {
         this.ticketTagService = ticketTagService;
         this.ticketSettingsService = ticketSettingsService;
         this.notificationService = notificationService;
+        this.userRepository = userRepository;
+        this.ticketAutoAssignService = ticketAutoAssignService;
     }
 
     @Transactional(readOnly = true)
@@ -341,6 +348,48 @@ public class TicketService {
                 .stream()
                 .map(this::toRevisionDto)
                 .toList();
+    }
+
+    @Transactional
+    public TicketDetailDto assignAsStaff(User agent, Long ticketId, Long assigneeId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        assertNotDeleted(ticket);
+
+        User previousAssignee = ticket.getAssignee();
+        Long previousId = previousAssignee != null ? previousAssignee.getId() : null;
+
+        User nextAssignee = null;
+        if (assigneeId != null) {
+            nextAssignee = userRepository.findById(assigneeId)
+                    .orElseThrow(() -> new ApiException(ErrorCode.TICKET_ASSIGNEE_NOT_FOUND));
+            if (nextAssignee.getRole() != User.Role.ADMIN || !nextAssignee.isEnabled()) {
+                throw new ApiException(ErrorCode.TICKET_ASSIGNEE_INVALID);
+            }
+        }
+
+        Long nextId = nextAssignee != null ? nextAssignee.getId() : null;
+        if ((previousId == null && nextId == null)
+                || (previousId != null && previousId.equals(nextId))) {
+            return toDetailDto(ticket, agent, true);
+        }
+
+        ticket.setAssignee(nextAssignee);
+        ticketRepository.save(ticket);
+
+        if (previousAssignee != null
+                && previousAssignee.getId() != null
+                && agent.getId() != null
+                && !previousAssignee.getId().equals(agent.getId())
+                && (nextAssignee == null || nextAssignee.getId() == null
+                    || !previousAssignee.getId().equals(nextAssignee.getId()))) {
+            notificationService.onUnassigned(ticket, previousAssignee, agent);
+        }
+        if (nextAssignee != null) {
+            notificationService.onAssigned(ticket, nextAssignee, agent);
+        }
+
+        return toDetailDto(ticket, agent, true);
     }
 
     @Transactional
@@ -1039,8 +1088,13 @@ public class TicketService {
 
         Ticket saved = ticketRepository.saveAndFlush(ticket);
         saved.setPublicNumber(buildPublicNumber(saved.getId()));
+        User autoAssignee = ticketAutoAssignService.assignIfConfigured(saved);
         saved = ticketRepository.save(saved);
-        notificationService.onTicketCreated(saved, requester);
+        if (autoAssignee != null) {
+            notificationService.onAssigned(saved, autoAssignee, requester);
+        } else {
+            notificationService.onTicketCreated(saved, requester);
+        }
         return toDto(saved);
     }
 

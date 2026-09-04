@@ -155,6 +155,17 @@ public class NotificationService {
     }
 
     @Transactional
+    public void onUnassigned(Ticket ticket, User previousAssignee, User actor) {
+        if (ticket == null || previousAssignee == null || !previousAssignee.isEnabled()) {
+            return;
+        }
+        if (isSameUser(previousAssignee, actor)) {
+            return;
+        }
+        createNotification(previousAssignee, actor, NotificationType.TICKET_UNASSIGNED, ticket, null, null);
+    }
+
+    @Transactional
     public void onClosed(Ticket ticket, User actor, boolean byStaff) {
         if (ticket == null) {
             return;

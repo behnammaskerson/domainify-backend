@@ -2,6 +2,8 @@ package com.domainify.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -72,6 +74,20 @@ public class TicketSettings {
     @Column(name = "sla_low_hours", nullable = false, columnDefinition = "integer not null default 168")
     private int slaLowHours = DEFAULT_SLA_LOW_HOURS;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auto_assign_mode", nullable = false, length = 32)
+    private TicketAutoAssignMode autoAssignMode = TicketAutoAssignMode.OFF;
+
+    /**
+     * When mode is CATEGORY_SKILL and no skilled agents exist, fall back to global round-robin.
+     */
+    @Column(name = "auto_assign_fallback_round_robin", nullable = false)
+    private boolean autoAssignFallbackRoundRobin = true;
+
+    /** Last agent chosen by round-robin (global cursor). */
+    @Column(name = "round_robin_last_user_id")
+    private Long roundRobinLastUserId;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -107,6 +123,9 @@ public class TicketSettings {
         if (slaLowHours < 1) {
             slaLowHours = DEFAULT_SLA_LOW_HOURS;
         }
+        if (autoAssignMode == null) {
+            autoAssignMode = TicketAutoAssignMode.OFF;
+        }
         Set<TicketAttachmentKind> kinds = TicketAttachmentKind.parseCsv(allowedAttachmentKinds);
         if (kinds.isEmpty()) {
             kinds = EnumSet.allOf(TicketAttachmentKind.class);
@@ -125,6 +144,8 @@ public class TicketSettings {
         settings.setSlaHighHours(DEFAULT_SLA_HIGH_HOURS);
         settings.setSlaMediumHours(DEFAULT_SLA_MEDIUM_HOURS);
         settings.setSlaLowHours(DEFAULT_SLA_LOW_HOURS);
+        settings.setAutoAssignMode(TicketAutoAssignMode.OFF);
+        settings.setAutoAssignFallbackRoundRobin(true);
         settings.setAllowedAttachmentKinds(DEFAULT_ALLOWED_ATTACHMENT_KINDS);
         settings.normalize();
         return settings;
@@ -220,6 +241,30 @@ public class TicketSettings {
 
     public void setSlaLowHours(int slaLowHours) {
         this.slaLowHours = slaLowHours;
+    }
+
+    public TicketAutoAssignMode getAutoAssignMode() {
+        return autoAssignMode;
+    }
+
+    public void setAutoAssignMode(TicketAutoAssignMode autoAssignMode) {
+        this.autoAssignMode = autoAssignMode;
+    }
+
+    public boolean isAutoAssignFallbackRoundRobin() {
+        return autoAssignFallbackRoundRobin;
+    }
+
+    public void setAutoAssignFallbackRoundRobin(boolean autoAssignFallbackRoundRobin) {
+        this.autoAssignFallbackRoundRobin = autoAssignFallbackRoundRobin;
+    }
+
+    public Long getRoundRobinLastUserId() {
+        return roundRobinLastUserId;
+    }
+
+    public void setRoundRobinLastUserId(Long roundRobinLastUserId) {
+        this.roundRobinLastUserId = roundRobinLastUserId;
     }
 
     public Instant getUpdatedAt() {

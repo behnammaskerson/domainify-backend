@@ -1,5 +1,6 @@
 package com.domainify.controller;
 
+import com.domainify.dto.AssignTicketRequest;
 import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
@@ -174,6 +175,15 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @Valid @RequestBody UpdateTicketStatusRequest request) {
         return ResponseEntity.ok(ticketService.updateStatusAsStaff(agent, id, request.getStatus()));
+    }
+
+    @PatchMapping("/{id}/assignee")
+    public ResponseEntity<TicketDetailDto> updateAssignee(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody(required = false) AssignTicketRequest request) {
+        Long assigneeId = request != null ? request.getAssigneeId() : null;
+        return ResponseEntity.ok(ticketService.assignAsStaff(agent, id, assigneeId));
     }
 
     @PostMapping("/{id}/close")

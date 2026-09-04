@@ -2,17 +2,25 @@ package com.domainify.service;
 
 import com.domainify.dto.TicketCategoryDto;
 import com.domainify.dto.TicketCategoryRequest;
+import com.domainify.dto.UpdateCategoryAgentsRequest;
+import com.domainify.entity.TicketAgentCategorySkill;
 import com.domainify.entity.TicketCategory;
+import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
+import com.domainify.repository.TicketAgentCategorySkillRepository;
 import com.domainify.repository.TicketCategoryRepository;
 import com.domainify.repository.TicketRepository;
+import com.domainify.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,12 +33,18 @@ public class TicketCategoryService {
 
     private final TicketCategoryRepository ticketCategoryRepository;
     private final TicketRepository ticketRepository;
+    private final TicketAgentCategorySkillRepository skillRepository;
+    private final UserRepository userRepository;
 
     public TicketCategoryService(
             TicketCategoryRepository ticketCategoryRepository,
-            TicketRepository ticketRepository) {
+            TicketRepository ticketRepository,
+            TicketAgentCategorySkillRepository skillRepository,
+            UserRepository userRepository) {
         this.ticketCategoryRepository = ticketCategoryRepository;
         this.ticketRepository = ticketRepository;
+        this.skillRepository = skillRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -134,7 +148,42 @@ public class TicketCategoryService {
             ticketCategoryRepository.save(category);
             return;
         }
+        skillRepository.deleteByCategoryId(category.getId());
         ticketCategoryRepository.delete(category);
+    }
+
+    @Transactional
+    public TicketCategoryDto updateCategoryAgents(Long categoryId, UpdateCategoryAgentsRequest request) {
+        TicketCategory category = ticketCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_CATEGORY_NOT_FOUND));
+
+        Set<Long> requestedIds = new LinkedHashSet<>();
+        if (request != null && request.getAgentIds() != null) {
+            for (Long id : request.getAgentIds()) {
+                if (id != null) {
+                    requestedIds.add(id);
+                }
+            }
+        }
+
+        List<User> agents = requestedIds.isEmpty()
+                ? List.of()
+                : userRepository.findAllById(requestedIds).stream()
+                .filter(user -> user.getRole() == User.Role.ADMIN && user.isEnabled())
+                .toList();
+
+        if (agents.size() != requestedIds.size()) {
+            throw new ApiException(ErrorCode.TICKET_ASSIGNEE_INVALID);
+        }
+
+        skillRepository.deleteByCategoryId(category.getId());
+        for (User agent : agents) {
+            TicketAgentCategorySkill skill = new TicketAgentCategorySkill();
+            skill.setCategory(category);
+            skill.setUser(agent);
+            skillRepository.save(skill);
+        }
+        return toDto(category);
     }
 
     private int nextSortOrder() {
@@ -170,12 +219,16 @@ public class TicketCategoryService {
     }
 
     public TicketCategoryDto toDto(TicketCategory category) {
-        return new TicketCategoryDto(
+        TicketCategoryDto dto = new TicketCategoryDto(
                 category.getId(),
                 category.getCode(),
                 category.getName(),
                 category.isActive(),
                 category.getSortOrder()
         );
+        if (category.getId() != null) {
+            dto.setAgentIds(new ArrayList<>(skillRepository.findUserIdsByCategoryId(category.getId())));
+        }
+        return dto;
     }
 }

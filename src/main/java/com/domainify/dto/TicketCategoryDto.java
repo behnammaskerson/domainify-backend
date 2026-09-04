@@ -1,5 +1,8 @@
 package com.domainify.dto;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class TicketCategoryDto {
 
     private Long id;
@@ -7,6 +10,7 @@ public class TicketCategoryDto {
     private String name;
     private boolean active;
     private int sortOrder;
+    private List<Long> agentIds = new ArrayList<>();
 
     public TicketCategoryDto() {
     }
@@ -57,5 +61,13 @@ public class TicketCategoryDto {
 
     public void setSortOrder(int sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public List<Long> getAgentIds() {
+        return agentIds;
+    }
+
+    public void setAgentIds(List<Long> agentIds) {
+        this.agentIds = agentIds != null ? agentIds : new ArrayList<>();
     }
 }

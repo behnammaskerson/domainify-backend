@@ -3,6 +3,7 @@ package com.domainify.service;
 import com.domainify.dto.TicketAttachmentPolicyDto;
 import com.domainify.dto.TicketSettingsDto;
 import com.domainify.entity.TicketAttachmentKind;
+import com.domainify.entity.TicketAutoAssignMode;
 import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketSettings;
 import com.domainify.exception.ApiException;
@@ -72,7 +73,9 @@ public class TicketSettingsService {
                 || request.getSlaUrgentHours() == null
                 || request.getSlaHighHours() == null
                 || request.getSlaMediumHours() == null
-                || request.getSlaLowHours() == null) {
+                || request.getSlaLowHours() == null
+                || request.getAutoAssignMode() == null
+                || request.getAutoAssignFallbackRoundRobin() == null) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
@@ -84,6 +87,8 @@ public class TicketSettingsService {
         int slaHigh = request.getSlaHighHours();
         int slaMedium = request.getSlaMediumHours();
         int slaLow = request.getSlaLowHours();
+        TicketAutoAssignMode autoAssignMode = request.getAutoAssignMode();
+        boolean autoAssignFallback = request.getAutoAssignFallbackRoundRobin();
         if (days < 1 || days > 3650
                 || maxAttachments < 1 || maxAttachments > 20
                 || maxSizeMb < 1 || maxSizeMb > 50
@@ -109,6 +114,8 @@ public class TicketSettingsService {
         settings.setSlaHighHours(slaHigh);
         settings.setSlaMediumHours(slaMedium);
         settings.setSlaLowHours(slaLow);
+        settings.setAutoAssignMode(autoAssignMode);
+        settings.setAutoAssignFallbackRoundRobin(autoAssignFallback);
         settings.setAllowedAttachmentKinds(TicketAttachmentKind.toCsv(kinds));
         settings.normalize();
         return toDto(ticketSettingsRepository.save(settings));
@@ -212,7 +219,9 @@ public class TicketSettingsService {
                 settings.getSlaUrgentHours(),
                 settings.getSlaHighHours(),
                 settings.getSlaMediumHours(),
-                settings.getSlaLowHours()
+                settings.getSlaLowHours(),
+                settings.getAutoAssignMode() != null ? settings.getAutoAssignMode() : TicketAutoAssignMode.OFF,
+                settings.isAutoAssignFallbackRoundRobin()
         );
     }
 

@@ -1,5 +1,6 @@
 package com.domainify.dto;
 
+import com.domainify.entity.TicketAutoAssignMode;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -56,6 +57,12 @@ public class TicketSettingsDto {
     @Max(8760)
     private Integer slaLowHours;
 
+    @NotNull
+    private TicketAutoAssignMode autoAssignMode = TicketAutoAssignMode.OFF;
+
+    @NotNull
+    private Boolean autoAssignFallbackRoundRobin = true;
+
     public TicketSettingsDto() {
     }
 
@@ -68,7 +75,9 @@ public class TicketSettingsDto {
             Integer slaUrgentHours,
             Integer slaHighHours,
             Integer slaMediumHours,
-            Integer slaLowHours) {
+            Integer slaLowHours,
+            TicketAutoAssignMode autoAssignMode,
+            Boolean autoAssignFallbackRoundRobin) {
         this.reopenWindowDays = reopenWindowDays;
         this.maxAttachments = maxAttachments;
         this.maxAttachmentSizeMb = maxAttachmentSizeMb;
@@ -78,6 +87,8 @@ public class TicketSettingsDto {
         this.slaHighHours = slaHighHours;
         this.slaMediumHours = slaMediumHours;
         this.slaLowHours = slaLowHours;
+        this.autoAssignMode = autoAssignMode != null ? autoAssignMode : TicketAutoAssignMode.OFF;
+        this.autoAssignFallbackRoundRobin = autoAssignFallbackRoundRobin == null || autoAssignFallbackRoundRobin;
     }
 
     public Integer getReopenWindowDays() {
@@ -150,5 +161,21 @@ public class TicketSettingsDto {
 
     public void setSlaLowHours(Integer slaLowHours) {
         this.slaLowHours = slaLowHours;
+    }
+
+    public TicketAutoAssignMode getAutoAssignMode() {
+        return autoAssignMode;
+    }
+
+    public void setAutoAssignMode(TicketAutoAssignMode autoAssignMode) {
+        this.autoAssignMode = autoAssignMode;
+    }
+
+    public Boolean getAutoAssignFallbackRoundRobin() {
+        return autoAssignFallbackRoundRobin;
+    }
+
+    public void setAutoAssignFallbackRoundRobin(Boolean autoAssignFallbackRoundRobin) {
+        this.autoAssignFallbackRoundRobin = autoAssignFallbackRoundRobin;
     }
 }

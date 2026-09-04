@@ -2,6 +2,7 @@ package com.domainify.controller;
 
 import com.domainify.dto.TicketCategoryDto;
 import com.domainify.dto.TicketCategoryRequest;
+import com.domainify.dto.UpdateCategoryAgentsRequest;
 import com.domainify.service.TicketCategoryService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -43,6 +44,13 @@ public class TicketCategoryController {
             @PathVariable Long id,
             @Valid @RequestBody TicketCategoryRequest request) {
         return ResponseEntity.ok(ticketCategoryService.update(id, request));
+    }
+
+    @PutMapping("/{id}/agents")
+    public ResponseEntity<TicketCategoryDto> updateAgents(
+            @PathVariable Long id,
+            @RequestBody UpdateCategoryAgentsRequest request) {
+        return ResponseEntity.ok(ticketCategoryService.updateCategoryAgents(id, request));
     }
 
     @DeleteMapping("/{id}")
