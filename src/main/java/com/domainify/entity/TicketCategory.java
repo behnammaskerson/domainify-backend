@@ -5,10 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.Index;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
 
@@ -31,6 +32,16 @@ public class TicketCategory {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    /** When false, ticket emails are not sent for tickets in this category. */
+    @ColumnDefault("true")
+    @Column(name = "email_notifications_enabled", nullable = true)
+    private Boolean emailNotificationsEnabled = true;
+
+    /** When false, ticket SMS alerts are not sent for tickets in this category. */
+    @ColumnDefault("true")
+    @Column(name = "sms_notifications_enabled", nullable = true)
+    private Boolean smsNotificationsEnabled = true;
 
     @Column(nullable = false)
     private int sortOrder = 0;
@@ -83,6 +94,22 @@ public class TicketCategory {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public boolean isEmailNotificationsEnabled() {
+        return emailNotificationsEnabled == null || Boolean.TRUE.equals(emailNotificationsEnabled);
+    }
+
+    public void setEmailNotificationsEnabled(boolean emailNotificationsEnabled) {
+        this.emailNotificationsEnabled = emailNotificationsEnabled;
+    }
+
+    public boolean isSmsNotificationsEnabled() {
+        return smsNotificationsEnabled == null || Boolean.TRUE.equals(smsNotificationsEnabled);
+    }
+
+    public void setSmsNotificationsEnabled(boolean smsNotificationsEnabled) {
+        this.smsNotificationsEnabled = smsNotificationsEnabled;
     }
 
     public int getSortOrder() {

@@ -63,6 +63,20 @@ public class TicketSettingsDto {
     @NotNull
     private Boolean autoAssignFallbackRoundRobin = true;
 
+    @NotNull
+    private Boolean ticketEmailNotificationsEnabled = true;
+
+    @NotNull
+    private Boolean ticketSmsNotificationsEnabled = true;
+
+    @NotEmpty
+    @Size(max = 4)
+    private List<String> emailNotificationPriorities = new ArrayList<>();
+
+    @NotEmpty
+    @Size(max = 4)
+    private List<String> smsNotificationPriorities = new ArrayList<>();
+
     public TicketSettingsDto() {
     }
 
@@ -77,7 +91,11 @@ public class TicketSettingsDto {
             Integer slaMediumHours,
             Integer slaLowHours,
             TicketAutoAssignMode autoAssignMode,
-            Boolean autoAssignFallbackRoundRobin) {
+            Boolean autoAssignFallbackRoundRobin,
+            Boolean ticketEmailNotificationsEnabled,
+            Boolean ticketSmsNotificationsEnabled,
+            List<String> emailNotificationPriorities,
+            List<String> smsNotificationPriorities) {
         this.reopenWindowDays = reopenWindowDays;
         this.maxAttachments = maxAttachments;
         this.maxAttachmentSizeMb = maxAttachmentSizeMb;
@@ -89,6 +107,10 @@ public class TicketSettingsDto {
         this.slaLowHours = slaLowHours;
         this.autoAssignMode = autoAssignMode != null ? autoAssignMode : TicketAutoAssignMode.OFF;
         this.autoAssignFallbackRoundRobin = autoAssignFallbackRoundRobin == null || autoAssignFallbackRoundRobin;
+        this.ticketEmailNotificationsEnabled = ticketEmailNotificationsEnabled == null || ticketEmailNotificationsEnabled;
+        this.ticketSmsNotificationsEnabled = ticketSmsNotificationsEnabled == null || ticketSmsNotificationsEnabled;
+        this.emailNotificationPriorities = emailNotificationPriorities != null ? emailNotificationPriorities : new ArrayList<>();
+        this.smsNotificationPriorities = smsNotificationPriorities != null ? smsNotificationPriorities : new ArrayList<>();
     }
 
     public Integer getReopenWindowDays() {
@@ -177,5 +199,41 @@ public class TicketSettingsDto {
 
     public void setAutoAssignFallbackRoundRobin(Boolean autoAssignFallbackRoundRobin) {
         this.autoAssignFallbackRoundRobin = autoAssignFallbackRoundRobin;
+    }
+
+    public Boolean getTicketEmailNotificationsEnabled() {
+        return ticketEmailNotificationsEnabled;
+    }
+
+    public void setTicketEmailNotificationsEnabled(Boolean ticketEmailNotificationsEnabled) {
+        this.ticketEmailNotificationsEnabled = ticketEmailNotificationsEnabled;
+    }
+
+    public Boolean getTicketSmsNotificationsEnabled() {
+        return ticketSmsNotificationsEnabled;
+    }
+
+    public void setTicketSmsNotificationsEnabled(Boolean ticketSmsNotificationsEnabled) {
+        this.ticketSmsNotificationsEnabled = ticketSmsNotificationsEnabled;
+    }
+
+    public List<String> getEmailNotificationPriorities() {
+        return emailNotificationPriorities;
+    }
+
+    public void setEmailNotificationPriorities(List<String> emailNotificationPriorities) {
+        this.emailNotificationPriorities = emailNotificationPriorities != null
+                ? emailNotificationPriorities
+                : new ArrayList<>();
+    }
+
+    public List<String> getSmsNotificationPriorities() {
+        return smsNotificationPriorities;
+    }
+
+    public void setSmsNotificationPriorities(List<String> smsNotificationPriorities) {
+        this.smsNotificationPriorities = smsNotificationPriorities != null
+                ? smsNotificationPriorities
+                : new ArrayList<>();
     }
 }

@@ -19,6 +19,9 @@ public class UserDto {
     private Instant emailVerifiedAt;
     private boolean phoneVerified;
     private Instant phoneVerifiedAt;
+    private boolean emailNotificationsEnabled;
+    private boolean smsNotificationsEnabled;
+    private String preferredLanguage;
     private Instant createdAt;
     private Instant updatedAt;
     private String creatorUsername;
@@ -31,6 +34,9 @@ public class UserDto {
                    String avatarUrl, String phoneCountryCode, String phoneNumber, boolean totpEnabled,
                    boolean emailVerified, Instant emailVerifiedAt,
                    boolean phoneVerified, Instant phoneVerifiedAt,
+                   boolean emailNotificationsEnabled,
+                   boolean smsNotificationsEnabled,
+                   String preferredLanguage,
                    Instant createdAt, Instant updatedAt, String creatorUsername, User.CreateMethod createMethod) {
         this.id = id;
         this.firstName = firstName;
@@ -46,6 +52,9 @@ public class UserDto {
         this.emailVerifiedAt = emailVerifiedAt;
         this.phoneVerified = phoneVerified;
         this.phoneVerifiedAt = phoneVerifiedAt;
+        this.emailNotificationsEnabled = emailNotificationsEnabled;
+        this.smsNotificationsEnabled = smsNotificationsEnabled;
+        this.preferredLanguage = preferredLanguage;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.creatorUsername = creatorUsername;
@@ -68,6 +77,9 @@ public class UserDto {
             user.getEmailVerifiedAt(),
             user.isPhoneVerified(),
             user.getPhoneVerifiedAt(),
+            user.isEmailNotificationsEnabled(),
+            user.isSmsNotificationsEnabled(),
+            com.domainify.util.UserPreferredLanguage.normalize(user.getPreferredLanguage()),
             user.getCreatedAt(),
             user.getUpdatedAt(),
             user.getCreatorUsername(),
@@ -185,6 +197,30 @@ public class UserDto {
 
     public void setPhoneVerifiedAt(Instant phoneVerifiedAt) {
         this.phoneVerifiedAt = phoneVerifiedAt;
+    }
+
+    public boolean isEmailNotificationsEnabled() {
+        return emailNotificationsEnabled;
+    }
+
+    public void setEmailNotificationsEnabled(boolean emailNotificationsEnabled) {
+        this.emailNotificationsEnabled = emailNotificationsEnabled;
+    }
+
+    public boolean isSmsNotificationsEnabled() {
+        return smsNotificationsEnabled;
+    }
+
+    public void setSmsNotificationsEnabled(boolean smsNotificationsEnabled) {
+        this.smsNotificationsEnabled = smsNotificationsEnabled;
+    }
+
+    public String getPreferredLanguage() {
+        return preferredLanguage;
+    }
+
+    public void setPreferredLanguage(String preferredLanguage) {
+        this.preferredLanguage = preferredLanguage;
     }
 
     public Instant getCreatedAt() {

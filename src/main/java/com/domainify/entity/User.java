@@ -101,6 +101,21 @@ public class User implements UserDetails {
 
     private Instant phoneVerifiedAt;
 
+    /** Opt-in for ticket email alerts (reply, assignment, status). Default on. */
+    @ColumnDefault("true")
+    @Column(nullable = true)
+    private Boolean emailNotificationsEnabled = true;
+
+    /** Opt-in for URGENT ticket SMS alerts. Default off. */
+    @ColumnDefault("false")
+    @Column(nullable = true)
+    private Boolean smsNotificationsEnabled = false;
+
+    /** UI / notification language: en, fa, ar, or tr. */
+    @ColumnDefault("'en'")
+    @Column(nullable = true, length = 5)
+    private String preferredLanguage = "en";
+
     @Column(length = 72)
     private String phoneVerificationOtpHash;
 
@@ -360,6 +375,30 @@ public class User implements UserDetails {
 
     public void setPhoneVerifiedAt(Instant phoneVerifiedAt) {
         this.phoneVerifiedAt = phoneVerifiedAt;
+    }
+
+    public boolean isEmailNotificationsEnabled() {
+        return emailNotificationsEnabled == null || Boolean.TRUE.equals(emailNotificationsEnabled);
+    }
+
+    public void setEmailNotificationsEnabled(boolean emailNotificationsEnabled) {
+        this.emailNotificationsEnabled = emailNotificationsEnabled;
+    }
+
+    public boolean isSmsNotificationsEnabled() {
+        return Boolean.TRUE.equals(smsNotificationsEnabled);
+    }
+
+    public void setSmsNotificationsEnabled(boolean smsNotificationsEnabled) {
+        this.smsNotificationsEnabled = smsNotificationsEnabled;
+    }
+
+    public String getPreferredLanguage() {
+        return preferredLanguage;
+    }
+
+    public void setPreferredLanguage(String preferredLanguage) {
+        this.preferredLanguage = preferredLanguage;
     }
 
     public String getPhoneVerificationOtpHash() {

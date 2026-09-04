@@ -1,6 +1,5 @@
 package com.domainify.security;
 
-import com.domainify.entity.User;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,11 +57,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                     
                     if (jwtUtil.isTokenValid(jwt, userDetails)) {
-                        if (userDetails instanceof User user && user.requiresEmailVerificationForLogin()) {
-                            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Email verification required");
-                            return;
-                        }
-
+                        // Email verification is enforced at login; keep existing sessions usable
+                        // (e.g. after a profile email change that clears verified status).
                         UsernamePasswordAuthenticationToken authToken =
                                 new UsernamePasswordAuthenticationToken(
                                         userDetails,

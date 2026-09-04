@@ -25,6 +25,10 @@ public class RegisterRequest {
     @NotBlank(message = "{validation.confirmPassword.required}")
     private String confirmPassword;
 
+    /** Optional UI language for notifications: en, fa, ar, tr. */
+    @Size(max = 5)
+    private String preferredLanguage;
+
     public String getFirstName() {
         return firstName;
     }
@@ -63,5 +67,13 @@ public class RegisterRequest {
 
     public void setConfirmPassword(String confirmPassword) {
         this.confirmPassword = confirmPassword;
+    }
+
+    public String getPreferredLanguage() {
+        return preferredLanguage;
+    }
+
+    public void setPreferredLanguage(String preferredLanguage) {
+        this.preferredLanguage = preferredLanguage;
     }
 }

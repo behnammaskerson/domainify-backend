@@ -104,6 +104,10 @@ public class TicketCategoryService {
         category.setName(name);
         category.setCode(code);
         category.setActive(request.getActive() == null || request.getActive());
+        category.setEmailNotificationsEnabled(
+                request.getEmailNotificationsEnabled() == null || request.getEmailNotificationsEnabled());
+        category.setSmsNotificationsEnabled(
+                request.getSmsNotificationsEnabled() == null || request.getSmsNotificationsEnabled());
         category.setSortOrder(request.getSortOrder() == null
                 ? nextSortOrder()
                 : request.getSortOrder());
@@ -130,6 +134,12 @@ public class TicketCategoryService {
         }
         if (request.getActive() != null) {
             category.setActive(request.getActive());
+        }
+        if (request.getEmailNotificationsEnabled() != null) {
+            category.setEmailNotificationsEnabled(request.getEmailNotificationsEnabled());
+        }
+        if (request.getSmsNotificationsEnabled() != null) {
+            category.setSmsNotificationsEnabled(request.getSmsNotificationsEnabled());
         }
         if (request.getSortOrder() != null) {
             category.setSortOrder(request.getSortOrder());
@@ -224,6 +234,8 @@ public class TicketCategoryService {
                 category.getCode(),
                 category.getName(),
                 category.isActive(),
+                category.isEmailNotificationsEnabled(),
+                category.isSmsNotificationsEnabled(),
                 category.getSortOrder()
         );
         if (category.getId() != null) {

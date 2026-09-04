@@ -53,9 +53,27 @@ public class UserController {
         return ResponseEntity.ok(userService.verifyPhone(user, request.getCode()));
     }
 
+    @PatchMapping("/me/email-notifications")
+    public ResponseEntity<UserDto> setEmailNotifications(@AuthenticationPrincipal User user,
+                                                         @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setEmailNotificationsEnabled(user, Boolean.TRUE.equals(request.getEnabled())));
+    }
+
+    @PatchMapping("/me/sms-notifications")
+    public ResponseEntity<UserDto> setSmsNotifications(@AuthenticationPrincipal User user,
+                                                       @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setSmsNotificationsEnabled(user, Boolean.TRUE.equals(request.getEnabled())));
+    }
+
+    @PatchMapping("/me/preferred-language")
+    public ResponseEntity<UserDto> setPreferredLanguage(@AuthenticationPrincipal User user,
+                                                        @Valid @RequestBody UpdatePreferredLanguageRequest request) {
+        return ResponseEntity.ok(userService.setPreferredLanguage(user, request.getLanguage()));
+    }
+
     @PutMapping("/me")
-    public ResponseEntity<UserDto> updateProfile(@AuthenticationPrincipal User user,
-                                                 @Valid @RequestBody UpdateProfileRequest request) {
+    public ResponseEntity<UpdateProfileResponse> updateProfile(@AuthenticationPrincipal User user,
+                                                               @Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(userService.updateProfile(user, request));
     }
 
@@ -120,6 +138,20 @@ public class UserController {
                                                               @Valid @RequestBody AdminSetPasswordRequest request) {
         userService.adminSetPassword(id, request);
         return ResponseEntity.ok(ApiResponse.success(messageService.get("auth.password_changed"), null));
+    }
+
+    @PatchMapping("/{id}/email-notifications")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> setUserEmailNotifications(@PathVariable Long id,
+                                                             @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setEmailNotificationsEnabled(id, Boolean.TRUE.equals(request.getEnabled())));
+    }
+
+    @PatchMapping("/{id}/sms-notifications")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> setUserSmsNotifications(@PathVariable Long id,
+                                                           @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setSmsNotificationsEnabled(id, Boolean.TRUE.equals(request.getEnabled())));
     }
 
     @PatchMapping("/{id}/enabled")

@@ -36,6 +36,7 @@ public class UserService {
     private final EmailVerificationService emailVerificationService;
     private final PhoneVerificationService phoneVerificationService;
     private final UserDeletionGuard userDeletionGuard;
+    private final AuthService authService;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -44,7 +45,8 @@ public class UserService {
                        PasswordHistoryRepository passwordHistoryRepository,
                        EmailVerificationService emailVerificationService,
                        PhoneVerificationService phoneVerificationService,
-                       UserDeletionGuard userDeletionGuard) {
+                       UserDeletionGuard userDeletionGuard,
+                       AuthService authService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.avatarStorageService = avatarStorageService;
@@ -53,6 +55,7 @@ public class UserService {
         this.emailVerificationService = emailVerificationService;
         this.phoneVerificationService = phoneVerificationService;
         this.userDeletionGuard = userDeletionGuard;
+        this.authService = authService;
     }
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
@@ -214,7 +217,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserDto updateProfile(User currentUser, UpdateProfileRequest request) {
+    public UpdateProfileResponse updateProfile(User currentUser, UpdateProfileRequest request) {
         User user = findUser(currentUser.getId());
         String previousEmail = user.getEmail();
         String previousPhoneCountry = user.getPhoneCountryCode();
@@ -235,8 +238,45 @@ public class UserService {
         User saved = userRepository.save(user);
         if (emailChanged) {
             emailVerificationService.sendVerificationEmailSilently(saved);
+            // JWT subject is the email; reissue so subsequent requests don't look up the old address.
+            return authService.reissueTokensAfterEmailChange(saved);
         }
-        return UserDto.fromUser(saved);
+        return UpdateProfileResponse.of(UserDto.fromUser(saved));
+    }
+
+    @Transactional
+    public UserDto setEmailNotificationsEnabled(Long id, boolean enabled) {
+        User user = findUser(id);
+        user.setEmailNotificationsEnabled(enabled);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserDto setEmailNotificationsEnabled(User currentUser, boolean enabled) {
+        User user = findUser(currentUser.getId());
+        user.setEmailNotificationsEnabled(enabled);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserDto setSmsNotificationsEnabled(Long id, boolean enabled) {
+        User user = findUser(id);
+        user.setSmsNotificationsEnabled(enabled);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserDto setSmsNotificationsEnabled(User currentUser, boolean enabled) {
+        User user = findUser(currentUser.getId());
+        user.setSmsNotificationsEnabled(enabled);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserDto setPreferredLanguage(User currentUser, String language) {
+        User user = findUser(currentUser.getId());
+        user.setPreferredLanguage(com.domainify.util.UserPreferredLanguage.normalize(language));
+        return UserDto.fromUser(userRepository.save(user));
     }
 
     @Transactional

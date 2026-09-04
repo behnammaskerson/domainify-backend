@@ -9,17 +9,28 @@ public class TicketCategoryDto {
     private String code;
     private String name;
     private boolean active;
+    private boolean emailNotificationsEnabled = true;
+    private boolean smsNotificationsEnabled = true;
     private int sortOrder;
     private List<Long> agentIds = new ArrayList<>();
 
     public TicketCategoryDto() {
     }
 
-    public TicketCategoryDto(Long id, String code, String name, boolean active, int sortOrder) {
+    public TicketCategoryDto(
+            Long id,
+            String code,
+            String name,
+            boolean active,
+            boolean emailNotificationsEnabled,
+            boolean smsNotificationsEnabled,
+            int sortOrder) {
         this.id = id;
         this.code = code;
         this.name = name;
         this.active = active;
+        this.emailNotificationsEnabled = emailNotificationsEnabled;
+        this.smsNotificationsEnabled = smsNotificationsEnabled;
         this.sortOrder = sortOrder;
     }
 
@@ -53,6 +64,22 @@ public class TicketCategoryDto {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public boolean isEmailNotificationsEnabled() {
+        return emailNotificationsEnabled;
+    }
+
+    public void setEmailNotificationsEnabled(boolean emailNotificationsEnabled) {
+        this.emailNotificationsEnabled = emailNotificationsEnabled;
+    }
+
+    public boolean isSmsNotificationsEnabled() {
+        return smsNotificationsEnabled;
+    }
+
+    public void setSmsNotificationsEnabled(boolean smsNotificationsEnabled) {
+        this.smsNotificationsEnabled = smsNotificationsEnabled;
     }
 
     public int getSortOrder() {

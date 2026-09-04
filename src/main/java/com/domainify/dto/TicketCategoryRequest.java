@@ -14,6 +14,10 @@ public class TicketCategoryRequest {
 
     private Boolean active;
 
+    private Boolean emailNotificationsEnabled;
+
+    private Boolean smsNotificationsEnabled;
+
     private Integer sortOrder;
 
     public String getName() {
@@ -38,6 +42,22 @@ public class TicketCategoryRequest {
 
     public void setActive(Boolean active) {
         this.active = active;
+    }
+
+    public Boolean getEmailNotificationsEnabled() {
+        return emailNotificationsEnabled;
+    }
+
+    public void setEmailNotificationsEnabled(Boolean emailNotificationsEnabled) {
+        this.emailNotificationsEnabled = emailNotificationsEnabled;
+    }
+
+    public Boolean getSmsNotificationsEnabled() {
+        return smsNotificationsEnabled;
+    }
+
+    public void setSmsNotificationsEnabled(Boolean smsNotificationsEnabled) {
+        this.smsNotificationsEnabled = smsNotificationsEnabled;
     }
 
     public Integer getSortOrder() {

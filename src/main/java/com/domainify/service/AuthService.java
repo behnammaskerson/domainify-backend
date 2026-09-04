@@ -57,6 +57,7 @@ public class AuthService {
         user.setEnabled(true);
         user.setCreateMethod(User.CreateMethod.REGISTER);
         user.setCreatorUsername(null);
+        user.setPreferredLanguage(com.domainify.util.UserPreferredLanguage.normalize(request.getPreferredLanguage()));
 
         user = userRepository.save(user);
         emailVerificationService.sendVerificationEmailSilently(user);
@@ -142,7 +143,8 @@ public class AuthService {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_EXPIRED);
         }
 
-        assertEmailVerifiedForLogin(user);
+        // Do not re-check email verification here: login already enforced it, and a mid-session
+        // email change may leave the address unverified while the user still has a valid refresh token.
 
         String newAccessToken = jwtUtil.generateToken(user, new HashMap<>());
 
@@ -193,6 +195,23 @@ public class AuthService {
 
     private AuthResponse issueTokens(User user) {
         assertEmailVerifiedForLogin(user);
+        return buildTokenResponse(user);
+    }
+
+    /**
+     * Re-issues access/refresh tokens after an identity change (e.g. profile email update).
+     * Skips the login-time email-verification gate so an already-authenticated session can continue.
+     */
+    @Transactional
+    public UpdateProfileResponse reissueTokensAfterEmailChange(User user) {
+        AuthResponse tokens = buildTokenResponse(user);
+        return UpdateProfileResponse.withTokens(
+                tokens.getUser(),
+                tokens.getAccessToken(),
+                tokens.getRefreshToken());
+    }
+
+    private AuthResponse buildTokenResponse(User user) {
         String accessToken = jwtUtil.generateToken(user, new HashMap<>());
         String refreshToken = jwtUtil.generateRefreshToken(user);
         user.setRefreshToken(refreshToken);

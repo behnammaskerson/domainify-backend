@@ -28,12 +28,18 @@ public class NotificationService {
 
     private final InAppNotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final TicketEmailNotificationService ticketEmailNotificationService;
+    private final TicketSmsNotificationService ticketSmsNotificationService;
 
     public NotificationService(
             InAppNotificationRepository notificationRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            TicketEmailNotificationService ticketEmailNotificationService,
+            TicketSmsNotificationService ticketSmsNotificationService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.ticketEmailNotificationService = ticketEmailNotificationService;
+        this.ticketSmsNotificationService = ticketSmsNotificationService;
     }
 
     @Transactional(readOnly = true)
@@ -251,6 +257,8 @@ public class NotificationService {
         notification.setStatusTo(to);
         notification.setRead(false);
         notificationRepository.save(notification);
+        ticketEmailNotificationService.sendIfConfigured(recipient, actor, type, ticket, from, to);
+        ticketSmsNotificationService.sendIfConfigured(recipient, actor, type, ticket, from, to);
     }
 
     private NotificationDto toDto(InAppNotification notification) {

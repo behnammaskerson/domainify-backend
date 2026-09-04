@@ -75,7 +75,9 @@ public class TicketSettingsService {
                 || request.getSlaMediumHours() == null
                 || request.getSlaLowHours() == null
                 || request.getAutoAssignMode() == null
-                || request.getAutoAssignFallbackRoundRobin() == null) {
+                || request.getAutoAssignFallbackRoundRobin() == null
+                || request.getTicketEmailNotificationsEnabled() == null
+                || request.getTicketSmsNotificationsEnabled() == null) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
@@ -89,6 +91,8 @@ public class TicketSettingsService {
         int slaLow = request.getSlaLowHours();
         TicketAutoAssignMode autoAssignMode = request.getAutoAssignMode();
         boolean autoAssignFallback = request.getAutoAssignFallbackRoundRobin();
+        boolean ticketEmailNotificationsEnabled = request.getTicketEmailNotificationsEnabled();
+        boolean ticketSmsNotificationsEnabled = request.getTicketSmsNotificationsEnabled();
         if (days < 1 || days > 3650
                 || maxAttachments < 1 || maxAttachments > 20
                 || maxSizeMb < 1 || maxSizeMb > 50
@@ -104,6 +108,17 @@ public class TicketSettingsService {
         if (kinds.isEmpty()) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
+        Set<TicketPriority> emailPriorities = TicketSettings.parsePriorities(
+                String.join(",", request.getEmailNotificationPriorities() == null
+                        ? List.<String>of()
+                        : request.getEmailNotificationPriorities()));
+        Set<TicketPriority> smsPriorities = TicketSettings.parsePriorities(
+                String.join(",", request.getSmsNotificationPriorities() == null
+                        ? List.<String>of()
+                        : request.getSmsNotificationPriorities()));
+        if (emailPriorities.isEmpty() || smsPriorities.isEmpty()) {
+            throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+        }
 
         TicketSettings settings = getOrCreate();
         settings.setReopenWindowDays(days);
@@ -116,6 +131,10 @@ public class TicketSettingsService {
         settings.setSlaLowHours(slaLow);
         settings.setAutoAssignMode(autoAssignMode);
         settings.setAutoAssignFallbackRoundRobin(autoAssignFallback);
+        settings.setTicketEmailNotificationsEnabled(ticketEmailNotificationsEnabled);
+        settings.setTicketSmsNotificationsEnabled(ticketSmsNotificationsEnabled);
+        settings.setEmailNotificationPriorities(TicketSettings.toPriorityCsv(emailPriorities));
+        settings.setSmsNotificationPriorities(TicketSettings.toPriorityCsv(smsPriorities));
         settings.setAllowedAttachmentKinds(TicketAttachmentKind.toCsv(kinds));
         settings.normalize();
         return toDto(ticketSettingsRepository.save(settings));
@@ -210,6 +229,12 @@ public class TicketSettingsService {
         List<String> kinds = settings.resolvedAttachmentKinds().stream()
                 .map(Enum::name)
                 .toList();
+        List<String> emailPriorities = settings.resolvedEmailNotificationPriorities().stream()
+                .map(Enum::name)
+                .toList();
+        List<String> smsPriorities = settings.resolvedSmsNotificationPriorities().stream()
+                .map(Enum::name)
+                .toList();
         return new TicketSettingsDto(
                 settings.getReopenWindowDays(),
                 settings.getMaxAttachments(),
@@ -221,7 +246,11 @@ public class TicketSettingsService {
                 settings.getSlaMediumHours(),
                 settings.getSlaLowHours(),
                 settings.getAutoAssignMode() != null ? settings.getAutoAssignMode() : TicketAutoAssignMode.OFF,
-                settings.isAutoAssignFallbackRoundRobin()
+                settings.isAutoAssignFallbackRoundRobin(),
+                settings.isTicketEmailNotificationsEnabled(),
+                settings.isTicketSmsNotificationsEnabled(),
+                emailPriorities,
+                smsPriorities
         );
     }
 

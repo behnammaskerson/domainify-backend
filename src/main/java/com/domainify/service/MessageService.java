@@ -34,4 +34,12 @@ public class MessageService {
     public String get(String key, Object[] args) {
         return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
     }
+
+    public String get(String key, Locale locale) {
+        return messageSource.getMessage(key, null, key, locale != null ? locale : Locale.ENGLISH);
+    }
+
+    public String get(String key, Object[] args, Locale locale) {
+        return messageSource.getMessage(key, args, key, locale != null ? locale : Locale.ENGLISH);
+    }
 }
