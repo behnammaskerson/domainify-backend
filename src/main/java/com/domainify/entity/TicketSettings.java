@@ -91,6 +91,10 @@ public class TicketSettings {
     @Column(name = "round_robin_last_user_id")
     private Long roundRobinLastUserId;
 
+    /** Optional default queue applied to newly created tickets. */
+    @Column(name = "default_queue_id")
+    private Long defaultQueueId;
+
     /** Master switch for ticket event emails (reply / assign / status). Default on. */
     @ColumnDefault("true")
     @Column(name = "ticket_email_notifications_enabled", nullable = true)
@@ -357,6 +361,14 @@ public class TicketSettings {
 
     public void setRoundRobinLastUserId(Long roundRobinLastUserId) {
         this.roundRobinLastUserId = roundRobinLastUserId;
+    }
+
+    public Long getDefaultQueueId() {
+        return defaultQueueId;
+    }
+
+    public void setDefaultQueueId(Long defaultQueueId) {
+        this.defaultQueueId = defaultQueueId;
     }
 
     public boolean isTicketEmailNotificationsEnabled() {

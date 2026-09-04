@@ -26,9 +26,13 @@ import java.time.Instant;
 public class TicketSettingsService {
 
     private final TicketSettingsRepository ticketSettingsRepository;
+    private final TicketQueueService ticketQueueService;
 
-    public TicketSettingsService(TicketSettingsRepository ticketSettingsRepository) {
+    public TicketSettingsService(
+            TicketSettingsRepository ticketSettingsRepository,
+            TicketQueueService ticketQueueService) {
         this.ticketSettingsRepository = ticketSettingsRepository;
+        this.ticketQueueService = ticketQueueService;
     }
 
     @Transactional
@@ -131,6 +135,12 @@ public class TicketSettingsService {
         settings.setSlaLowHours(slaLow);
         settings.setAutoAssignMode(autoAssignMode);
         settings.setAutoAssignFallbackRoundRobin(autoAssignFallback);
+        if (request.getDefaultQueueId() != null) {
+            ticketQueueService.requireActiveQueue(request.getDefaultQueueId());
+            settings.setDefaultQueueId(request.getDefaultQueueId());
+        } else {
+            settings.setDefaultQueueId(null);
+        }
         settings.setTicketEmailNotificationsEnabled(ticketEmailNotificationsEnabled);
         settings.setTicketSmsNotificationsEnabled(ticketSmsNotificationsEnabled);
         settings.setEmailNotificationPriorities(TicketSettings.toPriorityCsv(emailPriorities));
@@ -235,7 +245,7 @@ public class TicketSettingsService {
         List<String> smsPriorities = settings.resolvedSmsNotificationPriorities().stream()
                 .map(Enum::name)
                 .toList();
-        return new TicketSettingsDto(
+        TicketSettingsDto dto = new TicketSettingsDto(
                 settings.getReopenWindowDays(),
                 settings.getMaxAttachments(),
                 settings.getMaxAttachmentSizeMb(),
@@ -252,6 +262,8 @@ public class TicketSettingsService {
                 emailPriorities,
                 smsPriorities
         );
+        dto.setDefaultQueueId(settings.getDefaultQueueId());
+        return dto;
     }
 
     private TicketAttachmentPolicyDto toPolicy(TicketSettings settings) {

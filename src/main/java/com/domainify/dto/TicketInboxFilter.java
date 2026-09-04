@@ -10,6 +10,7 @@ public class TicketInboxFilter {
     private TicketStatus status;
     private TicketPriority priority;
     private Long categoryId;
+    private Long queueId;
     private Long assigneeId;
     private boolean unassignedOnly;
     private Instant createdFrom;
@@ -39,6 +40,14 @@ public class TicketInboxFilter {
 
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
+    }
+
+    public Long getQueueId() {
+        return queueId;
+    }
+
+    public void setQueueId(Long queueId) {
+        this.queueId = queueId;
     }
 
     public Long getAssigneeId() {

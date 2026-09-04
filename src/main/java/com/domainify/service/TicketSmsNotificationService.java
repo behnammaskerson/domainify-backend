@@ -36,6 +36,7 @@ public class TicketSmsNotificationService {
             NotificationType.TICKET_CUSTOMER_REPLY,
             NotificationType.TICKET_STAFF_REPLY,
             NotificationType.TICKET_ASSIGNED,
+            NotificationType.TICKET_TRANSFERRED,
             NotificationType.TICKET_STATUS_CHANGED,
             NotificationType.TICKET_CLOSED,
             NotificationType.TICKET_REOPENED
@@ -140,7 +141,7 @@ public class TicketSmsNotificationService {
                     "notification.sms.event.reply",
                     new Object[]{actorName},
                     locale);
-            case TICKET_ASSIGNED -> messageService.get(
+            case TICKET_ASSIGNED, TICKET_TRANSFERRED -> messageService.get(
                     "notification.sms.event.assigned",
                     new Object[]{actorName},
                     locale);

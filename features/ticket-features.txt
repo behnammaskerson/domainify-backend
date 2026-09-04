@@ -33,10 +33,9 @@ done - SMS notification of ticket updates (fits your SMS.ir stack)
 3. Assignment & team workflow
 done - Assign to agent / unassign
 done - Auto-assign round-robin or by category skill
-
-Assignment queues / departments (Support, Billing, Technical)
-Watchers / followers (notify without being assignee)
-Transfer ticket between agents/departments
+done - Assignment queues / departments
+done - Watchers / followers (notify without being assignee)
+done - Transfer ticket between agents/departments
 Escalation (manual + automatic by SLA breach)
 Agent presence / availability (optional)
 Workload view (open tickets per agent)

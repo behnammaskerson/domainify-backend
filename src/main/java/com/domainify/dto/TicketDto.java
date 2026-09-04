@@ -15,6 +15,7 @@ public class TicketDto {
     private String subject;
     private String description;
     private TicketCategoryDto category;
+    private TicketQueueDto queue;
     private TicketPriority priority;
     private TicketStatus status;
     private TicketChannel channel;
@@ -81,6 +82,14 @@ public class TicketDto {
 
     public void setCategory(TicketCategoryDto category) {
         this.category = category;
+    }
+
+    public TicketQueueDto getQueue() {
+        return queue;
+    }
+
+    public void setQueue(TicketQueueDto queue) {
+        this.queue = queue;
     }
 
     public TicketPriority getPriority() {

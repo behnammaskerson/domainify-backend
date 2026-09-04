@@ -11,7 +11,9 @@ import com.domainify.entity.TicketMention;
 import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketStatus;
 import com.domainify.entity.TicketTag;
+import com.domainify.entity.TicketWatcher;
 import com.domainify.entity.User;
+import com.domainify.repository.TicketAgentQueueMembershipRepository;
 import com.domainify.repository.TicketRepository;
 import com.domainify.repository.UserRepository;
 import jakarta.persistence.criteria.Join;
@@ -52,16 +54,19 @@ public class AdminTicketService {
     private final TicketCategoryService ticketCategoryService;
     private final TicketTagService ticketTagService;
     private final UserRepository userRepository;
+    private final TicketAgentQueueMembershipRepository queueMembershipRepository;
 
     public AdminTicketService(
             TicketRepository ticketRepository,
             TicketCategoryService ticketCategoryService,
             TicketTagService ticketTagService,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            TicketAgentQueueMembershipRepository queueMembershipRepository) {
         this.ticketRepository = ticketRepository;
         this.ticketCategoryService = ticketCategoryService;
         this.ticketTagService = ticketTagService;
         this.userRepository = userRepository;
+        this.queueMembershipRepository = queueMembershipRepository;
     }
 
     @Transactional(readOnly = true)
@@ -126,6 +131,26 @@ public class AdminTicketService {
                     predicates.add(cb.equal(root.get("assignee").get("id"), agentId));
                     predicates.add(root.get("status").in(ACTIVE_STATUSES));
                 }
+                case MY_QUEUE -> {
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNull(root.get("archivedAt")));
+                    List<Long> queueIds = queueMembershipRepository.findQueueIdsByUserId(agentId);
+                    if (queueIds.isEmpty()) {
+                        predicates.add(cb.disjunction());
+                    } else {
+                        predicates.add(root.get("queue").get("id").in(queueIds));
+                    }
+                    predicates.add(root.get("status").in(ACTIVE_STATUSES));
+                }
+                case WATCHING -> {
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNull(root.get("archivedAt")));
+                    Subquery<Long> watcherSubquery = query.subquery(Long.class);
+                    var watcherRoot = watcherSubquery.from(TicketWatcher.class);
+                    watcherSubquery.select(watcherRoot.get("ticket").get("id"))
+                            .where(cb.equal(watcherRoot.get("user").get("id"), agentId));
+                    predicates.add(root.get("id").in(watcherSubquery));
+                }
                 case MENTIONS -> {
                     predicates.add(cb.isNull(root.get("deletedAt")));
                     predicates.add(cb.isNull(root.get("archivedAt")));
@@ -161,6 +186,9 @@ public class AdminTicketService {
             }
             if (filter.getCategoryId() != null) {
                 predicates.add(cb.equal(root.get("category").get("id"), filter.getCategoryId()));
+            }
+            if (filter.getQueueId() != null) {
+                predicates.add(cb.equal(root.get("queue").get("id"), filter.getQueueId()));
             }
             if (filter.isUnassignedOnly()) {
                 predicates.add(cb.isNull(root.get("assignee")));

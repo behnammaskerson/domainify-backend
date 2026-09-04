@@ -3,9 +3,11 @@ package com.domainify.service;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketAutoAssignMode;
 import com.domainify.entity.TicketCategory;
+import com.domainify.entity.TicketQueue;
 import com.domainify.entity.TicketSettings;
 import com.domainify.entity.User;
 import com.domainify.repository.TicketAgentCategorySkillRepository;
+import com.domainify.repository.TicketAgentQueueMembershipRepository;
 import com.domainify.repository.TicketSettingsRepository;
 import com.domainify.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -19,14 +21,17 @@ public class TicketAutoAssignService {
     private final TicketSettingsRepository ticketSettingsRepository;
     private final UserRepository userRepository;
     private final TicketAgentCategorySkillRepository skillRepository;
+    private final TicketAgentQueueMembershipRepository queueMembershipRepository;
 
     public TicketAutoAssignService(
             TicketSettingsRepository ticketSettingsRepository,
             UserRepository userRepository,
-            TicketAgentCategorySkillRepository skillRepository) {
+            TicketAgentCategorySkillRepository skillRepository,
+            TicketAgentQueueMembershipRepository queueMembershipRepository) {
         this.ticketSettingsRepository = ticketSettingsRepository;
         this.userRepository = userRepository;
         this.skillRepository = skillRepository;
+        this.queueMembershipRepository = queueMembershipRepository;
     }
 
     /**
@@ -51,6 +56,17 @@ public class TicketAutoAssignService {
             TicketCategory category = ticket.getCategory();
             pool = category != null && category.getId() != null
                     ? skillRepository.findEnabledAgentsByCategoryId(category.getId(), User.Role.ADMIN)
+                    : List.of();
+            if (pool.isEmpty()) {
+                if (!settings.isAutoAssignFallbackRoundRobin()) {
+                    return null;
+                }
+                pool = listEnabledAdmins();
+            }
+        } else if (mode == TicketAutoAssignMode.QUEUE_MEMBERSHIP) {
+            TicketQueue queue = ticket.getQueue();
+            pool = queue != null && queue.getId() != null
+                    ? queueMembershipRepository.findEnabledAgentsByQueueId(queue.getId(), User.Role.ADMIN)
                     : List.of();
             if (pool.isEmpty()) {
                 if (!settings.isAutoAssignFallbackRoundRobin()) {

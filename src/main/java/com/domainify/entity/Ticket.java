@@ -31,6 +31,7 @@ import java.util.Set;
         @Index(name = "idx_tickets_requester", columnList = "requester_id"),
         @Index(name = "idx_tickets_status", columnList = "status"),
         @Index(name = "idx_tickets_assignee", columnList = "assignee_id"),
+        @Index(name = "idx_tickets_queue", columnList = "queue_id"),
         @Index(name = "idx_tickets_due_at", columnList = "due_at")
 })
 public class Ticket {
@@ -51,6 +52,10 @@ public class Ticket {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
     private TicketCategory category;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "queue_id")
+    private TicketQueue queue;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -171,6 +176,14 @@ public class Ticket {
 
     public void setCategory(TicketCategory category) {
         this.category = category;
+    }
+
+    public TicketQueue getQueue() {
+        return queue;
+    }
+
+    public void setQueue(TicketQueue queue) {
+        this.queue = queue;
     }
 
     public TicketPriority getPriority() {

@@ -7,12 +7,15 @@ import com.domainify.dto.RelatedTicketDto;
 import com.domainify.dto.SplitTicketRequest;
 import com.domainify.dto.SplitTicketResultDto;
 import com.domainify.dto.SaveTicketReplyDraftRequest;
+import com.domainify.dto.TicketAssigneeOptionDto;
 import com.domainify.dto.TicketAttachmentDto;
 import com.domainify.dto.TicketReplyDraftDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketMessageDto;
 import com.domainify.dto.TicketMessageRevisionDto;
+import com.domainify.dto.TicketTransferDto;
+import com.domainify.dto.TransferTicketRequest;
 import com.domainify.dto.UpdateTicketDueDateRequest;
 import com.domainify.dto.UpdateTicketMessageRequest;
 import com.domainify.dto.UpdateTicketTagsRequest;
@@ -25,10 +28,13 @@ import com.domainify.entity.TicketMessage;
 import com.domainify.entity.TicketMessageAttachment;
 import com.domainify.entity.TicketMessageRevision;
 import com.domainify.entity.TicketPriority;
+import com.domainify.entity.TicketQueue;
 import com.domainify.entity.TicketReplyDraft;
 import com.domainify.entity.TicketRelatedLink;
 import com.domainify.entity.TicketStatus;
 import com.domainify.entity.TicketTag;
+import com.domainify.entity.TicketTransfer;
+import com.domainify.entity.TicketWatcher;
 import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
@@ -40,6 +46,8 @@ import com.domainify.repository.TicketMessageRevisionRepository;
 import com.domainify.repository.TicketReplyDraftRepository;
 import com.domainify.repository.TicketRelatedLinkRepository;
 import com.domainify.repository.TicketRepository;
+import com.domainify.repository.TicketTransferRepository;
+import com.domainify.repository.TicketWatcherRepository;
 import com.domainify.repository.UserRepository;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.core.io.ByteArrayResource;
@@ -88,7 +96,10 @@ public class TicketService {
     private final TicketMentionRepository ticketMentionRepository;
     private final TicketReplyDraftRepository ticketReplyDraftRepository;
     private final TicketRelatedLinkRepository ticketRelatedLinkRepository;
+    private final TicketWatcherRepository ticketWatcherRepository;
+    private final TicketTransferRepository ticketTransferRepository;
     private final TicketCategoryService ticketCategoryService;
+    private final TicketQueueService ticketQueueService;
     private final TicketMentionService ticketMentionService;
     private final TicketStatusWorkflowService ticketStatusWorkflowService;
     private final TicketTagService ticketTagService;
@@ -106,7 +117,10 @@ public class TicketService {
             TicketMentionRepository ticketMentionRepository,
             TicketReplyDraftRepository ticketReplyDraftRepository,
             TicketRelatedLinkRepository ticketRelatedLinkRepository,
+            TicketWatcherRepository ticketWatcherRepository,
+            TicketTransferRepository ticketTransferRepository,
             TicketCategoryService ticketCategoryService,
+            TicketQueueService ticketQueueService,
             TicketMentionService ticketMentionService,
             TicketStatusWorkflowService ticketStatusWorkflowService,
             TicketTagService ticketTagService,
@@ -122,7 +136,10 @@ public class TicketService {
         this.ticketMentionRepository = ticketMentionRepository;
         this.ticketReplyDraftRepository = ticketReplyDraftRepository;
         this.ticketRelatedLinkRepository = ticketRelatedLinkRepository;
+        this.ticketWatcherRepository = ticketWatcherRepository;
+        this.ticketTransferRepository = ticketTransferRepository;
         this.ticketCategoryService = ticketCategoryService;
+        this.ticketQueueService = ticketQueueService;
         this.ticketMentionService = ticketMentionService;
         this.ticketStatusWorkflowService = ticketStatusWorkflowService;
         this.ticketTagService = ticketTagService;
@@ -393,6 +410,112 @@ public class TicketService {
     }
 
     @Transactional
+    public TicketDetailDto updateQueueAsStaff(User agent, Long ticketId, Long queueId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        assertNotDeleted(ticket);
+
+        Long previousId = ticket.getQueue() != null ? ticket.getQueue().getId() : null;
+        TicketQueue nextQueue = queueId == null ? null : ticketQueueService.requireActiveQueue(queueId);
+        Long nextId = nextQueue != null ? nextQueue.getId() : null;
+        if ((previousId == null && nextId == null)
+                || (previousId != null && previousId.equals(nextId))) {
+            return toDetailDto(ticket, agent, true);
+        }
+
+        ticket.setQueue(nextQueue);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto transferAsStaff(User agent, Long ticketId, TransferTicketRequest request) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        assertNotDeleted(ticket);
+        if (request == null || (!request.isAssigneeChanged() && !request.isQueueChanged())) {
+            throw new ApiException(ErrorCode.TICKET_TRANSFER_INVALID);
+        }
+
+        String note = request.getNote() == null ? null : request.getNote().trim();
+        if (StringUtils.hasText(note) && note.length() > 2000) {
+            throw new ApiException(ErrorCode.TICKET_TRANSFER_NOTE_TOO_LONG);
+        }
+
+        User fromAssignee = ticket.getAssignee();
+        TicketQueue fromQueue = ticket.getQueue();
+        User toAssignee = fromAssignee;
+        TicketQueue toQueue = fromQueue;
+        boolean assigneeChanged = false;
+        boolean queueChanged = false;
+
+        if (request.isAssigneeChanged()) {
+            if (request.getAssigneeId() != null) {
+                toAssignee = userRepository.findById(request.getAssigneeId())
+                        .orElseThrow(() -> new ApiException(ErrorCode.TICKET_ASSIGNEE_NOT_FOUND));
+                if (toAssignee.getRole() != User.Role.ADMIN || !toAssignee.isEnabled()) {
+                    throw new ApiException(ErrorCode.TICKET_ASSIGNEE_INVALID);
+                }
+            } else {
+                toAssignee = null;
+            }
+            Long fromId = fromAssignee != null ? fromAssignee.getId() : null;
+            Long toId = toAssignee != null ? toAssignee.getId() : null;
+            assigneeChanged = (fromId == null) != (toId == null)
+                    || (fromId != null && !fromId.equals(toId));
+        }
+
+        if (request.isQueueChanged()) {
+            toQueue = request.getQueueId() == null
+                    ? null
+                    : ticketQueueService.requireActiveQueue(request.getQueueId());
+            Long fromQueueId = fromQueue != null ? fromQueue.getId() : null;
+            Long toQueueId = toQueue != null ? toQueue.getId() : null;
+            queueChanged = (fromQueueId == null) != (toQueueId == null)
+                    || (fromQueueId != null && !fromQueueId.equals(toQueueId));
+        }
+
+        if (!assigneeChanged && !queueChanged) {
+            throw new ApiException(ErrorCode.TICKET_TRANSFER_NO_CHANGE);
+        }
+
+        if (assigneeChanged) {
+            ticket.setAssignee(toAssignee);
+        }
+        if (queueChanged) {
+            ticket.setQueue(toQueue);
+        }
+        ticketRepository.save(ticket);
+
+        TicketTransfer transfer = new TicketTransfer();
+        transfer.setTicket(ticket);
+        transfer.setTransferredBy(agent);
+        transfer.setFromAssignee(fromAssignee);
+        transfer.setToAssignee(assigneeChanged ? toAssignee : fromAssignee);
+        transfer.setFromQueue(fromQueue);
+        transfer.setToQueue(queueChanged ? toQueue : fromQueue);
+        transfer.setNote(StringUtils.hasText(note) ? note : null);
+        ticketTransferRepository.save(transfer);
+
+        if (StringUtils.hasText(note)) {
+            TicketMessage message = new TicketMessage();
+            message.setTicket(ticket);
+            message.setAuthor(agent);
+            message.setBody(note);
+            message.setInternalNote(true);
+            ticketMessageRepository.save(message);
+        }
+
+        if (assigneeChanged) {
+            notificationService.onTransferred(ticket, agent, fromAssignee, toAssignee);
+        } else {
+            notificationService.onTransferred(ticket, agent, null, null);
+        }
+
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
     public TicketDetailDto updateStatusAsStaff(User agent, Long ticketId, TicketStatus nextStatus) {
         requireAgent(agent);
         if (nextStatus == null) {
@@ -639,6 +762,7 @@ public class TicketService {
         child.setSubject(subject);
         child.setDescription(description);
         child.setCategory(source.getCategory());
+        child.setQueue(source.getQueue());
         child.setPriority(source.getPriority());
         child.setStatus(TicketStatus.NEW);
         child.setChannel(source.getChannel());
@@ -752,6 +876,72 @@ public class TicketService {
 
         ticketRelatedLinkRepository.deleteBidirectional(ticketId, relatedTicketId);
         return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto watchAsStaff(User agent, Long ticketId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        addWatcher(ticket, agent, agent, false);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto unwatchAsStaff(User agent, Long ticketId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        ticketWatcherRepository.deleteByTicketIdAndUserId(ticket.getId(), agent.getId());
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto addWatcherAsStaff(User agent, Long ticketId, Long userId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (userId == null) {
+            throw new ApiException(ErrorCode.TICKET_WATCHER_NOT_FOUND);
+        }
+        User watcher = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_WATCHER_NOT_FOUND));
+        addWatcher(ticket, watcher, agent, true);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto removeWatcherAsStaff(User agent, Long ticketId, Long userId) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (userId == null || !ticketWatcherRepository.existsByTicketIdAndUserId(ticket.getId(), userId)) {
+            throw new ApiException(ErrorCode.TICKET_WATCHER_NOT_FOUND);
+        }
+        ticketWatcherRepository.deleteByTicketIdAndUserId(ticket.getId(), userId);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    private void addWatcher(Ticket ticket, User watcher, User actor, boolean notifyWatcher) {
+        if (ticket.isDeleted()) {
+            throw new ApiException(ErrorCode.TICKET_DELETED);
+        }
+        requireValidWatcher(watcher);
+        if (ticketWatcherRepository.existsByTicketIdAndUserId(ticket.getId(), watcher.getId())) {
+            throw new ApiException(ErrorCode.TICKET_WATCHER_ALREADY);
+        }
+        TicketWatcher link = new TicketWatcher();
+        link.setTicket(ticket);
+        link.setUser(watcher);
+        ticketWatcherRepository.save(link);
+        if (notifyWatcher) {
+            notificationService.onWatcherAdded(ticket, watcher, actor);
+        }
+    }
+
+    private void requireValidWatcher(User watcher) {
+        if (watcher == null || watcher.getId() == null) {
+            throw new ApiException(ErrorCode.TICKET_WATCHER_NOT_FOUND);
+        }
+        if (watcher.getRole() != User.Role.ADMIN || !watcher.isEnabled()) {
+            throw new ApiException(ErrorCode.TICKET_WATCHER_INVALID);
+        }
     }
 
     @Transactional
@@ -1075,6 +1265,14 @@ public class TicketService {
         ticket.setSubject(trimmedSubject);
         ticket.setDescription(trimmedDescription);
         ticket.setCategory(category);
+        Long defaultQueueId = ticketSettingsService.getOrCreate().getDefaultQueueId();
+        if (defaultQueueId != null) {
+            try {
+                ticket.setQueue(ticketQueueService.requireActiveQueue(defaultQueueId));
+            } catch (ApiException ignored) {
+                // Invalid/inactive default queue — leave unset.
+            }
+        }
         ticket.setPriority(priority);
         ticket.setStatus(TicketStatus.NEW);
         ticket.setChannel(TicketChannel.PORTAL);
@@ -1196,6 +1394,26 @@ public class TicketService {
         detail.setCanSplit(includeWorkflow && !deleted && !archived && !ticket.isMerged() && replyCount > 0);
         detail.setCanLinkRelated(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setCanEditDueDate(includeWorkflow && !deleted && !ticket.isMerged());
+        detail.setCanWatch(includeWorkflow && !deleted);
+        detail.setCanTransfer(includeWorkflow && !deleted && !archived && !ticket.isMerged());
+        if (includeWorkflow && ticket.getId() != null) {
+            boolean watching = viewer != null && viewer.getId() != null
+                    && ticketWatcherRepository.existsByTicketIdAndUserId(ticket.getId(), viewer.getId());
+            detail.setWatching(watching);
+            List<TicketAssigneeOptionDto> watchers = ticketWatcherRepository
+                    .findByTicketIdOrderByCreatedAtAsc(ticket.getId())
+                    .stream()
+                    .map(TicketWatcher::getUser)
+                    .filter(user -> user != null && user.isEnabled())
+                    .map(user -> new TicketAssigneeOptionDto(user.getId(), displayName(user), user.getEmail()))
+                    .toList();
+            detail.setWatchers(watchers);
+            detail.setTransfers(ticketTransferRepository
+                    .findByTicketIdOrderByCreatedAtDescIdDesc(ticket.getId())
+                    .stream()
+                    .map(this::toTransferDto)
+                    .toList());
+        }
         detail.setReopenUntil(reopenDeadline(ticket));
         detail.setReopenWindowDays(ticketSettingsService.getReopenWindowDays());
         if (viewer != null) {
@@ -1466,10 +1684,41 @@ public class TicketService {
     }
 
     private String displayName(User user) {
+        if (user == null) {
+            return null;
+        }
         String first = user.getFirstName() == null ? "" : user.getFirstName().trim();
         String last = user.getLastName() == null ? "" : user.getLastName().trim();
         String full = (first + " " + last).trim();
         return StringUtils.hasText(full) ? full : user.getEmail();
+    }
+
+    private TicketTransferDto toTransferDto(TicketTransfer transfer) {
+        TicketTransferDto dto = new TicketTransferDto();
+        dto.setId(transfer.getId());
+        dto.setNote(transfer.getNote());
+        dto.setCreatedAt(transfer.getCreatedAt());
+        if (transfer.getTransferredBy() != null) {
+            dto.setTransferredById(transfer.getTransferredBy().getId());
+            dto.setTransferredByName(displayName(transfer.getTransferredBy()));
+        }
+        if (transfer.getFromAssignee() != null) {
+            dto.setFromAssigneeId(transfer.getFromAssignee().getId());
+            dto.setFromAssigneeName(displayName(transfer.getFromAssignee()));
+        }
+        if (transfer.getToAssignee() != null) {
+            dto.setToAssigneeId(transfer.getToAssignee().getId());
+            dto.setToAssigneeName(displayName(transfer.getToAssignee()));
+        }
+        if (transfer.getFromQueue() != null) {
+            dto.setFromQueueId(transfer.getFromQueue().getId());
+            dto.setFromQueueName(transfer.getFromQueue().getName());
+        }
+        if (transfer.getToQueue() != null) {
+            dto.setToQueueId(transfer.getToQueue().getId());
+            dto.setToQueueName(transfer.getToQueue().getName());
+        }
+        return dto;
     }
 
     private TicketDto toListDto(Ticket ticket) {
@@ -1539,6 +1788,9 @@ public class TicketService {
         dto.setDescription(ticket.getDescription());
         if (ticket.getCategory() != null) {
             dto.setCategory(ticketCategoryService.toDto(ticket.getCategory()));
+        }
+        if (ticket.getQueue() != null) {
+            dto.setQueue(ticketQueueService.toSummaryDto(ticket.getQueue()));
         }
         dto.setPriority(ticket.getPriority());
         dto.setStatus(ticket.getStatus());

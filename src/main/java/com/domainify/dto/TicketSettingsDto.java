@@ -63,6 +63,8 @@ public class TicketSettingsDto {
     @NotNull
     private Boolean autoAssignFallbackRoundRobin = true;
 
+    private Long defaultQueueId;
+
     @NotNull
     private Boolean ticketEmailNotificationsEnabled = true;
 
@@ -199,6 +201,14 @@ public class TicketSettingsDto {
 
     public void setAutoAssignFallbackRoundRobin(Boolean autoAssignFallbackRoundRobin) {
         this.autoAssignFallbackRoundRobin = autoAssignFallbackRoundRobin;
+    }
+
+    public Long getDefaultQueueId() {
+        return defaultQueueId;
+    }
+
+    public void setDefaultQueueId(Long defaultQueueId) {
+        this.defaultQueueId = defaultQueueId;
     }
 
     public Boolean getTicketEmailNotificationsEnabled() {

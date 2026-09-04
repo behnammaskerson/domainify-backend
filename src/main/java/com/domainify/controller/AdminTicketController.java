@@ -1,5 +1,7 @@
 package com.domainify.controller;
 
+import com.domainify.dto.AddTicketWatcherRequest;
+import com.domainify.dto.AssignTicketQueueRequest;
 import com.domainify.dto.AssignTicketRequest;
 import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
@@ -14,6 +16,7 @@ import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketInboxFilter;
 import com.domainify.dto.TicketMessageRevisionDto;
 import com.domainify.dto.TicketTagDto;
+import com.domainify.dto.TransferTicketRequest;
 import com.domainify.dto.UpdateTicketDueDateRequest;
 import com.domainify.dto.UpdateTicketMessageRequest;
 import com.domainify.dto.UpdateTicketStatusRequest;
@@ -70,6 +73,7 @@ public class AdminTicketController {
             @RequestParam(value = "status", required = false) TicketStatus status,
             @RequestParam(value = "priority", required = false) TicketPriority priority,
             @RequestParam(value = "categoryId", required = false) Long categoryId,
+            @RequestParam(value = "queueId", required = false) Long queueId,
             @RequestParam(value = "assigneeId", required = false) Long assigneeId,
             @RequestParam(value = "unassigned", required = false) Boolean unassigned,
             @RequestParam(value = "createdFrom", required = false)
@@ -84,6 +88,7 @@ public class AdminTicketController {
         filter.setStatus(status);
         filter.setPriority(priority);
         filter.setCategoryId(categoryId);
+        filter.setQueueId(queueId);
         filter.setAssigneeId(assigneeId);
         filter.setUnassignedOnly(Boolean.TRUE.equals(unassigned));
         filter.setCreatedFrom(createdFrom);
@@ -186,6 +191,23 @@ public class AdminTicketController {
         return ResponseEntity.ok(ticketService.assignAsStaff(agent, id, assigneeId));
     }
 
+    @PatchMapping("/{id}/queue")
+    public ResponseEntity<TicketDetailDto> updateQueue(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody(required = false) AssignTicketQueueRequest request) {
+        Long queueId = request != null ? request.getQueueId() : null;
+        return ResponseEntity.ok(ticketService.updateQueueAsStaff(agent, id, queueId));
+    }
+
+    @PostMapping("/{id}/transfer")
+    public ResponseEntity<TicketDetailDto> transfer(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody TransferTicketRequest request) {
+        return ResponseEntity.ok(ticketService.transferAsStaff(agent, id, request));
+    }
+
     @PostMapping("/{id}/close")
     public ResponseEntity<TicketDetailDto> close(
             @AuthenticationPrincipal User agent,
@@ -258,6 +280,37 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @PathVariable("relatedId") Long relatedId) {
         return ResponseEntity.ok(ticketService.unlinkRelatedAsStaff(agent, id, relatedId));
+    }
+
+    @PostMapping("/{id}/watch")
+    public ResponseEntity<TicketDetailDto> watch(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.watchAsStaff(agent, id));
+    }
+
+    @DeleteMapping("/{id}/watch")
+    public ResponseEntity<TicketDetailDto> unwatch(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(ticketService.unwatchAsStaff(agent, id));
+    }
+
+    @PostMapping("/{id}/watchers")
+    public ResponseEntity<TicketDetailDto> addWatcher(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody AddTicketWatcherRequest request) {
+        Long userId = request != null ? request.getUserId() : null;
+        return ResponseEntity.ok(ticketService.addWatcherAsStaff(agent, id, userId));
+    }
+
+    @DeleteMapping("/{id}/watchers/{userId}")
+    public ResponseEntity<TicketDetailDto> removeWatcher(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @PathVariable("userId") Long userId) {
+        return ResponseEntity.ok(ticketService.removeWatcherAsStaff(agent, id, userId));
     }
 
     @PatchMapping("/{id}/due-date")

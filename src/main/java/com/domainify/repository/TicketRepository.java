@@ -2,6 +2,7 @@ package com.domainify.repository;
 
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketCategory;
+import com.domainify.entity.TicketQueue;
 import com.domainify.entity.TicketTag;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -15,6 +16,8 @@ import java.util.Optional;
 public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecificationExecutor<Ticket> {
 
     long countByCategory(TicketCategory category);
+
+    long countByQueue(TicketQueue queue);
 
     Optional<Ticket> findByIdAndRequesterId(Long id, Long requesterId);
 

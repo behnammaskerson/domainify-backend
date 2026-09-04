@@ -21,6 +21,11 @@ public class TicketDetailDto {
     private boolean canSplit;
     private boolean canLinkRelated;
     private boolean canEditDueDate;
+    private boolean canWatch;
+    private boolean watching;
+    private boolean canTransfer;
+    private List<TicketAssigneeOptionDto> watchers = new ArrayList<>();
+    private List<TicketTransferDto> transfers = new ArrayList<>();
     private Instant reopenUntil;
     private Integer reopenWindowDays;
     private List<TicketStatus> allowedNextStatuses = new ArrayList<>();
@@ -146,6 +151,46 @@ public class TicketDetailDto {
 
     public void setCanEditDueDate(boolean canEditDueDate) {
         this.canEditDueDate = canEditDueDate;
+    }
+
+    public boolean isCanWatch() {
+        return canWatch;
+    }
+
+    public void setCanWatch(boolean canWatch) {
+        this.canWatch = canWatch;
+    }
+
+    public boolean isWatching() {
+        return watching;
+    }
+
+    public void setWatching(boolean watching) {
+        this.watching = watching;
+    }
+
+    public List<TicketAssigneeOptionDto> getWatchers() {
+        return watchers;
+    }
+
+    public void setWatchers(List<TicketAssigneeOptionDto> watchers) {
+        this.watchers = watchers != null ? new ArrayList<>(watchers) : new ArrayList<>();
+    }
+
+    public boolean isCanTransfer() {
+        return canTransfer;
+    }
+
+    public void setCanTransfer(boolean canTransfer) {
+        this.canTransfer = canTransfer;
+    }
+
+    public List<TicketTransferDto> getTransfers() {
+        return transfers;
+    }
+
+    public void setTransfers(List<TicketTransferDto> transfers) {
+        this.transfers = transfers != null ? new ArrayList<>(transfers) : new ArrayList<>();
     }
 
     public Instant getReopenUntil() {

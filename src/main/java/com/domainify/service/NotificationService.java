@@ -11,6 +11,7 @@ import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
 import com.domainify.repository.InAppNotificationRepository;
+import com.domainify.repository.TicketWatcherRepository;
 import com.domainify.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -28,16 +29,19 @@ public class NotificationService {
 
     private final InAppNotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final TicketWatcherRepository ticketWatcherRepository;
     private final TicketEmailNotificationService ticketEmailNotificationService;
     private final TicketSmsNotificationService ticketSmsNotificationService;
 
     public NotificationService(
             InAppNotificationRepository notificationRepository,
             UserRepository userRepository,
+            TicketWatcherRepository ticketWatcherRepository,
             TicketEmailNotificationService ticketEmailNotificationService,
             TicketSmsNotificationService ticketSmsNotificationService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.ticketWatcherRepository = ticketWatcherRepository;
         this.ticketEmailNotificationService = ticketEmailNotificationService;
         this.ticketSmsNotificationService = ticketSmsNotificationService;
     }
@@ -88,12 +92,15 @@ public class NotificationService {
         if (ticket == null || ticket.getId() == null) {
             return;
         }
+        Set<Long> notified = new HashSet<>();
         List<User> admins = userRepository.findByRoleAndEnabledTrueOrderByFirstNameAscLastNameAsc(User.Role.ADMIN);
         for (User admin : admins) {
             if (isSameUser(admin, requester)) {
                 continue;
             }
-            createNotification(admin, requester, NotificationType.TICKET_CREATED, ticket, null, null);
+            if (notified.add(admin.getId())) {
+                createNotification(admin, requester, NotificationType.TICKET_CREATED, ticket, null, null);
+            }
         }
     }
 
@@ -102,14 +109,16 @@ public class NotificationService {
         if (ticket == null || ticket.getId() == null) {
             return;
         }
+        Set<Long> notified = new HashSet<>();
         User assignee = ticket.getAssignee();
         if (assignee != null && assignee.isEnabled()) {
-            if (!isSameUser(assignee, customer)) {
+            if (!isSameUser(assignee, customer) && notified.add(assignee.getId())) {
                 createNotification(assignee, customer, NotificationType.TICKET_CUSTOMER_REPLY, ticket, null, null);
             }
-            return;
+        } else {
+            notifyAllAdminsExcept(customer, customer, NotificationType.TICKET_CUSTOMER_REPLY, ticket, null, null, notified);
         }
-        notifyAllAdminsExcept(customer, customer, NotificationType.TICKET_CUSTOMER_REPLY, ticket, null, null);
+        notifyWatchers(ticket, customer, NotificationType.TICKET_CUSTOMER_REPLY, null, null, notified);
     }
 
     @Transactional
@@ -117,10 +126,12 @@ public class NotificationService {
         if (ticket == null || ticket.getId() == null) {
             return;
         }
+        Set<Long> notified = new HashSet<>();
         User requester = ticket.getRequester();
-        if (requester != null && requester.isEnabled() && !isSameUser(requester, staff)) {
+        if (requester != null && requester.isEnabled() && !isSameUser(requester, staff) && notified.add(requester.getId())) {
             createNotification(requester, staff, NotificationType.TICKET_STAFF_REPLY, ticket, null, null);
         }
+        notifyWatchers(ticket, staff, NotificationType.TICKET_STAFF_REPLY, null, null, notified);
     }
 
     @Transactional
@@ -139,14 +150,17 @@ public class NotificationService {
         if (ticket == null || from == to) {
             return;
         }
+        Set<Long> notified = new HashSet<>();
         if (byStaff) {
             User requester = ticket.getRequester();
-            if (requester != null && requester.isEnabled() && !isSameUser(requester, actor)) {
+            if (requester != null && requester.isEnabled() && !isSameUser(requester, actor) && notified.add(requester.getId())) {
                 createNotification(requester, actor, NotificationType.TICKET_STATUS_CHANGED, ticket, from, to);
             }
+            notifyWatchers(ticket, actor, NotificationType.TICKET_STATUS_CHANGED, from, to, notified);
             return;
         }
-        notifyStaffForTicket(ticket, actor, NotificationType.TICKET_STATUS_CHANGED, from, to);
+        notifyStaffForTicket(ticket, actor, NotificationType.TICKET_STATUS_CHANGED, from, to, notified);
+        notifyWatchers(ticket, actor, NotificationType.TICKET_STATUS_CHANGED, from, to, notified);
     }
 
     @Transactional
@@ -154,10 +168,11 @@ public class NotificationService {
         if (ticket == null || assignee == null || !assignee.isEnabled()) {
             return;
         }
-        if (isSameUser(assignee, actor)) {
-            return;
+        Set<Long> notified = new HashSet<>();
+        if (!isSameUser(assignee, actor) && notified.add(assignee.getId())) {
+            createNotification(assignee, actor, NotificationType.TICKET_ASSIGNED, ticket, null, null);
         }
-        createNotification(assignee, actor, NotificationType.TICKET_ASSIGNED, ticket, null, null);
+        notifyWatchers(ticket, actor, NotificationType.TICKET_ASSIGNED, null, null, notified);
     }
 
     @Transactional
@@ -165,10 +180,11 @@ public class NotificationService {
         if (ticket == null || previousAssignee == null || !previousAssignee.isEnabled()) {
             return;
         }
-        if (isSameUser(previousAssignee, actor)) {
-            return;
+        Set<Long> notified = new HashSet<>();
+        if (!isSameUser(previousAssignee, actor) && notified.add(previousAssignee.getId())) {
+            createNotification(previousAssignee, actor, NotificationType.TICKET_UNASSIGNED, ticket, null, null);
         }
-        createNotification(previousAssignee, actor, NotificationType.TICKET_UNASSIGNED, ticket, null, null);
+        notifyWatchers(ticket, actor, NotificationType.TICKET_UNASSIGNED, null, null, notified);
     }
 
     @Transactional
@@ -176,14 +192,17 @@ public class NotificationService {
         if (ticket == null) {
             return;
         }
+        Set<Long> notified = new HashSet<>();
         if (byStaff) {
             User requester = ticket.getRequester();
-            if (requester != null && requester.isEnabled() && !isSameUser(requester, actor)) {
+            if (requester != null && requester.isEnabled() && !isSameUser(requester, actor) && notified.add(requester.getId())) {
                 createNotification(requester, actor, NotificationType.TICKET_CLOSED, ticket, null, TicketStatus.CLOSED);
             }
+            notifyWatchers(ticket, actor, NotificationType.TICKET_CLOSED, null, TicketStatus.CLOSED, notified);
             return;
         }
-        notifyStaffForTicket(ticket, actor, NotificationType.TICKET_CLOSED, null, TicketStatus.CLOSED);
+        notifyStaffForTicket(ticket, actor, NotificationType.TICKET_CLOSED, null, TicketStatus.CLOSED, notified);
+        notifyWatchers(ticket, actor, NotificationType.TICKET_CLOSED, null, TicketStatus.CLOSED, notified);
     }
 
     @Transactional
@@ -191,14 +210,75 @@ public class NotificationService {
         if (ticket == null) {
             return;
         }
+        Set<Long> notified = new HashSet<>();
         if (byStaff) {
             User requester = ticket.getRequester();
-            if (requester != null && requester.isEnabled() && !isSameUser(requester, actor)) {
-                createNotification(requester, actor, NotificationType.TICKET_REOPENED, ticket, TicketStatus.CLOSED, TicketStatus.OPEN);
+            if (requester != null && requester.isEnabled() && !isSameUser(requester, actor)
+                    && notified.add(requester.getId())) {
+                createNotification(requester, actor, NotificationType.TICKET_REOPENED, ticket,
+                        TicketStatus.CLOSED, TicketStatus.OPEN);
             }
+            notifyWatchers(ticket, actor, NotificationType.TICKET_REOPENED, TicketStatus.CLOSED, TicketStatus.OPEN, notified);
             return;
         }
-        notifyStaffForTicket(ticket, actor, NotificationType.TICKET_REOPENED, TicketStatus.CLOSED, TicketStatus.OPEN);
+        notifyStaffForTicket(ticket, actor, NotificationType.TICKET_REOPENED, TicketStatus.CLOSED, TicketStatus.OPEN, notified);
+        notifyWatchers(ticket, actor, NotificationType.TICKET_REOPENED, TicketStatus.CLOSED, TicketStatus.OPEN, notified);
+    }
+
+    @Transactional
+    public void onWatcherAdded(Ticket ticket, User watcher, User actor) {
+        if (ticket == null || watcher == null || !watcher.isEnabled()) {
+            return;
+        }
+        if (isSameUser(watcher, actor)) {
+            return;
+        }
+        createNotification(watcher, actor, NotificationType.TICKET_WATCHER_ADDED, ticket, null, null);
+    }
+
+    @Transactional
+    public void onTransferred(Ticket ticket, User actor, User previousAssignee, User nextAssignee) {
+        if (ticket == null || ticket.getId() == null) {
+            return;
+        }
+        Set<Long> notified = new HashSet<>();
+        if (previousAssignee != null && previousAssignee.isEnabled()
+                && !isSameUser(previousAssignee, actor)
+                && (nextAssignee == null || !isSameUser(previousAssignee, nextAssignee))
+                && notified.add(previousAssignee.getId())) {
+            createNotification(previousAssignee, actor, NotificationType.TICKET_UNASSIGNED, ticket, null, null);
+        }
+        if (nextAssignee != null && nextAssignee.isEnabled()
+                && !isSameUser(nextAssignee, actor)
+                && notified.add(nextAssignee.getId())) {
+            createNotification(nextAssignee, actor, NotificationType.TICKET_TRANSFERRED, ticket, null, null);
+        }
+        notifyWatchers(ticket, actor, NotificationType.TICKET_TRANSFERRED, null, null, notified);
+    }
+
+    private void notifyWatchers(
+            Ticket ticket,
+            User actor,
+            NotificationType type,
+            TicketStatus from,
+            TicketStatus to,
+            Set<Long> alreadyNotified) {
+        if (ticket == null || ticket.getId() == null) {
+            return;
+        }
+        Set<Long> notified = alreadyNotified != null ? alreadyNotified : new HashSet<>();
+        for (User watcher : ticketWatcherRepository.findUsersByTicketId(ticket.getId())) {
+            if (watcher == null || watcher.getId() == null || !watcher.isEnabled()) {
+                continue;
+            }
+            if (isSameUser(watcher, actor)) {
+                continue;
+            }
+            if (!notified.add(watcher.getId())) {
+                continue;
+            }
+            createNotification(watcher, actor, type, ticket, from, to);
+        }
     }
 
     private void notifyStaffForTicket(
@@ -206,13 +286,16 @@ public class NotificationService {
             User actor,
             NotificationType type,
             TicketStatus from,
-            TicketStatus to) {
+            TicketStatus to,
+            Set<Long> notified) {
         User assignee = ticket.getAssignee();
-        if (assignee != null && assignee.isEnabled() && !isSameUser(assignee, actor)) {
+        if (assignee != null && assignee.isEnabled() && !isSameUser(assignee, actor) && notified.add(assignee.getId())) {
             createNotification(assignee, actor, type, ticket, from, to);
             return;
         }
-        notifyAllAdminsExcept(actor, actor, type, ticket, from, to);
+        if (assignee == null) {
+            notifyAllAdminsExcept(actor, actor, type, ticket, from, to, notified);
+        }
     }
 
     private void notifyAllAdminsExcept(
@@ -221,9 +304,9 @@ public class NotificationService {
             NotificationType type,
             Ticket ticket,
             TicketStatus from,
-            TicketStatus to) {
+            TicketStatus to,
+            Set<Long> notified) {
         List<User> admins = userRepository.findByRoleAndEnabledTrueOrderByFirstNameAscLastNameAsc(User.Role.ADMIN);
-        Set<Long> notified = new LinkedHashSet<>();
         for (User admin : admins) {
             if (isSameUser(admin, exclude)) {
                 continue;
