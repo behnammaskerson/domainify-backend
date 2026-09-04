@@ -8,6 +8,7 @@ public enum TicketInboxView {
     WATCHING,
     MENTIONS,
     OVERDUE,
+    ESCALATED,
     ARCHIVED,
     DELETED
 }

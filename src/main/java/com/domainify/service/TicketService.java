@@ -14,6 +14,8 @@ import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketMessageDto;
 import com.domainify.dto.TicketMessageRevisionDto;
+import com.domainify.dto.EscalateTicketRequest;
+import com.domainify.dto.TicketEscalationDto;
 import com.domainify.dto.TicketTransferDto;
 import com.domainify.dto.TransferTicketRequest;
 import com.domainify.dto.UpdateTicketDueDateRequest;
@@ -23,6 +25,8 @@ import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketAttachment;
 import com.domainify.entity.TicketCategory;
 import com.domainify.entity.TicketChannel;
+import com.domainify.entity.TicketEscalation;
+import com.domainify.entity.TicketEscalationTrigger;
 import com.domainify.entity.TicketMention;
 import com.domainify.entity.TicketMessage;
 import com.domainify.entity.TicketMessageAttachment;
@@ -39,6 +43,7 @@ import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
 import com.domainify.repository.TicketAttachmentRepository;
+import com.domainify.repository.TicketEscalationRepository;
 import com.domainify.repository.TicketMentionRepository;
 import com.domainify.repository.TicketMessageAttachmentRepository;
 import com.domainify.repository.TicketMessageRepository;
@@ -98,6 +103,7 @@ public class TicketService {
     private final TicketRelatedLinkRepository ticketRelatedLinkRepository;
     private final TicketWatcherRepository ticketWatcherRepository;
     private final TicketTransferRepository ticketTransferRepository;
+    private final TicketEscalationRepository ticketEscalationRepository;
     private final TicketCategoryService ticketCategoryService;
     private final TicketQueueService ticketQueueService;
     private final TicketMentionService ticketMentionService;
@@ -119,6 +125,7 @@ public class TicketService {
             TicketRelatedLinkRepository ticketRelatedLinkRepository,
             TicketWatcherRepository ticketWatcherRepository,
             TicketTransferRepository ticketTransferRepository,
+            TicketEscalationRepository ticketEscalationRepository,
             TicketCategoryService ticketCategoryService,
             TicketQueueService ticketQueueService,
             TicketMentionService ticketMentionService,
@@ -138,6 +145,7 @@ public class TicketService {
         this.ticketRelatedLinkRepository = ticketRelatedLinkRepository;
         this.ticketWatcherRepository = ticketWatcherRepository;
         this.ticketTransferRepository = ticketTransferRepository;
+        this.ticketEscalationRepository = ticketEscalationRepository;
         this.ticketCategoryService = ticketCategoryService;
         this.ticketQueueService = ticketQueueService;
         this.ticketMentionService = ticketMentionService;
@@ -513,6 +521,153 @@ public class TicketService {
         }
 
         return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto escalateAsStaff(User agent, Long ticketId, EscalateTicketRequest request) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        assertNotDeleted(ticket);
+        if (ticket.isArchived() || ticket.isMerged()) {
+            throw new ApiException(ErrorCode.TICKET_ESCALATION_INVALID);
+        }
+        applyEscalation(ticket, agent, request, TicketEscalationTrigger.MANUAL);
+        return toDetailDto(ticket, agent, true);
+    }
+
+    private void applyEscalation(
+            Ticket ticket,
+            User actor,
+            EscalateTicketRequest request,
+            TicketEscalationTrigger triggerType) {
+        if (request == null) {
+            throw new ApiException(ErrorCode.TICKET_ESCALATION_INVALID);
+        }
+
+        String note = request.getNote() == null ? null : request.getNote().trim();
+        if (StringUtils.hasText(note) && note.length() > 2000) {
+            throw new ApiException(ErrorCode.TICKET_ESCALATION_NOTE_TOO_LONG);
+        }
+
+        TicketPriority fromPriority = ticket.getPriority();
+        User fromAssignee = ticket.getAssignee();
+        TicketQueue fromQueue = ticket.getQueue();
+
+        TicketPriority toPriority = fromPriority;
+        User toAssignee = fromAssignee;
+        TicketQueue toQueue = fromQueue;
+        boolean priorityChanged = false;
+        boolean assigneeChanged = false;
+        boolean queueChanged = false;
+
+        if (request.isPriorityChanged()) {
+            if (request.getPriority() == null) {
+                throw new ApiException(ErrorCode.TICKET_ESCALATION_INVALID);
+            }
+            toPriority = request.getPriority();
+            priorityChanged = toPriority != fromPriority;
+        } else if (request.isBumpPriority()) {
+            toPriority = nextHigherPriority(fromPriority);
+            priorityChanged = toPriority != fromPriority;
+        }
+
+        if (request.isAssigneeChanged()) {
+            if (request.getAssigneeId() != null) {
+                toAssignee = userRepository.findById(request.getAssigneeId())
+                        .orElseThrow(() -> new ApiException(ErrorCode.TICKET_ASSIGNEE_NOT_FOUND));
+                if (toAssignee.getRole() != User.Role.ADMIN || !toAssignee.isEnabled()) {
+                    throw new ApiException(ErrorCode.TICKET_ASSIGNEE_INVALID);
+                }
+            } else {
+                toAssignee = null;
+            }
+            Long fromId = fromAssignee != null ? fromAssignee.getId() : null;
+            Long toId = toAssignee != null ? toAssignee.getId() : null;
+            assigneeChanged = (fromId == null) != (toId == null)
+                    || (fromId != null && !fromId.equals(toId));
+        }
+
+        if (request.isQueueChanged()) {
+            toQueue = request.getQueueId() == null
+                    ? null
+                    : ticketQueueService.requireActiveQueue(request.getQueueId());
+            Long fromQueueId = fromQueue != null ? fromQueue.getId() : null;
+            Long toQueueId = toQueue != null ? toQueue.getId() : null;
+            queueChanged = (fromQueueId == null) != (toQueueId == null)
+                    || (fromQueueId != null && !fromQueueId.equals(toQueueId));
+        }
+
+        // SLA auto-escalate always records even if already URGENT (priority unchanged).
+        boolean allowNoFieldChange = triggerType == TicketEscalationTrigger.SLA_BREACH;
+        if (!priorityChanged && !assigneeChanged && !queueChanged && !allowNoFieldChange) {
+            if (request.isBumpPriority() || request.isPriorityChanged()
+                    || request.isAssigneeChanged() || request.isQueueChanged()) {
+                throw new ApiException(ErrorCode.TICKET_ESCALATION_NO_CHANGE);
+            }
+            throw new ApiException(ErrorCode.TICKET_ESCALATION_INVALID);
+        }
+
+        if (priorityChanged) {
+            ticket.setPriority(toPriority);
+            if (triggerType == TicketEscalationTrigger.MANUAL) {
+                Instant base = ticket.getCreatedAt() != null ? ticket.getCreatedAt() : Instant.now();
+                ticket.setDueAt(ticketSettingsService.computeDueAt(toPriority, base));
+            }
+        }
+        if (assigneeChanged) {
+            ticket.setAssignee(toAssignee);
+        }
+        if (queueChanged) {
+            ticket.setQueue(toQueue);
+        }
+        ticket.setEscalatedAt(Instant.now());
+        ticketRepository.save(ticket);
+
+        TicketEscalation escalation = new TicketEscalation();
+        escalation.setTicket(ticket);
+        escalation.setEscalatedBy(actor);
+        escalation.setTriggerType(triggerType);
+        escalation.setFromPriority(fromPriority);
+        escalation.setToPriority(toPriority);
+        escalation.setFromAssignee(fromAssignee);
+        escalation.setToAssignee(toAssignee);
+        escalation.setFromQueue(fromQueue);
+        escalation.setToQueue(toQueue);
+        escalation.setNote(StringUtils.hasText(note) ? note : null);
+        ticketEscalationRepository.save(escalation);
+
+        if (StringUtils.hasText(note) && actor != null) {
+            TicketMessage message = new TicketMessage();
+            message.setTicket(ticket);
+            message.setAuthor(actor);
+            message.setBody(note);
+            message.setInternalNote(true);
+            ticketMessageRepository.save(message);
+        }
+
+        if (assigneeChanged && fromAssignee != null && !isSameUser(fromAssignee, toAssignee)
+                && actor != null && !isSameUser(fromAssignee, actor)) {
+            notificationService.onUnassigned(ticket, fromAssignee, actor);
+        }
+        notificationService.onEscalated(ticket, actor);
+    }
+
+    private TicketPriority nextHigherPriority(TicketPriority current) {
+        if (current == null) {
+            return TicketPriority.HIGH;
+        }
+        return switch (current) {
+            case LOW -> TicketPriority.MEDIUM;
+            case MEDIUM -> TicketPriority.HIGH;
+            case HIGH, URGENT -> TicketPriority.URGENT;
+        };
+    }
+
+    private boolean isSameUser(User a, User b) {
+        if (a == null || b == null || a.getId() == null || b.getId() == null) {
+            return false;
+        }
+        return a.getId().equals(b.getId());
     }
 
     @Transactional
@@ -963,6 +1118,9 @@ public class TicketService {
         }
 
         ticket.setDueAt(nextDueAt);
+        if (nextDueAt == null || nextDueAt.isAfter(Instant.now())) {
+            ticket.setEscalatedAt(null);
+        }
         ticketRepository.save(ticket);
         return toDetailDto(ticket, agent, true);
     }
@@ -999,6 +1157,43 @@ public class TicketService {
         }
         ticketRepository.saveAll(eligible);
         return eligible.size();
+    }
+
+    @Transactional
+    public int autoEscalateOverdueTickets() {
+        Instant now = Instant.now();
+        List<Ticket> eligible = ticketRepository.findEligibleForSlaEscalation(now);
+        if (eligible.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        for (Ticket candidate : eligible) {
+            if (candidate.getId() == null) {
+                continue;
+            }
+            // Lock so inbox load + scheduler cannot double-insert escalation history.
+            Ticket ticket = ticketRepository.findByIdForUpdate(candidate.getId()).orElse(null);
+            if (ticket == null || ticket.isEscalated()) {
+                continue;
+            }
+            if (ticket.getDeletedAt() != null || ticket.getArchivedAt() != null) {
+                continue;
+            }
+            if (ticket.getDueAt() == null || !ticket.getDueAt().isBefore(now)) {
+                continue;
+            }
+            TicketStatus status = ticket.getStatus();
+            if (status != TicketStatus.NEW && status != TicketStatus.OPEN
+                    && status != TicketStatus.PENDING && status != TicketStatus.ON_HOLD) {
+                continue;
+            }
+            EscalateTicketRequest request = new EscalateTicketRequest();
+            request.setBumpPriority(true);
+            request.setNote(null);
+            applyEscalation(ticket, null, request, TicketEscalationTrigger.SLA_BREACH);
+            count++;
+        }
+        return count;
     }
 
     private TicketDetailDto closeTicket(Ticket ticket, User viewer, boolean asStaff) {
@@ -1396,6 +1591,8 @@ public class TicketService {
         detail.setCanEditDueDate(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setCanWatch(includeWorkflow && !deleted);
         detail.setCanTransfer(includeWorkflow && !deleted && !archived && !ticket.isMerged());
+        detail.setCanEscalate(includeWorkflow && !deleted && !archived && !ticket.isMerged()
+                && ticket.getStatus() != TicketStatus.CLOSED);
         if (includeWorkflow && ticket.getId() != null) {
             boolean watching = viewer != null && viewer.getId() != null
                     && ticketWatcherRepository.existsByTicketIdAndUserId(ticket.getId(), viewer.getId());
@@ -1412,6 +1609,11 @@ public class TicketService {
                     .findByTicketIdOrderByCreatedAtDescIdDesc(ticket.getId())
                     .stream()
                     .map(this::toTransferDto)
+                    .toList());
+            detail.setEscalations(dedupeEscalationHistory(ticketEscalationRepository
+                    .findByTicketIdOrderByCreatedAtDescIdDesc(ticket.getId()))
+                    .stream()
+                    .map(this::toEscalationDto)
                     .toList());
         }
         detail.setReopenUntil(reopenDeadline(ticket));
@@ -1721,6 +1923,95 @@ public class TicketService {
         return dto;
     }
 
+    private List<TicketEscalation> dedupeEscalationHistory(List<TicketEscalation> escalations) {
+        if (escalations == null || escalations.isEmpty()) {
+            return List.of();
+        }
+        List<TicketEscalation> out = new ArrayList<>();
+        for (TicketEscalation current : escalations) {
+            if (!out.isEmpty() && isNearDuplicateSlaEscalation(out.get(out.size() - 1), current)) {
+                continue;
+            }
+            out.add(current);
+        }
+        return out;
+    }
+
+    /**
+     * Hides race duplicates when inbox load and the SLA scheduler escalated the same ticket
+     * within a few seconds before escalatedAt locking was added.
+     */
+    private boolean isNearDuplicateSlaEscalation(TicketEscalation newer, TicketEscalation older) {
+        if (newer == null || older == null) {
+            return false;
+        }
+        if (newer.getTriggerType() != TicketEscalationTrigger.SLA_BREACH
+                || older.getTriggerType() != TicketEscalationTrigger.SLA_BREACH) {
+            return false;
+        }
+        if (newer.getCreatedAt() == null || older.getCreatedAt() == null) {
+            return false;
+        }
+        long seconds = Math.abs(Duration.between(newer.getCreatedAt(), older.getCreatedAt()).getSeconds());
+        if (seconds > 10) {
+            return false;
+        }
+        return newer.getFromPriority() == older.getFromPriority()
+                && newer.getToPriority() == older.getToPriority()
+                && sameNullableUser(newer.getFromAssignee(), older.getFromAssignee())
+                && sameNullableUser(newer.getToAssignee(), older.getToAssignee())
+                && isSameQueue(newer.getFromQueue(), older.getFromQueue())
+                && isSameQueue(newer.getToQueue(), older.getToQueue());
+    }
+
+    private boolean sameNullableUser(User a, User b) {
+        if (a == null && b == null) {
+            return true;
+        }
+        return isSameUser(a, b);
+    }
+
+    private boolean isSameQueue(TicketQueue a, TicketQueue b) {
+        if (a == null && b == null) {
+            return true;
+        }
+        if (a == null || b == null || a.getId() == null || b.getId() == null) {
+            return false;
+        }
+        return a.getId().equals(b.getId());
+    }
+
+    private TicketEscalationDto toEscalationDto(TicketEscalation escalation) {
+        TicketEscalationDto dto = new TicketEscalationDto();
+        dto.setId(escalation.getId());
+        dto.setTriggerType(escalation.getTriggerType());
+        dto.setFromPriority(escalation.getFromPriority());
+        dto.setToPriority(escalation.getToPriority());
+        dto.setNote(escalation.getNote());
+        dto.setCreatedAt(escalation.getCreatedAt());
+        if (escalation.getEscalatedBy() != null) {
+            dto.setEscalatedById(escalation.getEscalatedBy().getId());
+            dto.setEscalatedByName(displayName(escalation.getEscalatedBy()));
+        }
+        if (escalation.getFromAssignee() != null) {
+            dto.setFromAssigneeId(escalation.getFromAssignee().getId());
+            dto.setFromAssigneeName(displayName(escalation.getFromAssignee()));
+        }
+        if (escalation.getToAssignee() != null) {
+            dto.setToAssigneeId(escalation.getToAssignee().getId());
+            dto.setToAssigneeName(displayName(escalation.getToAssignee()));
+        }
+        if (escalation.getFromQueue() != null) {
+            dto.setFromQueueId(escalation.getFromQueue().getId());
+            dto.setFromQueueName(escalation.getFromQueue().getName());
+        }
+        if (escalation.getToQueue() != null) {
+            dto.setToQueueId(escalation.getToQueue().getId());
+            dto.setToQueueName(escalation.getToQueue().getName());
+        }
+        return dto;
+    }
+
     private TicketDto toListDto(Ticket ticket) {
         TicketDto dto = toDtoBase(ticket);
         dto.setAttachments(List.of());
@@ -1796,6 +2087,8 @@ public class TicketService {
         dto.setStatus(ticket.getStatus());
         dto.setChannel(ticket.getChannel());
         dto.setDueAt(ticket.getDueAt());
+        dto.setEscalatedAt(ticket.getEscalatedAt());
+        dto.setEscalated(ticket.isEscalated());
         dto.setClosedAt(ticket.getClosedAt());
         dto.setArchivedAt(ticket.getArchivedAt());
         dto.setDeletedAt(ticket.getDeletedAt());

@@ -37,6 +37,7 @@ public class TicketSmsNotificationService {
             NotificationType.TICKET_STAFF_REPLY,
             NotificationType.TICKET_ASSIGNED,
             NotificationType.TICKET_TRANSFERRED,
+            NotificationType.TICKET_ESCALATED,
             NotificationType.TICKET_STATUS_CHANGED,
             NotificationType.TICKET_CLOSED,
             NotificationType.TICKET_REOPENED
@@ -144,6 +145,12 @@ public class TicketSmsNotificationService {
             case TICKET_ASSIGNED, TICKET_TRANSFERRED -> messageService.get(
                     "notification.sms.event.assigned",
                     new Object[]{actorName},
+                    locale);
+            case TICKET_ESCALATED -> messageService.get(
+                    actor == null
+                            ? "notification.sms.event.escalated_auto"
+                            : "notification.sms.event.escalated",
+                    actor == null ? new Object[]{} : new Object[]{actorName},
                     locale);
             case TICKET_STATUS_CHANGED -> messageService.get(
                     "notification.sms.event.status",

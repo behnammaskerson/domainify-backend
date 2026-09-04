@@ -24,8 +24,10 @@ public class TicketDetailDto {
     private boolean canWatch;
     private boolean watching;
     private boolean canTransfer;
+    private boolean canEscalate;
     private List<TicketAssigneeOptionDto> watchers = new ArrayList<>();
     private List<TicketTransferDto> transfers = new ArrayList<>();
+    private List<TicketEscalationDto> escalations = new ArrayList<>();
     private Instant reopenUntil;
     private Integer reopenWindowDays;
     private List<TicketStatus> allowedNextStatuses = new ArrayList<>();
@@ -191,6 +193,22 @@ public class TicketDetailDto {
 
     public void setTransfers(List<TicketTransferDto> transfers) {
         this.transfers = transfers != null ? new ArrayList<>(transfers) : new ArrayList<>();
+    }
+
+    public boolean isCanEscalate() {
+        return canEscalate;
+    }
+
+    public void setCanEscalate(boolean canEscalate) {
+        this.canEscalate = canEscalate;
+    }
+
+    public List<TicketEscalationDto> getEscalations() {
+        return escalations;
+    }
+
+    public void setEscalations(List<TicketEscalationDto> escalations) {
+        this.escalations = escalations != null ? new ArrayList<>(escalations) : new ArrayList<>();
     }
 
     public Instant getReopenUntil() {

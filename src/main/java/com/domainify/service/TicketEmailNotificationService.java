@@ -36,6 +36,7 @@ public class TicketEmailNotificationService {
             NotificationType.TICKET_STAFF_REPLY,
             NotificationType.TICKET_ASSIGNED,
             NotificationType.TICKET_TRANSFERRED,
+            NotificationType.TICKET_ESCALATED,
             NotificationType.TICKET_STATUS_CHANGED,
             NotificationType.TICKET_CLOSED,
             NotificationType.TICKET_REOPENED
@@ -124,6 +125,7 @@ public class TicketEmailNotificationService {
         String key = switch (type) {
             case TICKET_CUSTOMER_REPLY, TICKET_STAFF_REPLY -> "notification.email.subject.reply";
             case TICKET_ASSIGNED, TICKET_TRANSFERRED -> "notification.email.subject.assigned";
+            case TICKET_ESCALATED -> "notification.email.subject.escalated";
             case TICKET_STATUS_CHANGED -> "notification.email.subject.status";
             case TICKET_CLOSED -> "notification.email.subject.closed";
             case TICKET_REOPENED -> "notification.email.subject.reopened";
@@ -161,6 +163,12 @@ public class TicketEmailNotificationService {
             case TICKET_TRANSFERRED -> messageService.get(
                     "notification.email.event.transferred",
                     new Object[]{actorName},
+                    locale);
+            case TICKET_ESCALATED -> messageService.get(
+                    actor == null
+                            ? "notification.email.event.escalated_auto"
+                            : "notification.email.event.escalated",
+                    actor == null ? new Object[]{} : new Object[]{actorName},
                     locale);
             case TICKET_STATUS_CHANGED -> messageService.get(
                     "notification.email.event.status",

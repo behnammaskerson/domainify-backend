@@ -168,6 +168,12 @@ public class AdminTicketService {
                     predicates.add(cb.lessThan(root.get("dueAt"), now));
                     predicates.add(root.get("status").in(ACTIVE_STATUSES));
                 }
+                case ESCALATED -> {
+                    predicates.add(cb.isNull(root.get("deletedAt")));
+                    predicates.add(cb.isNull(root.get("archivedAt")));
+                    predicates.add(cb.isNotNull(root.get("escalatedAt")));
+                    predicates.add(root.get("status").in(ACTIVE_STATUSES));
+                }
                 case ALL -> {
                     predicates.add(cb.isNull(root.get("deletedAt")));
                     predicates.add(cb.isNull(root.get("archivedAt")));
@@ -275,6 +281,8 @@ public class AdminTicketService {
         dto.setStatus(ticket.getStatus());
         dto.setChannel(ticket.getChannel());
         dto.setDueAt(ticket.getDueAt());
+        dto.setEscalatedAt(ticket.getEscalatedAt());
+        dto.setEscalated(ticket.isEscalated());
         dto.setClosedAt(ticket.getClosedAt());
         dto.setArchivedAt(ticket.getArchivedAt());
         dto.setDeletedAt(ticket.getDeletedAt());

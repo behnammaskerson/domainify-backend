@@ -256,6 +256,21 @@ public class NotificationService {
         notifyWatchers(ticket, actor, NotificationType.TICKET_TRANSFERRED, null, null, notified);
     }
 
+    @Transactional
+    public void onEscalated(Ticket ticket, User actor) {
+        if (ticket == null || ticket.getId() == null) {
+            return;
+        }
+        Set<Long> notified = new HashSet<>();
+        User assignee = ticket.getAssignee();
+        if (assignee != null && assignee.isEnabled() && !isSameUser(assignee, actor) && notified.add(assignee.getId())) {
+            createNotification(assignee, actor, NotificationType.TICKET_ESCALATED, ticket, null, null);
+        } else if (assignee == null) {
+            notifyAllAdminsExcept(actor, actor, NotificationType.TICKET_ESCALATED, ticket, null, null, notified);
+        }
+        notifyWatchers(ticket, actor, NotificationType.TICKET_ESCALATED, null, null, notified);
+    }
+
     private void notifyWatchers(
             Ticket ticket,
             User actor,

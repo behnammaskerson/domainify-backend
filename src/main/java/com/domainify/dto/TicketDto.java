@@ -27,6 +27,8 @@ public class TicketDto {
     private String assigneeName;
     private Instant dueAt;
     private Boolean overdue;
+    private Instant escalatedAt;
+    private Boolean escalated;
     private Instant closedAt;
     private Instant archivedAt;
     private Instant deletedAt;
@@ -178,6 +180,22 @@ public class TicketDto {
 
     public void setOverdue(Boolean overdue) {
         this.overdue = overdue;
+    }
+
+    public Instant getEscalatedAt() {
+        return escalatedAt;
+    }
+
+    public void setEscalatedAt(Instant escalatedAt) {
+        this.escalatedAt = escalatedAt;
+    }
+
+    public Boolean getEscalated() {
+        return escalated;
+    }
+
+    public void setEscalated(Boolean escalated) {
+        this.escalated = escalated;
     }
 
     public Instant getClosedAt() {

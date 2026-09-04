@@ -32,7 +32,8 @@ import java.util.Set;
         @Index(name = "idx_tickets_status", columnList = "status"),
         @Index(name = "idx_tickets_assignee", columnList = "assignee_id"),
         @Index(name = "idx_tickets_queue", columnList = "queue_id"),
-        @Index(name = "idx_tickets_due_at", columnList = "due_at")
+        @Index(name = "idx_tickets_due_at", columnList = "due_at"),
+        @Index(name = "idx_tickets_escalated_at", columnList = "escalated_at")
 })
 public class Ticket {
 
@@ -79,6 +80,9 @@ public class Ticket {
 
     @Column(name = "due_at")
     private Instant dueAt;
+
+    @Column(name = "escalated_at")
+    private Instant escalatedAt;
 
     @Column(name = "closed_at")
     private Instant closedAt;
@@ -232,6 +236,18 @@ public class Ticket {
 
     public void setDueAt(Instant dueAt) {
         this.dueAt = dueAt;
+    }
+
+    public Instant getEscalatedAt() {
+        return escalatedAt;
+    }
+
+    public void setEscalatedAt(Instant escalatedAt) {
+        this.escalatedAt = escalatedAt;
+    }
+
+    public boolean isEscalated() {
+        return escalatedAt != null;
     }
 
     public Instant getClosedAt() {

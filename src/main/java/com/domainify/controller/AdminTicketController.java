@@ -16,6 +16,7 @@ import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketInboxFilter;
 import com.domainify.dto.TicketMessageRevisionDto;
 import com.domainify.dto.TicketTagDto;
+import com.domainify.dto.EscalateTicketRequest;
 import com.domainify.dto.TransferTicketRequest;
 import com.domainify.dto.UpdateTicketDueDateRequest;
 import com.domainify.dto.UpdateTicketMessageRequest;
@@ -84,6 +85,7 @@ public class AdminTicketController {
             @RequestParam(value = "customer", required = false) String customer,
             @PageableDefault(size = 10, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         ticketService.autoArchiveClosedTickets();
+        ticketService.autoEscalateOverdueTickets();
         TicketInboxFilter filter = new TicketInboxFilter();
         filter.setStatus(status);
         filter.setPriority(priority);
@@ -206,6 +208,14 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @RequestBody TransferTicketRequest request) {
         return ResponseEntity.ok(ticketService.transferAsStaff(agent, id, request));
+    }
+
+    @PostMapping("/{id}/escalate")
+    public ResponseEntity<TicketDetailDto> escalate(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody EscalateTicketRequest request) {
+        return ResponseEntity.ok(ticketService.escalateAsStaff(agent, id, request));
     }
 
     @PostMapping("/{id}/close")

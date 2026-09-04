@@ -36,7 +36,7 @@ done - Auto-assign round-robin or by category skill
 done - Assignment queues / departments
 done - Watchers / followers (notify without being assignee)
 done - Transfer ticket between agents/departments
-Escalation (manual + automatic by SLA breach)
+done - Escalation (manual + automatic by SLA breach)
 Agent presence / availability (optional)
 Workload view (open tickets per agent)
 
