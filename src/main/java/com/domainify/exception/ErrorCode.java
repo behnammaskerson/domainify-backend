@@ -3,6 +3,7 @@ package com.domainify.exception;
 public enum ErrorCode {
     PASSWORDS_MISMATCH,
     EMAIL_EXISTS,
+    EMAIL_CHANGE_NOT_ALLOWED,
     INVALID_CREDENTIALS,
     ACCOUNT_DISABLED,
     EMAIL_NOT_FOUND,

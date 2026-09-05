@@ -38,7 +38,7 @@ done - Watchers / followers (notify without being assignee)
 done - Transfer ticket between agents/departments
 done - Escalation (manual + automatic by SLA breach)
 done - Agent presence / availability (optional)
-Workload view (open tickets per agent)
+done - Workload view (open tickets per agent)
 
 4. Customer (user) portal
 done - “My tickets” list with status filters & search

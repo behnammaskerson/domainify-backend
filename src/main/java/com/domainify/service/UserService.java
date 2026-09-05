@@ -36,7 +36,6 @@ public class UserService {
     private final EmailVerificationService emailVerificationService;
     private final PhoneVerificationService phoneVerificationService;
     private final UserDeletionGuard userDeletionGuard;
-    private final AuthService authService;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -45,8 +44,7 @@ public class UserService {
                        PasswordHistoryRepository passwordHistoryRepository,
                        EmailVerificationService emailVerificationService,
                        PhoneVerificationService phoneVerificationService,
-                       UserDeletionGuard userDeletionGuard,
-                       AuthService authService) {
+                       UserDeletionGuard userDeletionGuard) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.avatarStorageService = avatarStorageService;
@@ -55,7 +53,6 @@ public class UserService {
         this.emailVerificationService = emailVerificationService;
         this.phoneVerificationService = phoneVerificationService;
         this.userDeletionGuard = userDeletionGuard;
-        this.authService = authService;
     }
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
@@ -181,7 +178,8 @@ public class UserService {
     @Transactional
     public UserDto update(Long id, UpdateUserRequest request) {
         User user = findUser(id);
-        applyIdentity(user, request.getFirstName(), request.getLastName(), request.getEmail());
+        assertEmailUnchanged(user, request.getEmail());
+        applyIdentity(user, request.getFirstName(), request.getLastName(), user.getEmail());
         return UserDto.fromUser(userRepository.save(user));
     }
 
@@ -219,28 +217,18 @@ public class UserService {
     @Transactional
     public UpdateProfileResponse updateProfile(User currentUser, UpdateProfileRequest request) {
         User user = findUser(currentUser.getId());
-        String previousEmail = user.getEmail();
+        assertEmailUnchanged(user, request.getEmail());
         String previousPhoneCountry = user.getPhoneCountryCode();
         String previousPhoneNumber = user.getPhoneNumber();
-        applyIdentity(user, request.getFirstName(), request.getLastName(), request.getEmail());
+        applyIdentity(user, request.getFirstName(), request.getLastName(), user.getEmail());
         applyPhone(user, request.getPhoneCountryCode(), request.getPhoneNumber());
-        boolean emailChanged = !previousEmail.equalsIgnoreCase(user.getEmail());
         boolean phoneChanged = !Objects.equals(
                 normalizePhoneKey(previousPhoneCountry, previousPhoneNumber),
                 normalizePhoneKey(user.getPhoneCountryCode(), user.getPhoneNumber()));
-        if (emailChanged) {
-            user.setEmailVerified(false);
-            user.setEmailVerifiedAt(null);
-        }
         if (phoneChanged) {
             phoneVerificationService.invalidateAfterPhoneChange(user);
         }
         User saved = userRepository.save(user);
-        if (emailChanged) {
-            emailVerificationService.sendVerificationEmailSilently(saved);
-            // JWT subject is the email; reissue so subsequent requests don't look up the old address.
-            return authService.reissueTokensAfterEmailChange(saved);
-        }
         return UpdateProfileResponse.of(UserDto.fromUser(saved));
     }
 
@@ -358,6 +346,15 @@ public class UserService {
     private User findUser(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private void assertEmailUnchanged(User user, String requestedEmail) {
+        if (!StringUtils.hasText(requestedEmail)) {
+            return;
+        }
+        if (!user.getEmail().equalsIgnoreCase(requestedEmail.trim())) {
+            throw new ApiException(ErrorCode.EMAIL_CHANGE_NOT_ALLOWED);
+        }
     }
 
     private void applyIdentity(User user, String firstName, String lastName, String email) {

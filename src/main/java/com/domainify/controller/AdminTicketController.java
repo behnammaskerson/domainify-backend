@@ -16,6 +16,7 @@ import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketInboxFilter;
 import com.domainify.dto.TicketMessageRevisionDto;
 import com.domainify.dto.TicketTagDto;
+import com.domainify.dto.TicketWorkloadRowDto;
 import com.domainify.dto.EscalateTicketRequest;
 import com.domainify.dto.TransferTicketRequest;
 import com.domainify.dto.UpdateTicketDueDateRequest;
@@ -103,6 +104,11 @@ public class AdminTicketController {
     @GetMapping("/assignees")
     public ResponseEntity<List<TicketAssigneeOptionDto>> assignees() {
         return ResponseEntity.ok(adminTicketService.listAssignees());
+    }
+
+    @GetMapping("/workload")
+    public ResponseEntity<List<TicketWorkloadRowDto>> workload() {
+        return ResponseEntity.ok(adminTicketService.listWorkload());
     }
 
     @GetMapping("/tags")

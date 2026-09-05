@@ -5,6 +5,7 @@ import com.domainify.dto.TicketAssigneeOptionDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketInboxFilter;
 import com.domainify.dto.TicketTagDto;
+import com.domainify.dto.TicketWorkloadRowDto;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketInboxView;
 import com.domainify.entity.TicketMention;
@@ -33,8 +34,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -98,6 +101,44 @@ public class AdminTicketService {
                 .map(user -> new TicketAssigneeOptionDto(
                         user.getId(), displayName(user), user.getEmail(), user.isTicketAvailable()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TicketWorkloadRowDto> listWorkload() {
+        Map<Long, Long> openByAssignee = new HashMap<>();
+        for (Object[] row : ticketRepository.countOpenTicketsGroupedByAssigneeId()) {
+            if (row == null || row[0] == null) {
+                continue;
+            }
+            Long assigneeId = ((Number) row[0]).longValue();
+            long count = row[1] == null ? 0L : ((Number) row[1]).longValue();
+            openByAssignee.put(assigneeId, count);
+        }
+
+        List<TicketWorkloadRowDto> rows = new ArrayList<>();
+        rows.add(new TicketWorkloadRowDto(
+                null,
+                null,
+                null,
+                true,
+                ticketRepository.countOpenUnassignedTickets()));
+
+        List<User> agents = userRepository.findByRoleAndEnabledTrueOrderByFirstNameAscLastNameAsc(User.Role.ADMIN);
+        List<TicketWorkloadRowDto> agentRows = new ArrayList<>();
+        for (User agent : agents) {
+            long openCount = openByAssignee.getOrDefault(agent.getId(), 0L);
+            agentRows.add(new TicketWorkloadRowDto(
+                    agent.getId(),
+                    displayName(agent),
+                    agent.getEmail(),
+                    agent.isTicketAvailable(),
+                    openCount));
+        }
+        agentRows.sort(Comparator
+                .comparingLong(TicketWorkloadRowDto::getOpenCount).reversed()
+                .thenComparing(row -> row.getName() == null ? "" : row.getName(), String.CASE_INSENSITIVE_ORDER));
+        rows.addAll(agentRows);
+        return rows;
     }
 
     @Transactional(readOnly = true)

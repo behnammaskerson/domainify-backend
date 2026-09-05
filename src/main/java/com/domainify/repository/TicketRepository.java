@@ -67,4 +67,35 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
               )
             """)
     List<Ticket> findEligibleForSlaEscalation(@Param("now") Instant now);
+
+    @Query("""
+            select t.assignee.id, count(t)
+            from Ticket t
+            where t.deletedAt is null
+              and t.archivedAt is null
+              and t.assignee is not null
+              and t.status in (
+                com.domainify.entity.TicketStatus.NEW,
+                com.domainify.entity.TicketStatus.OPEN,
+                com.domainify.entity.TicketStatus.PENDING,
+                com.domainify.entity.TicketStatus.ON_HOLD
+              )
+            group by t.assignee.id
+            """)
+    List<Object[]> countOpenTicketsGroupedByAssigneeId();
+
+    @Query("""
+            select count(t)
+            from Ticket t
+            where t.deletedAt is null
+              and t.archivedAt is null
+              and t.assignee is null
+              and t.status in (
+                com.domainify.entity.TicketStatus.NEW,
+                com.domainify.entity.TicketStatus.OPEN,
+                com.domainify.entity.TicketStatus.PENDING,
+                com.domainify.entity.TicketStatus.ON_HOLD
+              )
+            """)
+    long countOpenUnassignedTickets();
 }
