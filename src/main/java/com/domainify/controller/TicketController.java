@@ -4,6 +4,7 @@ import com.domainify.dto.PagedResponse;
 import com.domainify.dto.TicketAttachmentPolicyDto;
 import com.domainify.dto.TicketCategoryDto;
 import com.domainify.dto.SaveTicketReplyDraftRequest;
+import com.domainify.dto.SubmitTicketCsatRequest;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketReplyDraftDto;
 import com.domainify.dto.TicketDto;
@@ -134,6 +135,14 @@ public class TicketController {
             @AuthenticationPrincipal User user,
             @PathVariable("id") Long id) {
         return ResponseEntity.ok(ticketService.reopenMine(user, id));
+    }
+
+    @PostMapping("/mine/{id}/csat")
+    public ResponseEntity<TicketDetailDto> submitCsat(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id,
+            @Valid @RequestBody SubmitTicketCsatRequest request) {
+        return ResponseEntity.ok(ticketService.submitMineCsat(user, id, request));
     }
 
     @GetMapping("/mine/{id}/attachments/{attachmentId}")

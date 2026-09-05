@@ -16,6 +16,8 @@ import com.domainify.dto.TicketMessageDto;
 import com.domainify.dto.TicketMessageRevisionDto;
 import com.domainify.dto.EscalateTicketRequest;
 import com.domainify.dto.TicketEscalationDto;
+import com.domainify.dto.TicketCsatDto;
+import com.domainify.dto.SubmitTicketCsatRequest;
 import com.domainify.dto.TicketTransferDto;
 import com.domainify.dto.TransferTicketRequest;
 import com.domainify.dto.UpdateTicketDueDateRequest;
@@ -25,6 +27,7 @@ import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketAttachment;
 import com.domainify.entity.TicketCategory;
 import com.domainify.entity.TicketChannel;
+import com.domainify.entity.TicketCsat;
 import com.domainify.entity.TicketEscalation;
 import com.domainify.entity.TicketEscalationTrigger;
 import com.domainify.entity.TicketMention;
@@ -43,6 +46,7 @@ import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
 import com.domainify.repository.TicketAttachmentRepository;
+import com.domainify.repository.TicketCsatRepository;
 import com.domainify.repository.TicketEscalationRepository;
 import com.domainify.repository.TicketMentionRepository;
 import com.domainify.repository.TicketMessageAttachmentRepository;
@@ -104,6 +108,7 @@ public class TicketService {
     private final TicketWatcherRepository ticketWatcherRepository;
     private final TicketTransferRepository ticketTransferRepository;
     private final TicketEscalationRepository ticketEscalationRepository;
+    private final TicketCsatRepository ticketCsatRepository;
     private final TicketCategoryService ticketCategoryService;
     private final TicketQueueService ticketQueueService;
     private final TicketMentionService ticketMentionService;
@@ -126,6 +131,7 @@ public class TicketService {
             TicketWatcherRepository ticketWatcherRepository,
             TicketTransferRepository ticketTransferRepository,
             TicketEscalationRepository ticketEscalationRepository,
+            TicketCsatRepository ticketCsatRepository,
             TicketCategoryService ticketCategoryService,
             TicketQueueService ticketQueueService,
             TicketMentionService ticketMentionService,
@@ -146,6 +152,7 @@ public class TicketService {
         this.ticketWatcherRepository = ticketWatcherRepository;
         this.ticketTransferRepository = ticketTransferRepository;
         this.ticketEscalationRepository = ticketEscalationRepository;
+        this.ticketCsatRepository = ticketCsatRepository;
         this.ticketCategoryService = ticketCategoryService;
         this.ticketQueueService = ticketQueueService;
         this.ticketMentionService = ticketMentionService;
@@ -718,6 +725,41 @@ public class TicketService {
     }
 
     @Transactional
+    public TicketDetailDto submitMineCsat(User requester, Long ticketId, SubmitTicketCsatRequest request) {
+        Ticket ticket = requireOwnedTicket(requester, ticketId);
+        assertNotDeleted(ticket);
+        if (ticket.isArchived()) {
+            throw new ApiException(ErrorCode.TICKET_CSAT_NOT_ALLOWED);
+        }
+        TicketStatus status = ticket.getStatus();
+        if (status != TicketStatus.RESOLVED && status != TicketStatus.CLOSED) {
+            throw new ApiException(ErrorCode.TICKET_CSAT_NOT_ALLOWED);
+        }
+        if (ticketCsatRepository.existsByTicketId(ticket.getId())) {
+            throw new ApiException(ErrorCode.TICKET_CSAT_ALREADY_RATED);
+        }
+        if (request == null || request.getScore() == null) {
+            throw new ApiException(ErrorCode.TICKET_CSAT_SCORE_INVALID);
+        }
+        int score = request.getScore();
+        if (score < 1 || score > 5) {
+            throw new ApiException(ErrorCode.TICKET_CSAT_SCORE_INVALID);
+        }
+        String comment = request.getComment() == null ? null : request.getComment().trim();
+        if (StringUtils.hasText(comment) && comment.length() > 1000) {
+            throw new ApiException(ErrorCode.TICKET_CSAT_COMMENT_TOO_LONG);
+        }
+
+        TicketCsat csat = new TicketCsat();
+        csat.setTicket(ticket);
+        csat.setRater(requester);
+        csat.setScore((short) score);
+        csat.setComment(StringUtils.hasText(comment) ? comment : null);
+        ticketCsatRepository.save(csat);
+        return toDetailDto(ticket, requester, false);
+    }
+
+    @Transactional
     public TicketDetailDto updateTagsAsStaff(User agent, Long ticketId, UpdateTicketTagsRequest request) {
         requireAgent(agent);
         Ticket ticket = requireStaffTicket(ticketId, false);
@@ -1241,6 +1283,18 @@ public class TicketService {
         } else if (previous == TicketStatus.CLOSED) {
             ticket.setClosedAt(null);
         }
+        // Clear CSAT when ticket leaves resolved/closed so a later resolve can be rated again.
+        if (isActiveOpenStatus(nextStatus) && ticket.getId() != null
+                && (previous == TicketStatus.RESOLVED || previous == TicketStatus.CLOSED)) {
+            ticketCsatRepository.deleteByTicketId(ticket.getId());
+        }
+    }
+
+    private boolean isActiveOpenStatus(TicketStatus status) {
+        return status == TicketStatus.NEW
+                || status == TicketStatus.OPEN
+                || status == TicketStatus.PENDING
+                || status == TicketStatus.ON_HOLD;
     }
 
     private void assertReopenAllowed(Ticket ticket) {
@@ -1593,6 +1647,21 @@ public class TicketService {
         detail.setCanTransfer(includeWorkflow && !deleted && !archived && !ticket.isMerged());
         detail.setCanEscalate(includeWorkflow && !deleted && !archived && !ticket.isMerged()
                 && ticket.getStatus() != TicketStatus.CLOSED);
+        TicketCsat existingCsat = ticket.getId() == null
+                ? null
+                : ticketCsatRepository.findByTicketId(ticket.getId()).orElse(null);
+        if (existingCsat != null) {
+            detail.setCsat(toCsatDto(existingCsat));
+        }
+        boolean requesterViewer = viewer != null && ticket.getRequester() != null
+                && viewer.getId() != null
+                && viewer.getId().equals(ticket.getRequester().getId());
+        detail.setCanRateCsat(!includeWorkflow
+                && requesterViewer
+                && !deleted
+                && !archived
+                && existingCsat == null
+                && (ticket.getStatus() == TicketStatus.RESOLVED || ticket.getStatus() == TicketStatus.CLOSED));
         if (includeWorkflow && ticket.getId() != null) {
             boolean watching = viewer != null && viewer.getId() != null
                     && ticketWatcherRepository.existsByTicketIdAndUserId(ticket.getId(), viewer.getId());
@@ -1980,6 +2049,14 @@ public class TicketService {
             return false;
         }
         return a.getId().equals(b.getId());
+    }
+
+    private TicketCsatDto toCsatDto(TicketCsat csat) {
+        TicketCsatDto dto = new TicketCsatDto();
+        dto.setScore(csat.getScore());
+        dto.setComment(csat.getComment());
+        dto.setRatedAt(csat.getCreatedAt());
+        return dto;
     }
 
     private TicketEscalationDto toEscalationDto(TicketEscalation escalation) {

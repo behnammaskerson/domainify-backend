@@ -185,21 +185,28 @@ public class TicketEmailNotificationService {
             default -> messageService.get("notification.email.event.update", locale);
         };
 
-        return messageService.get("notification.email.hello", new Object[]{displayName(recipient, locale)}, locale)
+        String body = messageService.get("notification.email.hello", new Object[]{displayName(recipient, locale)}, locale)
                 + "\n\n"
                 + eventLine
                 + "\n\n"
                 + messageService.get("notification.email.ticket_label", new Object[]{ticketRef(ticket)}, locale)
                 + "\n"
                 + messageService.get("notification.email.subject_label", new Object[]{subjectLine}, locale)
-                + "\n\n"
-                + messageService.get("notification.email.open_link", locale)
+                + "\n\n";
+        if (type == NotificationType.TICKET_STATUS_CHANGED
+                && to == TicketStatus.RESOLVED
+                && recipient.getRole() != User.Role.ADMIN) {
+            body += messageService.get("notification.email.event.csat_invite", locale)
+                    + "\n\n";
+        }
+        body += messageService.get("notification.email.open_link", locale)
                 + "\n"
                 + link
                 + "\n\n"
                 + messageService.get("notification.email.footer", locale)
                 + "\n\n"
                 + messageService.get("notification.email.signature", locale);
+        return body;
     }
 
     private String ticketLink(User recipient, Ticket ticket) {

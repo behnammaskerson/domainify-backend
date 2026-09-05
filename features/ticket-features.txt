@@ -44,8 +44,8 @@ done - Workload view (open tickets per agent)
 done - “My tickets” list with status filters & search
 done - Create ticket from portal
 done - Reply / add attachments
+done - Rate satisfaction after resolve (CSAT 1–5 + comment)
 
-Rate satisfaction after resolve (CSAT 1–5 + comment)
 Knowledge-base suggestions while creating (“Did you mean…?”)
 Guest ticket by email without login (optional)
 Multi-language ticket UI (reuse your i18n: en/fa/ar/tr)

@@ -25,6 +25,8 @@ public class TicketDetailDto {
     private boolean watching;
     private boolean canTransfer;
     private boolean canEscalate;
+    private boolean canRateCsat;
+    private TicketCsatDto csat;
     private List<TicketAssigneeOptionDto> watchers = new ArrayList<>();
     private List<TicketTransferDto> transfers = new ArrayList<>();
     private List<TicketEscalationDto> escalations = new ArrayList<>();
@@ -201,6 +203,22 @@ public class TicketDetailDto {
 
     public void setCanEscalate(boolean canEscalate) {
         this.canEscalate = canEscalate;
+    }
+
+    public boolean isCanRateCsat() {
+        return canRateCsat;
+    }
+
+    public void setCanRateCsat(boolean canRateCsat) {
+        this.canRateCsat = canRateCsat;
+    }
+
+    public TicketCsatDto getCsat() {
+        return csat;
+    }
+
+    public void setCsat(TicketCsatDto csat) {
+        this.csat = csat;
     }
 
     public List<TicketEscalationDto> getEscalations() {
