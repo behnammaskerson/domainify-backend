@@ -45,17 +45,16 @@ done - “My tickets” list with status filters & search
 done - Create ticket from portal
 done - Reply / add attachments
 done - Rate satisfaction after resolve (CSAT 1–5 + comment)
+done - Multi-language ticket UI (reuse your i18n: en/fa/ar/tr)
 
 Knowledge-base suggestions while creating (“Did you mean…?”)
-Guest ticket by email without login (optional)
-Multi-language ticket UI (reuse your i18n: en/fa/ar/tr)
 
 5. Agent / admin console
 done - Inbox views: All, Unassigned, Mine, Mentions, Overdue
 done - Advanced filters: status, priority, category, assignee, date range, tag, customer
+done - Full-text search (subject, body, ticket ID, customer email)
+done - Bulk actions: assign, change status, add tag, close
 
-Full-text search (subject, body, ticket ID, customer email)
-Bulk actions: assign, change status, add tag, close
 Ticket detail side panel (customer profile, domains, recent SMS, order history)
 Keyboard shortcuts for power users
 Saved views / custom filters

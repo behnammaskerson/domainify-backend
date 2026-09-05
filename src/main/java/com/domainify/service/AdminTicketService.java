@@ -17,6 +17,7 @@ import com.domainify.entity.User;
 import com.domainify.repository.TicketAgentQueueMembershipRepository;
 import com.domainify.repository.TicketRepository;
 import com.domainify.repository.UserRepository;
+import com.domainify.util.TicketFullTextSearch;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -264,18 +265,8 @@ public class AdminTicketService {
             }
 
             if (StringUtils.hasText(q)) {
-                String pattern = "%" + q.trim().toLowerCase(Locale.ROOT) + "%";
-                if (requesterJoin == null) {
-                    requesterJoin = root.join("requester", JoinType.LEFT);
-                }
-                predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("publicNumber")), pattern),
-                        cb.like(cb.lower(root.get("subject")), pattern),
-                        cb.like(cb.lower(root.get("description")), pattern),
-                        cb.like(cb.lower(requesterJoin.get("email")), pattern),
-                        cb.like(cb.lower(requesterJoin.get("firstName")), pattern),
-                        cb.like(cb.lower(requesterJoin.get("lastName")), pattern)
-                ));
+                // Staff inbox: include internal notes in body search.
+                predicates.add(TicketFullTextSearch.matches(root, cb, q, true));
             }
 
             query.distinct(true);

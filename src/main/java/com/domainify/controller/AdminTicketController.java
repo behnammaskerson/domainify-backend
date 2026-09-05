@@ -3,6 +3,8 @@ package com.domainify.controller;
 import com.domainify.dto.AddTicketWatcherRequest;
 import com.domainify.dto.AssignTicketQueueRequest;
 import com.domainify.dto.AssignTicketRequest;
+import com.domainify.dto.BulkTicketActionRequest;
+import com.domainify.dto.BulkTicketActionResultDto;
 import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
@@ -28,6 +30,7 @@ import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketStatus;
 import com.domainify.entity.User;
 import com.domainify.service.AdminTicketService;
+import com.domainify.service.BulkTicketService;
 import com.domainify.service.TicketService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
@@ -61,10 +64,15 @@ public class AdminTicketController {
 
     private final AdminTicketService adminTicketService;
     private final TicketService ticketService;
+    private final BulkTicketService bulkTicketService;
 
-    public AdminTicketController(AdminTicketService adminTicketService, TicketService ticketService) {
+    public AdminTicketController(
+            AdminTicketService adminTicketService,
+            TicketService ticketService,
+            BulkTicketService bulkTicketService) {
         this.adminTicketService = adminTicketService;
         this.ticketService = ticketService;
+        this.bulkTicketService = bulkTicketService;
     }
 
     @GetMapping("/inbox")
@@ -114,6 +122,13 @@ public class AdminTicketController {
     @GetMapping("/tags")
     public ResponseEntity<List<TicketTagDto>> tags() {
         return ResponseEntity.ok(adminTicketService.listTags());
+    }
+
+    @PostMapping("/bulk")
+    public ResponseEntity<BulkTicketActionResultDto> bulk(
+            @AuthenticationPrincipal User agent,
+            @Valid @RequestBody BulkTicketActionRequest request) {
+        return ResponseEntity.ok(bulkTicketService.execute(agent, request));
     }
 
     @GetMapping("/{id}")

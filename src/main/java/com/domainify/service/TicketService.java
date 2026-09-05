@@ -45,6 +45,7 @@ import com.domainify.entity.TicketWatcher;
 import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
+import com.domainify.util.TicketFullTextSearch;
 import com.domainify.repository.TicketAttachmentRepository;
 import com.domainify.repository.TicketCsatRepository;
 import com.domainify.repository.TicketEscalationRepository;
@@ -772,6 +773,28 @@ public class TicketService {
         return toDetailDto(ticket, agent, true);
     }
 
+    /** Merge tags onto the ticket (does not remove existing tags). */
+    @Transactional
+    public TicketDetailDto addTagsAsStaff(User agent, Long ticketId, UpdateTicketTagsRequest request) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        Set<TicketTag> merged = new HashSet<>();
+        if (ticket.getTags() != null) {
+            merged.addAll(ticket.getTags());
+        }
+        Set<TicketTag> toAdd = ticketTagService.resolveTags(
+                request != null ? request.getTagIds() : null,
+                request != null ? request.getNames() : null
+        );
+        merged.addAll(toAdd);
+        if (merged.size() > 20) {
+            throw new ApiException(ErrorCode.TICKET_TAG_NAME_INVALID);
+        }
+        ticket.setTags(merged);
+        ticketRepository.save(ticket);
+        return toDetailDto(ticket, agent, true);
+    }
+
     @Transactional
     public TicketDetailDto archiveAsStaff(User agent, Long ticketId) {
         requireAgent(agent);
@@ -1441,12 +1464,8 @@ public class TicketService {
             }
 
             if (StringUtils.hasText(q)) {
-                String pattern = "%" + q.trim().toLowerCase(Locale.ROOT) + "%";
-                predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("publicNumber")), pattern),
-                        cb.like(cb.lower(root.get("subject")), pattern),
-                        cb.like(cb.lower(root.get("description")), pattern)
-                ));
+                // Public portal: exclude internal notes from body search.
+                predicates.add(TicketFullTextSearch.matches(root, cb, q, false));
             }
 
             return cb.and(predicates.toArray(Predicate[]::new));
