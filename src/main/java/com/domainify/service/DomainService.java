@@ -41,15 +41,20 @@ public class DomainService {
             Pattern.CASE_INSENSITIVE
     );
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
-            "name", "status", "price", "expiresAt", "createdAt", "updatedAt", "category.name"
+            "name", "status", "price", "expiresAt", "createdAt", "updatedAt", "category.name", "ownershipStatus"
     );
 
     private final DomainRepository domainRepository;
     private final DomainCategoryService domainCategoryService;
+    private final DomainOwnershipService domainOwnershipService;
 
-    public DomainService(DomainRepository domainRepository, DomainCategoryService domainCategoryService) {
+    public DomainService(
+            DomainRepository domainRepository,
+            DomainCategoryService domainCategoryService,
+            DomainOwnershipService domainOwnershipService) {
         this.domainRepository = domainRepository;
         this.domainCategoryService = domainCategoryService;
+        this.domainOwnershipService = domainOwnershipService;
     }
 
     @Transactional(readOnly = true)
@@ -138,11 +143,15 @@ public class DomainService {
             throw new ApiException(ErrorCode.DOMAIN_PRICE_INVALID);
         }
 
+        String previousName = domain.getName();
         domain.setName(name);
         domain.setStatus(request.getStatus());
         domain.setCategory(category);
         domain.setPrice(request.getPrice());
         domain.setExpiresAt(request.getExpiresAt());
+        if (previousName != null && !previousName.equalsIgnoreCase(name)) {
+            domainOwnershipService.resetOwnership(domain);
+        }
     }
 
     private Specification<Domain> buildListSpec(

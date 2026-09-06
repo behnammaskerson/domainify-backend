@@ -1,11 +1,14 @@
 package com.domainify.controller;
 
 import com.domainify.dto.DomainDto;
+import com.domainify.dto.DomainOwnershipChallengeDto;
 import com.domainify.dto.DomainStatusCountsDto;
 import com.domainify.dto.PagedResponse;
+import com.domainify.dto.StartDomainOwnershipRequest;
 import com.domainify.dto.UpsertDomainRequest;
 import com.domainify.entity.DomainStatus;
 import com.domainify.entity.User;
+import com.domainify.service.DomainOwnershipService;
 import com.domainify.service.DomainService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -30,9 +33,11 @@ import java.math.BigDecimal;
 public class DomainController {
 
     private final DomainService domainService;
+    private final DomainOwnershipService domainOwnershipService;
 
-    public DomainController(DomainService domainService) {
+    public DomainController(DomainService domainService, DomainOwnershipService domainOwnershipService) {
         this.domainService = domainService;
+        this.domainOwnershipService = domainOwnershipService;
     }
 
     @GetMapping
@@ -80,5 +85,34 @@ public class DomainController {
             @PathVariable("id") Long id) {
         domainService.delete(user, id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/ownership/start")
+    public ResponseEntity<DomainOwnershipChallengeDto> startOwnership(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id,
+            @Valid @RequestBody StartDomainOwnershipRequest request) {
+        return ResponseEntity.ok(domainOwnershipService.start(user, id, request));
+    }
+
+    @GetMapping("/{id}/ownership")
+    public ResponseEntity<DomainOwnershipChallengeDto> getOwnershipChallenge(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(domainOwnershipService.getChallenge(user, id));
+    }
+
+    @PostMapping("/{id}/ownership/check")
+    public ResponseEntity<DomainDto> checkOwnership(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(domainOwnershipService.check(user, id));
+    }
+
+    @PostMapping("/{id}/ownership/cancel")
+    public ResponseEntity<DomainDto> cancelOwnership(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(domainOwnershipService.cancel(user, id));
     }
 }

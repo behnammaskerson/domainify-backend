@@ -1,6 +1,8 @@
 package com.domainify.dto;
 
 import com.domainify.entity.Domain;
+import com.domainify.entity.DomainOwnershipMethod;
+import com.domainify.entity.DomainOwnershipStatus;
 import com.domainify.entity.DomainStatus;
 
 import java.math.BigDecimal;
@@ -17,6 +19,10 @@ public class DomainDto {
     private String categoryName;
     private BigDecimal price;
     private LocalDate expiresAt;
+    private DomainOwnershipStatus ownershipStatus;
+    private DomainOwnershipMethod ownershipMethod;
+    private Instant ownershipVerifiedAt;
+    private Instant ownershipTokenExpiresAt;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -35,6 +41,15 @@ public class DomainDto {
         }
         dto.price = domain.getPrice();
         dto.expiresAt = domain.getExpiresAt();
+        dto.ownershipStatus = domain.getOwnershipStatus() != null
+                ? domain.getOwnershipStatus()
+                : DomainOwnershipStatus.UNVERIFIED;
+        dto.ownershipMethod = domain.getOwnershipMethod();
+        dto.ownershipVerifiedAt = domain.getOwnershipVerifiedAt();
+        // Expose expiry while a challenge is pending (token itself is not listed in inventory DTO)
+        if (domain.getOwnershipStatus() == DomainOwnershipStatus.PENDING) {
+            dto.ownershipTokenExpiresAt = domain.getOwnershipTokenExpiresAt();
+        }
         dto.createdAt = domain.getCreatedAt();
         dto.updatedAt = domain.getUpdatedAt();
         return dto;
@@ -102,6 +117,38 @@ public class DomainDto {
 
     public void setExpiresAt(LocalDate expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    public DomainOwnershipStatus getOwnershipStatus() {
+        return ownershipStatus;
+    }
+
+    public void setOwnershipStatus(DomainOwnershipStatus ownershipStatus) {
+        this.ownershipStatus = ownershipStatus;
+    }
+
+    public DomainOwnershipMethod getOwnershipMethod() {
+        return ownershipMethod;
+    }
+
+    public void setOwnershipMethod(DomainOwnershipMethod ownershipMethod) {
+        this.ownershipMethod = ownershipMethod;
+    }
+
+    public Instant getOwnershipVerifiedAt() {
+        return ownershipVerifiedAt;
+    }
+
+    public void setOwnershipVerifiedAt(Instant ownershipVerifiedAt) {
+        this.ownershipVerifiedAt = ownershipVerifiedAt;
+    }
+
+    public Instant getOwnershipTokenExpiresAt() {
+        return ownershipTokenExpiresAt;
+    }
+
+    public void setOwnershipTokenExpiresAt(Instant ownershipTokenExpiresAt) {
+        this.ownershipTokenExpiresAt = ownershipTokenExpiresAt;
     }
 
     public Instant getCreatedAt() {

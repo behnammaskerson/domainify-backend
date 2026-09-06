@@ -27,6 +27,7 @@ import java.time.LocalDate;
         @Index(name = "idx_domains_owner", columnList = "owner_id"),
         @Index(name = "idx_domains_status", columnList = "status"),
         @Index(name = "idx_domains_category", columnList = "category_id"),
+        @Index(name = "idx_domains_ownership_status", columnList = "ownership_status"),
         @Index(name = "idx_domains_expires_at", columnList = "expires_at"),
         @Index(name = "idx_domains_name", columnList = "name")
 })
@@ -56,6 +57,29 @@ public class Domain {
 
     @Column(name = "expires_at")
     private LocalDate expiresAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ownership_status", nullable = false, length = 20)
+    private DomainOwnershipStatus ownershipStatus = DomainOwnershipStatus.UNVERIFIED;
+
+    @Column(name = "ownership_verified_at")
+    private Instant ownershipVerifiedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ownership_method", length = 20)
+    private DomainOwnershipMethod ownershipMethod;
+
+    @Column(name = "ownership_token", length = 64)
+    private String ownershipToken;
+
+    @Column(name = "ownership_token_expires_at")
+    private Instant ownershipTokenExpiresAt;
+
+    @Column(name = "ownership_last_checked_at")
+    private Instant ownershipLastCheckedAt;
+
+    @Column(name = "ownership_check_attempts", nullable = false)
+    private int ownershipCheckAttempts = 0;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -137,6 +161,62 @@ public class Domain {
 
     public void setExpiresAt(LocalDate expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    public DomainOwnershipStatus getOwnershipStatus() {
+        return ownershipStatus;
+    }
+
+    public void setOwnershipStatus(DomainOwnershipStatus ownershipStatus) {
+        this.ownershipStatus = ownershipStatus;
+    }
+
+    public Instant getOwnershipVerifiedAt() {
+        return ownershipVerifiedAt;
+    }
+
+    public void setOwnershipVerifiedAt(Instant ownershipVerifiedAt) {
+        this.ownershipVerifiedAt = ownershipVerifiedAt;
+    }
+
+    public DomainOwnershipMethod getOwnershipMethod() {
+        return ownershipMethod;
+    }
+
+    public void setOwnershipMethod(DomainOwnershipMethod ownershipMethod) {
+        this.ownershipMethod = ownershipMethod;
+    }
+
+    public String getOwnershipToken() {
+        return ownershipToken;
+    }
+
+    public void setOwnershipToken(String ownershipToken) {
+        this.ownershipToken = ownershipToken;
+    }
+
+    public Instant getOwnershipTokenExpiresAt() {
+        return ownershipTokenExpiresAt;
+    }
+
+    public void setOwnershipTokenExpiresAt(Instant ownershipTokenExpiresAt) {
+        this.ownershipTokenExpiresAt = ownershipTokenExpiresAt;
+    }
+
+    public Instant getOwnershipLastCheckedAt() {
+        return ownershipLastCheckedAt;
+    }
+
+    public void setOwnershipLastCheckedAt(Instant ownershipLastCheckedAt) {
+        this.ownershipLastCheckedAt = ownershipLastCheckedAt;
+    }
+
+    public int getOwnershipCheckAttempts() {
+        return ownershipCheckAttempts;
+    }
+
+    public void setOwnershipCheckAttempts(int ownershipCheckAttempts) {
+        this.ownershipCheckAttempts = ownershipCheckAttempts;
     }
 
     public Instant getCreatedAt() {

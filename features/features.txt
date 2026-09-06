@@ -11,11 +11,14 @@ PWA Installation - Install as desktop/mobile app
 
 Domain Management
 done - Domain Inventory Grid - Sort, filter, paginate domains
+done - Domain Categories - Tag domains by niche (Tech, Crypto, SaaS, etc.)
+
+
 Bulk Operations - Select multiple domains for batch actions
 done - Domain Search - Real-time search with debouncing
 done - Domain Status Tracking - Active, pending, sold, expired
+done - Domain Ownership Verification - Prove control via DNS TXT or HTTP file
 Domain Renewal Reminders - Email/SMS alerts before expiry
-done - Domain Categories - Tag domains by niche (Tech, Crypto, SaaS, etc.)
 Domain Valuation History - Track price changes over time
 Domain Transfer Management - Track IN/OUT transfers
 WHOIS Lookup Integration - Show domain registration details

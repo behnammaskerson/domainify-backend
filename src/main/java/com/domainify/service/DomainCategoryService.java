@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -79,11 +80,15 @@ public class DomainCategoryService {
     @Transactional
     public DomainCategoryDto create(DomainCategoryRequest request) {
         String name = normalizeName(request.getName());
-        String code = normalizeCode(StringUtils.hasText(request.getCode()) ? request.getCode() : name);
+        boolean codeProvided = StringUtils.hasText(request.getCode());
+        String code = normalizeCode(codeProvided ? request.getCode() : name);
+        // Non-Latin names (fa/ar/…) slugify to empty — auto-allocate a code when omitted.
         if (!StringUtils.hasText(code)) {
-            throw new ApiException(ErrorCode.DOMAIN_CATEGORY_CODE_INVALID);
-        }
-        if (domainCategoryRepository.existsByCodeIgnoreCase(code)) {
+            if (codeProvided) {
+                throw new ApiException(ErrorCode.DOMAIN_CATEGORY_CODE_INVALID);
+            }
+            code = allocateUniqueCode();
+        } else if (domainCategoryRepository.existsByCodeIgnoreCase(code)) {
             throw new ApiException(ErrorCode.DOMAIN_CATEGORY_CODE_EXISTS);
         }
 
@@ -283,5 +288,18 @@ public class DomainCategoryService {
             code = code.substring(0, CODE_MAX).replaceAll("-+$", "");
         }
         return code;
+    }
+
+    private String allocateUniqueCode() {
+        for (int attempt = 0; attempt < 12; attempt++) {
+            String candidate = "cat-" + Long.toString(System.nanoTime() + attempt, 36);
+            if (candidate.length() > CODE_MAX) {
+                candidate = candidate.substring(0, CODE_MAX).replaceAll("-+$", "");
+            }
+            if (StringUtils.hasText(candidate) && !domainCategoryRepository.existsByCodeIgnoreCase(candidate)) {
+                return candidate;
+            }
+        }
+        throw new ApiException(ErrorCode.DOMAIN_CATEGORY_CODE_INVALID);
     }
 }
