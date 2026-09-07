@@ -32,7 +32,13 @@ public class NotificationTypeSchemaRepair implements ApplicationRunner {
                     + "'TICKET_WATCHER_ADDED',"
                     + "'TICKET_TRANSFERRED',"
                     + "'TICKET_ESCALATED',"
-                    + "'DOMAIN_RENEWAL'"
+                    + "'DOMAIN_RENEWAL',"
+                    + "'OFFER_RECEIVED',"
+                    + "'OFFER_COUNTERED',"
+                    + "'OFFER_ACCEPTED',"
+                    + "'OFFER_REJECTED',"
+                    + "'OFFER_WITHDRAWN',"
+                    + "'OFFER_EXPIRED'"
                     + ")";
 
     private final JdbcTemplate jdbcTemplate;

@@ -42,8 +42,8 @@ Traffic Estimates - Estimated organic traffic potential
 Social Media Handles - Check availability of @username on platforms
 
 Marketplace
-Domain Listings - Create/Edit/Deactivate listings
-Price Negotiation - Make/accept/reject offers
+done - Domain Listings - Create/Edit/Deactivate listings
+done - Price Negotiation - Make/accept/reject offers
 Buy It Now - Immediate purchase option
 Auction System - Time-based domain auctions
 Featured Listings - Paid promotion for premium domains

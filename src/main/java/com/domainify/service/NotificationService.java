@@ -4,6 +4,7 @@ import com.domainify.dto.NotificationDto;
 import com.domainify.dto.PagedResponse;
 import com.domainify.dto.UnreadCountDto;
 import com.domainify.entity.Domain;
+import com.domainify.entity.DomainListingOffer;
 import com.domainify.entity.InAppNotification;
 import com.domainify.entity.NotificationType;
 import com.domainify.entity.Ticket;
@@ -33,18 +34,24 @@ public class NotificationService {
     private final TicketWatcherRepository ticketWatcherRepository;
     private final TicketEmailNotificationService ticketEmailNotificationService;
     private final TicketSmsNotificationService ticketSmsNotificationService;
+    private final OfferEmailNotificationService offerEmailNotificationService;
+    private final OfferSmsNotificationService offerSmsNotificationService;
 
     public NotificationService(
             InAppNotificationRepository notificationRepository,
             UserRepository userRepository,
             TicketWatcherRepository ticketWatcherRepository,
             TicketEmailNotificationService ticketEmailNotificationService,
-            TicketSmsNotificationService ticketSmsNotificationService) {
+            TicketSmsNotificationService ticketSmsNotificationService,
+            OfferEmailNotificationService offerEmailNotificationService,
+            OfferSmsNotificationService offerSmsNotificationService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.ticketWatcherRepository = ticketWatcherRepository;
         this.ticketEmailNotificationService = ticketEmailNotificationService;
         this.ticketSmsNotificationService = ticketSmsNotificationService;
+        this.offerEmailNotificationService = offerEmailNotificationService;
+        this.offerSmsNotificationService = offerSmsNotificationService;
     }
 
     @Transactional(readOnly = true)
@@ -105,6 +112,87 @@ public class NotificationService {
         notification.setStatusTo(null);
         notification.setRead(false);
         notificationRepository.save(notification);
+    }
+
+    @Transactional
+    public void notifyOfferReceived(DomainListingOffer offer, User actor) {
+        notifyOfferParty(offer, actor, offer != null ? offer.getSeller() : null, NotificationType.OFFER_RECEIVED);
+    }
+
+    @Transactional
+    public void notifyOfferCountered(DomainListingOffer offer, User actor) {
+        if (offer == null || actor == null || actor.getId() == null) {
+            return;
+        }
+        User recipient = actor.getId().equals(offer.getBuyer() != null ? offer.getBuyer().getId() : null)
+                ? offer.getSeller()
+                : offer.getBuyer();
+        notifyOfferParty(offer, actor, recipient, NotificationType.OFFER_COUNTERED);
+    }
+
+    @Transactional
+    public void notifyOfferAccepted(DomainListingOffer offer, User actor) {
+        notifyOfferOtherParty(offer, actor, NotificationType.OFFER_ACCEPTED);
+    }
+
+    @Transactional
+    public void notifyOfferRejected(DomainListingOffer offer, User actor) {
+        notifyOfferOtherParty(offer, actor, NotificationType.OFFER_REJECTED);
+    }
+
+    @Transactional
+    public void notifyOfferWithdrawn(DomainListingOffer offer, User actor) {
+        notifyOfferParty(offer, actor, offer != null ? offer.getSeller() : null, NotificationType.OFFER_WITHDRAWN);
+    }
+
+    @Transactional
+    public void notifyOfferExpired(DomainListingOffer offer) {
+        if (offer == null) {
+            return;
+        }
+        notifyOfferParty(offer, null, offer.getBuyer(), NotificationType.OFFER_EXPIRED);
+        notifyOfferParty(offer, null, offer.getSeller(), NotificationType.OFFER_EXPIRED);
+    }
+
+    private void notifyOfferOtherParty(DomainListingOffer offer, User actor, NotificationType type) {
+        if (offer == null || actor == null || actor.getId() == null) {
+            return;
+        }
+        User recipient = actor.getId().equals(offer.getBuyer() != null ? offer.getBuyer().getId() : null)
+                ? offer.getSeller()
+                : offer.getBuyer();
+        notifyOfferParty(offer, actor, recipient, type);
+    }
+
+    private void notifyOfferParty(
+            DomainListingOffer offer,
+            User actor,
+            User recipient,
+            NotificationType type) {
+        if (offer == null || recipient == null || recipient.getId() == null || !recipient.isEnabled()) {
+            return;
+        }
+        if (actor != null && actor.getId() != null && actor.getId().equals(recipient.getId())) {
+            return;
+        }
+        String domainName = "";
+        if (offer.getListing() != null && offer.getListing().getDomain() != null) {
+            domainName = offer.getListing().getDomain().getName();
+        }
+        String amountText = offer.getAmount() != null ? offer.getAmount().toPlainString() : "";
+        InAppNotification notification = new InAppNotification();
+        notification.setRecipient(recipient);
+        notification.setActor(actor);
+        notification.setType(type);
+        notification.setTicket(null);
+        notification.setTicketSubject(truncate(domainName, 200));
+        notification.setTicketPublicNumber(truncate(amountText, 32));
+        notification.setStatusFrom(null);
+        notification.setStatusTo(null);
+        notification.setRead(false);
+        notificationRepository.save(notification);
+        offerEmailNotificationService.sendIfConfigured(recipient, actor, type, offer);
+        offerSmsNotificationService.sendIfConfigured(recipient, actor, type, offer);
     }
 
     @Transactional
