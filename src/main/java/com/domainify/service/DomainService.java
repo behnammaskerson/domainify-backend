@@ -1,11 +1,14 @@
 package com.domainify.service;
 
 import com.domainify.dto.DomainDto;
+import com.domainify.dto.DomainRegistrarExpiryDto;
 import com.domainify.dto.DomainStatusCountsDto;
+import com.domainify.dto.DomainWhoisDto;
 import com.domainify.dto.PagedResponse;
 import com.domainify.dto.UpsertDomainRequest;
 import com.domainify.entity.Domain;
 import com.domainify.entity.DomainCategory;
+import com.domainify.entity.DomainExpirySource;
 import com.domainify.entity.DomainStatus;
 import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
@@ -23,12 +26,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -47,14 +53,20 @@ public class DomainService {
     private final DomainRepository domainRepository;
     private final DomainCategoryService domainCategoryService;
     private final DomainOwnershipService domainOwnershipService;
+    private final DomainRegistrarLookupService registrarLookupService;
+    private final DomainSettingsService domainSettingsService;
 
     public DomainService(
             DomainRepository domainRepository,
             DomainCategoryService domainCategoryService,
-            DomainOwnershipService domainOwnershipService) {
+            DomainOwnershipService domainOwnershipService,
+            DomainRegistrarLookupService registrarLookupService,
+            DomainSettingsService domainSettingsService) {
         this.domainRepository = domainRepository;
         this.domainCategoryService = domainCategoryService;
         this.domainOwnershipService = domainOwnershipService;
+        this.registrarLookupService = registrarLookupService;
+        this.domainSettingsService = domainSettingsService;
     }
 
     @Transactional(readOnly = true)
@@ -94,6 +106,35 @@ public class DomainService {
     @Transactional(readOnly = true)
     public DomainDto get(User owner, Long id) {
         return DomainDto.from(requireOwned(owner, id));
+    }
+
+    @Transactional(readOnly = true)
+    public DomainRegistrarExpiryDto lookupRegistrarExpiry(User owner, String name) {
+        requireUser(owner);
+        return registrarLookupService.lookup(name);
+    }
+
+    @Transactional(readOnly = true)
+    public DomainWhoisDto lookupWhois(User owner, String name) {
+        requireUser(owner);
+        return registrarLookupService.lookupWhois(name);
+    }
+
+    @Transactional(readOnly = true)
+    public DomainWhoisDto lookupWhoisForDomain(User owner, Long id) {
+        Domain domain = requireOwned(owner, id);
+        return registrarLookupService.lookupWhois(domain.getName());
+    }
+
+    @Transactional
+    public DomainDto refreshExpiryFromRegistrar(User owner, Long id) {
+        Domain domain = requireOwned(owner, id);
+        DomainRegistrarExpiryDto lookup = registrarLookupService.lookup(domain.getName());
+        domain.setExpiresAt(lookup.getExpiresAt());
+        domain.setExpiresSource(DomainExpirySource.REGISTRAR);
+        domain.setExpiresCheckedAt(lookup.getCheckedAt() != null ? lookup.getCheckedAt() : Instant.now());
+        domain.setExpiresRegistrar(lookup.getRegistrar());
+        return DomainDto.from(domainRepository.save(domain));
     }
 
     @Transactional
@@ -144,11 +185,42 @@ public class DomainService {
         }
 
         String previousName = domain.getName();
+        LocalDate previousExpiry = domain.getExpiresAt();
         domain.setName(name);
         domain.setStatus(request.getStatus());
         domain.setCategory(category);
         domain.setPrice(request.getPrice());
         domain.setExpiresAt(request.getExpiresAt());
+
+        DomainExpirySource requestedSource = request.getExpiresSource();
+        if (request.getExpiresAt() == null) {
+            domain.setExpiresSource(DomainExpirySource.MANUAL);
+            domain.setExpiresCheckedAt(null);
+            domain.setExpiresRegistrar(null);
+        } else if (requestedSource == DomainExpirySource.REGISTRAR) {
+            domain.setExpiresSource(DomainExpirySource.REGISTRAR);
+            if (domain.getExpiresCheckedAt() == null) {
+                domain.setExpiresCheckedAt(Instant.now());
+            }
+            if (StringUtils.hasText(request.getExpiresRegistrar())) {
+                domain.setExpiresRegistrar(request.getExpiresRegistrar().trim());
+            }
+        } else if (!Objects.equals(previousExpiry, request.getExpiresAt())
+                || requestedSource == DomainExpirySource.MANUAL) {
+            domain.setExpiresSource(DomainExpirySource.MANUAL);
+            domain.setExpiresCheckedAt(null);
+            domain.setExpiresRegistrar(null);
+        } else if (domain.getExpiresSource() == null) {
+            domain.setExpiresSource(DomainExpirySource.MANUAL);
+        }
+
+        if (request.getRenewalWindows() == null || request.getRenewalWindows().isEmpty()) {
+            domain.setRenewalWindows(null);
+        } else {
+            domain.setRenewalWindows(domainSettingsService.formatWindows(
+                    domainSettingsService.validateWindowsList(request.getRenewalWindows())));
+        }
+
         if (previousName != null && !previousName.equalsIgnoreCase(name)) {
             domainOwnershipService.resetOwnership(domain);
         }

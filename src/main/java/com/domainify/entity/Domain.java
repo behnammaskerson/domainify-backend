@@ -59,6 +59,22 @@ public class Domain {
     private LocalDate expiresAt;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "expires_source", nullable = false, length = 20, columnDefinition = "varchar(20) default 'MANUAL'")
+    private DomainExpirySource expiresSource = DomainExpirySource.MANUAL;
+
+    @Column(name = "expires_checked_at")
+    private Instant expiresCheckedAt;
+
+    @Column(name = "expires_registrar", length = 255)
+    private String expiresRegistrar;
+
+    /**
+     * Optional per-domain reminder windows (CSV days). Null/blank = use global DomainSettings.
+     */
+    @Column(name = "renewal_windows", length = 64)
+    private String renewalWindows;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "ownership_status", nullable = false, length = 20)
     private DomainOwnershipStatus ownershipStatus = DomainOwnershipStatus.UNVERIFIED;
 
@@ -161,6 +177,38 @@ public class Domain {
 
     public void setExpiresAt(LocalDate expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    public DomainExpirySource getExpiresSource() {
+        return expiresSource;
+    }
+
+    public void setExpiresSource(DomainExpirySource expiresSource) {
+        this.expiresSource = expiresSource;
+    }
+
+    public Instant getExpiresCheckedAt() {
+        return expiresCheckedAt;
+    }
+
+    public void setExpiresCheckedAt(Instant expiresCheckedAt) {
+        this.expiresCheckedAt = expiresCheckedAt;
+    }
+
+    public String getExpiresRegistrar() {
+        return expiresRegistrar;
+    }
+
+    public void setExpiresRegistrar(String expiresRegistrar) {
+        this.expiresRegistrar = expiresRegistrar;
+    }
+
+    public String getRenewalWindows() {
+        return renewalWindows;
+    }
+
+    public void setRenewalWindows(String renewalWindows) {
+        this.renewalWindows = renewalWindows;
     }
 
     public DomainOwnershipStatus getOwnershipStatus() {

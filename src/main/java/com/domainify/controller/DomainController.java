@@ -2,7 +2,9 @@ package com.domainify.controller;
 
 import com.domainify.dto.DomainDto;
 import com.domainify.dto.DomainOwnershipChallengeDto;
+import com.domainify.dto.DomainRegistrarExpiryDto;
 import com.domainify.dto.DomainStatusCountsDto;
+import com.domainify.dto.DomainWhoisDto;
 import com.domainify.dto.PagedResponse;
 import com.domainify.dto.StartDomainOwnershipRequest;
 import com.domainify.dto.UpsertDomainRequest;
@@ -57,11 +59,42 @@ public class DomainController {
         return ResponseEntity.ok(domainService.statusCounts(user));
     }
 
+    /** RDAP lookup by domain name (does not persist). Place before /{id} for clarity. */
+    @GetMapping("/registrar-expiry")
+    public ResponseEntity<DomainRegistrarExpiryDto> lookupRegistrarExpiry(
+            @AuthenticationPrincipal User user,
+            @RequestParam("name") String name) {
+        return ResponseEntity.ok(domainService.lookupRegistrarExpiry(user, name));
+    }
+
+    /** Full registration details (RDAP / WHOIS-equivalent). Does not persist. */
+    @GetMapping("/whois")
+    public ResponseEntity<DomainWhoisDto> lookupWhois(
+            @AuthenticationPrincipal User user,
+            @RequestParam("name") String name) {
+        return ResponseEntity.ok(domainService.lookupWhois(user, name));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<DomainDto> get(
             @AuthenticationPrincipal User user,
             @PathVariable("id") Long id) {
         return ResponseEntity.ok(domainService.get(user, id));
+    }
+
+    @GetMapping("/{id}/whois")
+    public ResponseEntity<DomainWhoisDto> lookupWhoisForDomain(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(domainService.lookupWhoisForDomain(user, id));
+    }
+
+    /** Fetch registrar expiry via RDAP and save it onto the domain. */
+    @PostMapping("/{id}/expiry/refresh")
+    public ResponseEntity<DomainDto> refreshExpiryFromRegistrar(
+            @AuthenticationPrincipal User user,
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(domainService.refreshExpiryFromRegistrar(user, id));
     }
 
     @PostMapping

@@ -12,16 +12,21 @@ PWA Installation - Install as desktop/mobile app
 Domain Management
 done - Domain Inventory Grid - Sort, filter, paginate domains
 done - Domain Categories - Tag domains by niche (Tech, Crypto, SaaS, etc.)
-
+done - Domain Ownership Verification - Prove control via DNS TXT or HTTP file
+done - WHOIS Lookup Integration - Show domain registration details
+done - Domain Registrar Expiry Lookup - Fetch expiry via RDAP; still editable manually
+done - Domain Renewal Reminders - Email/SMS alerts before expiry
+done - Per-domain custom renewal windows
+done - Admin send test renewal
 
 Bulk Operations - Select multiple domains for batch actions
 done - Domain Search - Real-time search with debouncing
 done - Domain Status Tracking - Active, pending, sold, expired
-done - Domain Ownership Verification - Prove control via DNS TXT or HTTP file
-Domain Renewal Reminders - Email/SMS alerts before expiry
+
+
 Domain Valuation History - Track price changes over time
 Domain Transfer Management - Track IN/OUT transfers
-WHOIS Lookup Integration - Show domain registration details
+
 DNS Management - View/edit DNS records per domain
 
 Domain Analyzer
@@ -132,7 +137,7 @@ Referral Program - Affiliate commissions
 Bundle Pricing - Multi-domain discounts
 
 Integrations
-WHOIS API - Domain availability/registration data
+done - WHOIS API - Domain availability/registration data
 Payment Gateways - Stripe, PayPal, Razorpay
 Email Service - SendGrid/AWS SES for notifications
 SMS Service - Twilio for alerts
@@ -184,7 +189,7 @@ Operations
 Domain Acquisition - Bulk domain purchasing
 Inventory Management - Track domain portfolio
 Renewal Management - Auto-renewal system
-Expiry Tracking - 90/60/30 day alerts
+done - Expiry Tracking - 90/60/30 day alerts
 Transfer Management - IN/OUT domain transfers
 Registrar Management - Multi-registrar integration
 DNS Management - Centralized DNS control

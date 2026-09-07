@@ -3,6 +3,7 @@ package com.domainify.service;
 import com.domainify.dto.NotificationDto;
 import com.domainify.dto.PagedResponse;
 import com.domainify.dto.UnreadCountDto;
+import com.domainify.entity.Domain;
 import com.domainify.entity.InAppNotification;
 import com.domainify.entity.NotificationType;
 import com.domainify.entity.Ticket;
@@ -85,6 +86,25 @@ public class NotificationService {
         requireUser(user);
         notificationRepository.markAllReadForRecipient(user);
         return new UnreadCountDto(0);
+    }
+
+    @Transactional
+    public void notifyDomainRenewal(User owner, Domain domain, int windowDays) {
+        if (owner == null || owner.getId() == null || domain == null || domain.getExpiresAt() == null) {
+            return;
+        }
+        InAppNotification notification = new InAppNotification();
+        notification.setRecipient(owner);
+        notification.setActor(null);
+        notification.setType(NotificationType.DOMAIN_RENEWAL);
+        notification.setTicket(null);
+        // Reuse ticket display slots: subject = domain name, public number = expiry date, window in unused path via subject only
+        notification.setTicketSubject(truncate(domain.getName(), 200));
+        notification.setTicketPublicNumber(domain.getExpiresAt().toString());
+        notification.setStatusFrom(null);
+        notification.setStatusTo(null);
+        notification.setRead(false);
+        notificationRepository.save(notification);
     }
 
     @Transactional
