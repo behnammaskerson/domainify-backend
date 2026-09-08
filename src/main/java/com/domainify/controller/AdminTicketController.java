@@ -5,6 +5,7 @@ import com.domainify.dto.AssignTicketQueueRequest;
 import com.domainify.dto.AssignTicketRequest;
 import com.domainify.dto.BulkTicketActionRequest;
 import com.domainify.dto.BulkTicketActionResultDto;
+import com.domainify.dto.LinkTicketRequesterRequest;
 import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
@@ -266,6 +267,14 @@ public class AdminTicketController {
             @RequestBody(required = false) AssignTicketRequest request) {
         Long assigneeId = request != null ? request.getAssigneeId() : null;
         return ResponseEntity.ok(ticketService.assignAsStaff(agent, id, assigneeId));
+    }
+
+    @PatchMapping("/{id}/requester")
+    public ResponseEntity<TicketDetailDto> updateRequester(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @Valid @RequestBody LinkTicketRequesterRequest request) {
+        return ResponseEntity.ok(ticketService.linkRequesterAsStaff(agent, id, request));
     }
 
     @PatchMapping("/{id}/queue")

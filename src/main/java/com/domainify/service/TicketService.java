@@ -1,5 +1,6 @@
 package com.domainify.service;
 
+import com.domainify.dto.LinkTicketRequesterRequest;
 import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
@@ -18,6 +19,7 @@ import com.domainify.dto.EscalateTicketRequest;
 import com.domainify.dto.TicketEscalationDto;
 import com.domainify.dto.TicketCsatDto;
 import com.domainify.dto.SubmitTicketCsatRequest;
+import com.domainify.dto.TicketRequesterChangeDto;
 import com.domainify.dto.TicketTransferDto;
 import com.domainify.dto.TransferTicketRequest;
 import com.domainify.dto.UpdateTicketDueDateRequest;
@@ -38,6 +40,7 @@ import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketQueue;
 import com.domainify.entity.TicketReplyDraft;
 import com.domainify.entity.TicketRelatedLink;
+import com.domainify.entity.TicketRequesterChange;
 import com.domainify.entity.TicketStatus;
 import com.domainify.entity.TicketTag;
 import com.domainify.entity.TicketTransfer;
@@ -56,6 +59,7 @@ import com.domainify.repository.TicketMessageRevisionRepository;
 import com.domainify.repository.TicketReplyDraftRepository;
 import com.domainify.repository.TicketRelatedLinkRepository;
 import com.domainify.repository.TicketRepository;
+import com.domainify.repository.TicketRequesterChangeRepository;
 import com.domainify.repository.TicketTransferRepository;
 import com.domainify.repository.TicketWatcherRepository;
 import com.domainify.repository.UserRepository;
@@ -108,6 +112,7 @@ public class TicketService {
     private final TicketRelatedLinkRepository ticketRelatedLinkRepository;
     private final TicketWatcherRepository ticketWatcherRepository;
     private final TicketTransferRepository ticketTransferRepository;
+    private final TicketRequesterChangeRepository ticketRequesterChangeRepository;
     private final TicketEscalationRepository ticketEscalationRepository;
     private final TicketCsatRepository ticketCsatRepository;
     private final TicketCategoryService ticketCategoryService;
@@ -131,6 +136,7 @@ public class TicketService {
             TicketRelatedLinkRepository ticketRelatedLinkRepository,
             TicketWatcherRepository ticketWatcherRepository,
             TicketTransferRepository ticketTransferRepository,
+            TicketRequesterChangeRepository ticketRequesterChangeRepository,
             TicketEscalationRepository ticketEscalationRepository,
             TicketCsatRepository ticketCsatRepository,
             TicketCategoryService ticketCategoryService,
@@ -152,6 +158,7 @@ public class TicketService {
         this.ticketRelatedLinkRepository = ticketRelatedLinkRepository;
         this.ticketWatcherRepository = ticketWatcherRepository;
         this.ticketTransferRepository = ticketTransferRepository;
+        this.ticketRequesterChangeRepository = ticketRequesterChangeRepository;
         this.ticketEscalationRepository = ticketEscalationRepository;
         this.ticketCsatRepository = ticketCsatRepository;
         this.ticketCategoryService = ticketCategoryService;
@@ -420,6 +427,56 @@ public class TicketService {
         }
         if (nextAssignee != null) {
             notificationService.onAssigned(ticket, nextAssignee, agent);
+        }
+
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto linkRequesterAsStaff(User agent, Long ticketId, LinkTicketRequesterRequest request) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        assertNotDeleted(ticket);
+
+        if (request == null || request.getRequesterId() == null) {
+            throw new ApiException(ErrorCode.TICKET_REQUESTER_REQUIRED);
+        }
+
+        String note = request.getNote() == null ? null : request.getNote().trim();
+        if (StringUtils.hasText(note) && note.length() > 2000) {
+            throw new ApiException(ErrorCode.TICKET_REQUESTER_NOTE_TOO_LONG);
+        }
+
+        User nextRequester = userRepository.findById(request.getRequesterId())
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_REQUESTER_NOT_FOUND));
+        if (!nextRequester.isEnabled() || nextRequester.getRole() == User.Role.ADMIN) {
+            throw new ApiException(ErrorCode.TICKET_REQUESTER_INVALID);
+        }
+
+        User previousRequester = ticket.getRequester();
+        Long previousId = previousRequester != null ? previousRequester.getId() : null;
+        if (previousId != null && previousId.equals(nextRequester.getId())) {
+            throw new ApiException(ErrorCode.TICKET_REQUESTER_NO_CHANGE);
+        }
+
+        ticket.setRequester(nextRequester);
+        ticketRepository.save(ticket);
+
+        TicketRequesterChange change = new TicketRequesterChange();
+        change.setTicket(ticket);
+        change.setChangedBy(agent);
+        change.setFromRequester(previousRequester);
+        change.setToRequester(nextRequester);
+        change.setNote(StringUtils.hasText(note) ? note : null);
+        ticketRequesterChangeRepository.save(change);
+
+        if (StringUtils.hasText(note)) {
+            TicketMessage message = new TicketMessage();
+            message.setTicket(ticket);
+            message.setAuthor(agent);
+            message.setBody(note);
+            message.setInternalNote(true);
+            ticketMessageRepository.save(message);
         }
 
         return toDetailDto(ticket, agent, true);
@@ -1664,6 +1721,7 @@ public class TicketService {
         detail.setCanEditDueDate(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setCanWatch(includeWorkflow && !deleted);
         detail.setCanTransfer(includeWorkflow && !deleted && !archived && !ticket.isMerged());
+        detail.setCanLinkRequester(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setCanEscalate(includeWorkflow && !deleted && !archived && !ticket.isMerged()
                 && ticket.getStatus() != TicketStatus.CLOSED);
         TicketCsat existingCsat = ticket.getId() == null
@@ -1698,6 +1756,11 @@ public class TicketService {
                     .findByTicketIdOrderByCreatedAtDescIdDesc(ticket.getId())
                     .stream()
                     .map(this::toTransferDto)
+                    .toList());
+            detail.setRequesterChanges(ticketRequesterChangeRepository
+                    .findByTicketIdOrderByCreatedAtDescIdDesc(ticket.getId())
+                    .stream()
+                    .map(this::toRequesterChangeDto)
                     .toList());
             detail.setEscalations(dedupeEscalationHistory(ticketEscalationRepository
                     .findByTicketIdOrderByCreatedAtDescIdDesc(ticket.getId()))
@@ -2008,6 +2071,28 @@ public class TicketService {
         if (transfer.getToQueue() != null) {
             dto.setToQueueId(transfer.getToQueue().getId());
             dto.setToQueueName(transfer.getToQueue().getName());
+        }
+        return dto;
+    }
+
+    private TicketRequesterChangeDto toRequesterChangeDto(TicketRequesterChange change) {
+        TicketRequesterChangeDto dto = new TicketRequesterChangeDto();
+        dto.setId(change.getId());
+        dto.setNote(change.getNote());
+        dto.setCreatedAt(change.getCreatedAt());
+        if (change.getChangedBy() != null) {
+            dto.setChangedById(change.getChangedBy().getId());
+            dto.setChangedByName(displayName(change.getChangedBy()));
+        }
+        if (change.getFromRequester() != null) {
+            dto.setFromRequesterId(change.getFromRequester().getId());
+            dto.setFromRequesterName(displayName(change.getFromRequester()));
+            dto.setFromRequesterEmail(change.getFromRequester().getEmail());
+        }
+        if (change.getToRequester() != null) {
+            dto.setToRequesterId(change.getToRequester().getId());
+            dto.setToRequesterName(displayName(change.getToRequester()));
+            dto.setToRequesterEmail(change.getToRequester().getEmail());
         }
         return dto;
     }

@@ -26,9 +26,11 @@ public class TicketDetailDto {
     private boolean canTransfer;
     private boolean canEscalate;
     private boolean canRateCsat;
+    private boolean canLinkRequester;
     private TicketCsatDto csat;
     private List<TicketAssigneeOptionDto> watchers = new ArrayList<>();
     private List<TicketTransferDto> transfers = new ArrayList<>();
+    private List<TicketRequesterChangeDto> requesterChanges = new ArrayList<>();
     private List<TicketEscalationDto> escalations = new ArrayList<>();
     private Instant reopenUntil;
     private Integer reopenWindowDays;
@@ -189,12 +191,28 @@ public class TicketDetailDto {
         this.canTransfer = canTransfer;
     }
 
+    public boolean isCanLinkRequester() {
+        return canLinkRequester;
+    }
+
+    public void setCanLinkRequester(boolean canLinkRequester) {
+        this.canLinkRequester = canLinkRequester;
+    }
+
     public List<TicketTransferDto> getTransfers() {
         return transfers;
     }
 
     public void setTransfers(List<TicketTransferDto> transfers) {
         this.transfers = transfers != null ? new ArrayList<>(transfers) : new ArrayList<>();
+    }
+
+    public List<TicketRequesterChangeDto> getRequesterChanges() {
+        return requesterChanges;
+    }
+
+    public void setRequesterChanges(List<TicketRequesterChangeDto> requesterChanges) {
+        this.requesterChanges = requesterChanges != null ? new ArrayList<>(requesterChanges) : new ArrayList<>();
     }
 
     public boolean isCanEscalate() {
