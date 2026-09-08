@@ -106,6 +106,11 @@ public class User implements UserDetails {
     @Column(nullable = true)
     private Boolean emailNotificationsEnabled = true;
 
+    /** Opt-in for payment / wallet transaction alerts. Default on. */
+    @ColumnDefault("true")
+    @Column(nullable = true)
+    private Boolean paymentNotificationsEnabled = true;
+
     /** Opt-in for URGENT ticket SMS alerts. Default off. */
     @ColumnDefault("false")
     @Column(nullable = true)
@@ -391,6 +396,14 @@ public class User implements UserDetails {
 
     public void setEmailNotificationsEnabled(boolean emailNotificationsEnabled) {
         this.emailNotificationsEnabled = emailNotificationsEnabled;
+    }
+
+    public boolean isPaymentNotificationsEnabled() {
+        return paymentNotificationsEnabled == null || Boolean.TRUE.equals(paymentNotificationsEnabled);
+    }
+
+    public void setPaymentNotificationsEnabled(boolean paymentNotificationsEnabled) {
+        this.paymentNotificationsEnabled = paymentNotificationsEnabled;
     }
 
     public boolean isSmsNotificationsEnabled() {

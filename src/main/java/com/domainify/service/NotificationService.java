@@ -7,6 +7,8 @@ import com.domainify.entity.Domain;
 import com.domainify.entity.DomainListingOffer;
 import com.domainify.entity.InAppNotification;
 import com.domainify.entity.NotificationType;
+import com.domainify.entity.PaymentIntent;
+import com.domainify.entity.PaymentSettings;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketStatus;
 import com.domainify.entity.User;
@@ -15,15 +17,18 @@ import com.domainify.exception.ErrorCode;
 import com.domainify.repository.InAppNotificationRepository;
 import com.domainify.repository.TicketWatcherRepository;
 import com.domainify.repository.UserRepository;
+import com.domainify.service.PaymentEmailNotificationService.PaymentNotificationPayload;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -36,6 +41,9 @@ public class NotificationService {
     private final TicketSmsNotificationService ticketSmsNotificationService;
     private final OfferEmailNotificationService offerEmailNotificationService;
     private final OfferSmsNotificationService offerSmsNotificationService;
+    private final PaymentSettingsService paymentSettingsService;
+    private final PaymentEmailNotificationService paymentEmailNotificationService;
+    private final PaymentSmsNotificationService paymentSmsNotificationService;
 
     public NotificationService(
             InAppNotificationRepository notificationRepository,
@@ -44,7 +52,10 @@ public class NotificationService {
             TicketEmailNotificationService ticketEmailNotificationService,
             TicketSmsNotificationService ticketSmsNotificationService,
             OfferEmailNotificationService offerEmailNotificationService,
-            OfferSmsNotificationService offerSmsNotificationService) {
+            OfferSmsNotificationService offerSmsNotificationService,
+            PaymentSettingsService paymentSettingsService,
+            PaymentEmailNotificationService paymentEmailNotificationService,
+            PaymentSmsNotificationService paymentSmsNotificationService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.ticketWatcherRepository = ticketWatcherRepository;
@@ -52,6 +63,9 @@ public class NotificationService {
         this.ticketSmsNotificationService = ticketSmsNotificationService;
         this.offerEmailNotificationService = offerEmailNotificationService;
         this.offerSmsNotificationService = offerSmsNotificationService;
+        this.paymentSettingsService = paymentSettingsService;
+        this.paymentEmailNotificationService = paymentEmailNotificationService;
+        this.paymentSmsNotificationService = paymentSmsNotificationService;
     }
 
     @Transactional(readOnly = true)
@@ -152,6 +166,118 @@ public class NotificationService {
         }
         notifyOfferParty(offer, null, offer.getBuyer(), NotificationType.OFFER_EXPIRED);
         notifyOfferParty(offer, null, offer.getSeller(), NotificationType.OFFER_EXPIRED);
+    }
+
+    @Transactional
+    public void notifyPaymentTopUpSuccess(User user, PaymentIntent intent) {
+        if (intent == null) {
+            return;
+        }
+        String amount = String.valueOf(intent.getAmountIrt());
+        String ref = intent.getRefId() != null
+                ? String.valueOf(intent.getRefId())
+                : String.valueOf(intent.getId());
+        notifyPayment(
+                user,
+                null,
+                NotificationType.PAYMENT_TOP_UP_SUCCESS,
+                PaymentNotificationPayload.of(amount, ref, null, null),
+                amount,
+                ref);
+    }
+
+    @Transactional
+    public void notifyPaymentTopUpFailed(User user, PaymentIntent intent) {
+        if (intent == null) {
+            return;
+        }
+        String amount = String.valueOf(intent.getAmountIrt());
+        String reason = StringUtils.hasText(intent.getFailureReason()) ? intent.getFailureReason() : "—";
+        String publicRef = intent.getId() != null ? String.valueOf(intent.getId()) : "";
+        notifyPayment(
+                user,
+                null,
+                NotificationType.PAYMENT_TOP_UP_FAILED,
+                PaymentNotificationPayload.of(amount, publicRef, reason, null),
+                amount,
+                publicRef);
+    }
+
+    @Transactional
+    public void notifyPaymentTopUpCancelled(User user, PaymentIntent intent) {
+        if (intent == null) {
+            return;
+        }
+        String amount = String.valueOf(intent.getAmountIrt());
+        String publicRef = intent.getId() != null ? String.valueOf(intent.getId()) : "";
+        notifyPayment(
+                user,
+                null,
+                NotificationType.PAYMENT_TOP_UP_CANCELLED,
+                PaymentNotificationPayload.of(amount, publicRef, null, null),
+                amount,
+                publicRef);
+    }
+
+    @Transactional
+    public void notifyWalletAdjusted(
+            User user,
+            User actor,
+            String direction,
+            BigDecimal amount,
+            String note) {
+        String amountText = amount != null ? amount.toPlainString() : "0";
+        String directionKey = direction != null ? direction.trim().toLowerCase(Locale.ROOT) : "credit";
+        if (!"debit".equals(directionKey)) {
+            directionKey = "credit";
+        }
+        String noteText = StringUtils.hasText(note) ? note.trim() : "—";
+        String subject = amountText + (StringUtils.hasText(note) ? " — " + note.trim() : "");
+        notifyPayment(
+                user,
+                actor,
+                NotificationType.PAYMENT_WALLET_ADJUSTED,
+                PaymentNotificationPayload.of(amountText, directionKey, noteText, directionKey),
+                subject,
+                directionKey);
+    }
+
+    private void notifyPayment(
+            User user,
+            User actor,
+            NotificationType type,
+            PaymentNotificationPayload payload,
+            String ticketSubject,
+            String ticketPublicNumber) {
+        if (user == null || user.getId() == null || !user.isEnabled()) {
+            return;
+        }
+        if (!user.isPaymentNotificationsEnabled()) {
+            return;
+        }
+        PaymentSettings settings = paymentSettingsService.getOrCreate();
+        if (!settings.isPaymentNotificationsEnabled()) {
+            return;
+        }
+        if (settings.isPaymentInAppNotificationsEnabled()) {
+            InAppNotification notification = new InAppNotification();
+            notification.setRecipient(user);
+            notification.setActor(actor);
+            notification.setType(type);
+            notification.setTicket(null);
+            notification.setTicketSubject(truncate(ticketSubject, 200));
+            notification.setTicketPublicNumber(truncate(ticketPublicNumber, 32));
+            notification.setStatusFrom(null);
+            notification.setStatusTo(null);
+            notification.setRead(false);
+            notificationRepository.save(notification);
+        }
+        if (settings.isPaymentEmailNotificationsEnabled()) {
+            paymentEmailNotificationService.sendIfConfigured(user, actor, type, payload);
+        }
+        if (settings.isPaymentSmsNotificationsEnabled()) {
+            paymentSmsNotificationService.sendIfConfigured(user, actor, type, payload);
+        }
     }
 
     private void notifyOfferOtherParty(DomainListingOffer offer, User actor, NotificationType type) {

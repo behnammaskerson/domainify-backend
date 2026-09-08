@@ -261,6 +261,20 @@ public class UserService {
     }
 
     @Transactional
+    public UserDto setPaymentNotificationsEnabled(Long id, boolean enabled) {
+        User user = findUser(id);
+        user.setPaymentNotificationsEnabled(enabled);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserDto setPaymentNotificationsEnabled(User currentUser, boolean enabled) {
+        User user = findUser(currentUser.getId());
+        user.setPaymentNotificationsEnabled(enabled);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
     public UserDto setTicketAvailable(Long id, boolean available) {
         User user = findUser(id);
         user.setTicketAvailable(available);

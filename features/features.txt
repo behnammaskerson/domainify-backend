@@ -139,6 +139,7 @@ Bundle Pricing - Multi-domain discounts
 Integrations
 done - WHOIS API - Domain availability/registration data
 Payment Gateways - Stripe, PayPal, Razorpay
+done - Wallet top-up (Phase 1) - payment_settings, wallets/ledger, request/verify
 Email Service - SendGrid/AWS SES for notifications
 SMS Service - Twilio for alerts
 Analytics API - Google Analytics integration

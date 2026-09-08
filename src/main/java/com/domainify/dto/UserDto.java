@@ -21,6 +21,7 @@ public class UserDto {
     private Instant phoneVerifiedAt;
     private boolean emailNotificationsEnabled;
     private boolean smsNotificationsEnabled;
+    private boolean paymentNotificationsEnabled;
     private boolean ticketAvailable;
     private String preferredLanguage;
     private Instant createdAt;
@@ -65,7 +66,7 @@ public class UserDto {
     }
 
     public static UserDto fromUser(User user) {
-        return new UserDto(
+        UserDto dto = new UserDto(
             user.getId(),
             user.getFirstName(),
             user.getLastName(),
@@ -89,6 +90,8 @@ public class UserDto {
             user.getCreatorUsername(),
             user.getCreateMethod()
         );
+        dto.setPaymentNotificationsEnabled(user.isPaymentNotificationsEnabled());
+        return dto;
     }
 
     public Long getId() {
@@ -217,6 +220,14 @@ public class UserDto {
 
     public void setSmsNotificationsEnabled(boolean smsNotificationsEnabled) {
         this.smsNotificationsEnabled = smsNotificationsEnabled;
+    }
+
+    public boolean isPaymentNotificationsEnabled() {
+        return paymentNotificationsEnabled;
+    }
+
+    public void setPaymentNotificationsEnabled(boolean paymentNotificationsEnabled) {
+        this.paymentNotificationsEnabled = paymentNotificationsEnabled;
     }
 
     public boolean isTicketAvailable() {

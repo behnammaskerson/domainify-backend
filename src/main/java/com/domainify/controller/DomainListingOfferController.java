@@ -1,5 +1,6 @@
 package com.domainify.controller;
 
+import com.domainify.dto.AcceptOfferResponse;
 import com.domainify.dto.CreateOrCounterOfferRequest;
 import com.domainify.dto.ListingOfferDto;
 import com.domainify.dto.PagedResponse;
@@ -71,7 +72,7 @@ public class DomainListingOfferController {
     }
 
     @PostMapping("/offers/{id}/accept")
-    public ResponseEntity<ListingOfferDto> accept(
+    public ResponseEntity<AcceptOfferResponse> accept(
             @AuthenticationPrincipal User user,
             @PathVariable Long id) {
         return ResponseEntity.ok(offerService.accept(user, id));

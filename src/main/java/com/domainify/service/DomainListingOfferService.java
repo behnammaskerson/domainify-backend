@@ -1,7 +1,9 @@
 package com.domainify.service;
 
+import com.domainify.dto.AcceptOfferResponse;
 import com.domainify.dto.CreateOrCounterOfferRequest;
 import com.domainify.dto.ListingOfferDto;
+import com.domainify.dto.MarketplaceOrderDto;
 import com.domainify.dto.PagedResponse;
 import com.domainify.entity.DomainListing;
 import com.domainify.entity.DomainListingOffer;
@@ -48,6 +50,7 @@ public class DomainListingOfferService {
     private final DomainListingOfferEventRepository eventRepository;
     private final DomainListingRepository listingRepository;
     private final NotificationService notificationService;
+    private final MarketplaceOrderService marketplaceOrderService;
 
     @Value("${app.marketplace.offer.expiry-enabled:true}")
     private boolean expiryEnabled;
@@ -59,11 +62,13 @@ public class DomainListingOfferService {
             DomainListingOfferRepository offerRepository,
             DomainListingOfferEventRepository eventRepository,
             DomainListingRepository listingRepository,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            MarketplaceOrderService marketplaceOrderService) {
         this.offerRepository = offerRepository;
         this.eventRepository = eventRepository;
         this.listingRepository = listingRepository;
         this.notificationService = notificationService;
+        this.marketplaceOrderService = marketplaceOrderService;
     }
 
     @Transactional
@@ -180,7 +185,7 @@ public class DomainListingOfferService {
     }
 
     @Transactional
-    public ListingOfferDto accept(User user, Long id) {
+    public AcceptOfferResponse accept(User user, Long id) {
         DomainListingOffer offer = requireParty(user, id);
         requireOpenListing(offer);
         requireResponder(user, offer);
@@ -191,9 +196,8 @@ public class DomainListingOfferService {
         offer = offerRepository.save(offer);
         appendEvent(offer, user, DomainListingOfferEventAction.ACCEPT, offer.getAmount(), "");
 
+        // Do NOT mark listing SOLD until payment settles (Phase 2 escrow).
         DomainListing listing = offer.getListing();
-        listing.setStatus(DomainListingStatus.SOLD);
-        listingRepository.save(listing);
 
         List<DomainListingOffer> siblings = offerRepository.findByListingIdAndStatusInAndIdNot(
                 listing.getId(), OPEN_STATUSES, offer.getId());
@@ -205,8 +209,9 @@ public class DomainListingOfferService {
             notificationService.notifyOfferRejected(sibling, user);
         }
 
+        MarketplaceOrderDto order = marketplaceOrderService.createFromAcceptedOffer(offer);
         notificationService.notifyOfferAccepted(offer, user);
-        return ListingOfferDto.from(offer, eventsFor(offer.getId()));
+        return new AcceptOfferResponse(ListingOfferDto.from(offer, eventsFor(offer.getId())), order);
     }
 
     @Transactional

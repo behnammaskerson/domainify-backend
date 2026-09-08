@@ -38,7 +38,11 @@ public class NotificationTypeSchemaRepair implements ApplicationRunner {
                     + "'OFFER_ACCEPTED',"
                     + "'OFFER_REJECTED',"
                     + "'OFFER_WITHDRAWN',"
-                    + "'OFFER_EXPIRED'"
+                    + "'OFFER_EXPIRED',"
+                    + "'PAYMENT_TOP_UP_SUCCESS',"
+                    + "'PAYMENT_TOP_UP_FAILED',"
+                    + "'PAYMENT_TOP_UP_CANCELLED',"
+                    + "'PAYMENT_WALLET_ADJUSTED'"
                     + ")";
 
     private final JdbcTemplate jdbcTemplate;

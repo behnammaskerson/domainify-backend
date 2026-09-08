@@ -21,9 +21,11 @@ public class MessageService {
     }
 
     public String get(ErrorCode code, Object[] args) {
+        String key = "error." + code.name().toLowerCase();
         return messageSource.getMessage(
-                "error." + code.name().toLowerCase(),
+                key,
                 args,
+                code.name(),
                 LocaleContextHolder.getLocale());
     }
 

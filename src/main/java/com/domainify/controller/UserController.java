@@ -65,6 +65,12 @@ public class UserController {
         return ResponseEntity.ok(userService.setSmsNotificationsEnabled(user, Boolean.TRUE.equals(request.getEnabled())));
     }
 
+    @PatchMapping("/me/payment-notifications")
+    public ResponseEntity<UserDto> setPaymentNotifications(@AuthenticationPrincipal User user,
+                                                           @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setPaymentNotificationsEnabled(user, Boolean.TRUE.equals(request.getEnabled())));
+    }
+
     @PatchMapping("/me/ticket-availability")
     public ResponseEntity<UserDto> setTicketAvailability(@AuthenticationPrincipal User user,
                                                          @Valid @RequestBody UpdateEmailNotificationsRequest request) {
@@ -158,6 +164,13 @@ public class UserController {
     public ResponseEntity<UserDto> setUserSmsNotifications(@PathVariable Long id,
                                                            @Valid @RequestBody UpdateEmailNotificationsRequest request) {
         return ResponseEntity.ok(userService.setSmsNotificationsEnabled(id, Boolean.TRUE.equals(request.getEnabled())));
+    }
+
+    @PatchMapping("/{id}/payment-notifications")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> setUserPaymentNotifications(@PathVariable Long id,
+                                                               @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setPaymentNotificationsEnabled(id, Boolean.TRUE.equals(request.getEnabled())));
     }
 
     @PatchMapping("/{id}/ticket-availability")
