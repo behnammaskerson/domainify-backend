@@ -12,9 +12,12 @@ import com.domainify.dto.SplitTicketRequest;
 import com.domainify.dto.SplitTicketResultDto;
 import com.domainify.dto.TicketAssigneeOptionDto;
 import com.domainify.dto.SaveTicketReplyDraftRequest;
+import com.domainify.dto.TicketCustomerContextDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketReplyDraftDto;
 import com.domainify.dto.TicketDto;
+import com.domainify.dto.TicketInboxSavedViewDto;
+import com.domainify.dto.TicketInboxSavedViewRequest;
 import com.domainify.dto.TicketInboxFilter;
 import com.domainify.dto.TicketMessageRevisionDto;
 import com.domainify.dto.TicketTagDto;
@@ -31,6 +34,8 @@ import com.domainify.entity.TicketStatus;
 import com.domainify.entity.User;
 import com.domainify.service.AdminTicketService;
 import com.domainify.service.BulkTicketService;
+import com.domainify.service.TicketCustomerContextService;
+import com.domainify.service.TicketInboxSavedViewService;
 import com.domainify.service.TicketService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
@@ -65,14 +70,20 @@ public class AdminTicketController {
     private final AdminTicketService adminTicketService;
     private final TicketService ticketService;
     private final BulkTicketService bulkTicketService;
+    private final TicketCustomerContextService ticketCustomerContextService;
+    private final TicketInboxSavedViewService ticketInboxSavedViewService;
 
     public AdminTicketController(
             AdminTicketService adminTicketService,
             TicketService ticketService,
-            BulkTicketService bulkTicketService) {
+            BulkTicketService bulkTicketService,
+            TicketCustomerContextService ticketCustomerContextService,
+            TicketInboxSavedViewService ticketInboxSavedViewService) {
         this.adminTicketService = adminTicketService;
         this.ticketService = ticketService;
         this.bulkTicketService = bulkTicketService;
+        this.ticketCustomerContextService = ticketCustomerContextService;
+        this.ticketInboxSavedViewService = ticketInboxSavedViewService;
     }
 
     @GetMapping("/inbox")
@@ -109,6 +120,42 @@ public class AdminTicketController {
         return ResponseEntity.ok(adminTicketService.listInbox(agent, view, q, filter, pageable));
     }
 
+    @GetMapping("/inbox-views")
+    public ResponseEntity<List<TicketInboxSavedViewDto>> listSavedViews(
+            @AuthenticationPrincipal User agent) {
+        return ResponseEntity.ok(ticketInboxSavedViewService.listMine(agent));
+    }
+
+    @PostMapping("/inbox-views")
+    public ResponseEntity<TicketInboxSavedViewDto> createSavedView(
+            @AuthenticationPrincipal User agent,
+            @Valid @RequestBody TicketInboxSavedViewRequest request) {
+        return ResponseEntity.ok(ticketInboxSavedViewService.create(agent, request));
+    }
+
+    @PutMapping("/inbox-views/{viewId}")
+    public ResponseEntity<TicketInboxSavedViewDto> updateSavedView(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("viewId") Long viewId,
+            @Valid @RequestBody TicketInboxSavedViewRequest request) {
+        return ResponseEntity.ok(ticketInboxSavedViewService.update(agent, viewId, request));
+    }
+
+    @PatchMapping("/inbox-views/{viewId}/default")
+    public ResponseEntity<TicketInboxSavedViewDto> setDefaultSavedView(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("viewId") Long viewId) {
+        return ResponseEntity.ok(ticketInboxSavedViewService.setDefault(agent, viewId));
+    }
+
+    @DeleteMapping("/inbox-views/{viewId}")
+    public ResponseEntity<Void> deleteSavedView(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("viewId") Long viewId) {
+        ticketInboxSavedViewService.delete(agent, viewId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/assignees")
     public ResponseEntity<List<TicketAssigneeOptionDto>> assignees() {
         return ResponseEntity.ok(adminTicketService.listAssignees());
@@ -136,6 +183,13 @@ public class AdminTicketController {
             @AuthenticationPrincipal User agent,
             @PathVariable("id") Long id) {
         return ResponseEntity.ok(ticketService.getForStaff(agent, id));
+    }
+
+    @GetMapping("/{id}/customer-context")
+    public ResponseEntity<TicketCustomerContextDto> customerContext(
+            @PathVariable("id") Long id,
+            @RequestParam(value = "limit", defaultValue = "8") int limit) {
+        return ResponseEntity.ok(ticketCustomerContextService.getForTicket(id, limit));
     }
 
     @PutMapping("/{id}/reply-draft")

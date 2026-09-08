@@ -259,3 +259,15 @@ Load Testing - k6/JMeter integration
 Security Scanning - OWASP ZAP integration
 Compliance Monitoring - GDPR, PCI-DSS compliance
 This covers 208 features across frontend, backend, business, and technical domains. Would you like me to prioritize which features to implement first, or dive deeper into any specific category?
+
+Phase 3 — Escrow release + featured
+
+Auto-release scheduler, manual release, paid featured listing.
+
+Phase 4 — Refunds + payouts
+
+Refund requests, admin approve → wallet credit and/or ZarinPal refund GraphQL, seller payout requests + admin fulfillment.
+
+Phase 5 — Hardening
+
+Idempotent verify (100/101), unpaid-order expiry job, reconcile report, audit logs, feature flags in features.txt.

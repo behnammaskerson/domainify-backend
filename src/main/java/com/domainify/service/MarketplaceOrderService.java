@@ -154,17 +154,25 @@ public class MarketplaceOrderService {
     @Transactional(readOnly = true)
     public PagedResponse<MarketplaceOrderDto> listMine(User user, String role, Pageable pageable) {
         requireUser(user);
+        return listForUserId(user.getId(), role, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<MarketplaceOrderDto> listForUserId(Long userId, String role, Pageable pageable) {
+        if (userId == null) {
+            throw new ApiException(ErrorCode.USER_NOT_FOUND);
+        }
         String normalized = role == null ? "all" : role.trim().toLowerCase();
         Specification<MarketplaceOrder> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if ("buyer".equals(normalized)) {
-                predicates.add(cb.equal(root.get("buyer").get("id"), user.getId()));
+                predicates.add(cb.equal(root.get("buyer").get("id"), userId));
             } else if ("seller".equals(normalized)) {
-                predicates.add(cb.equal(root.get("seller").get("id"), user.getId()));
+                predicates.add(cb.equal(root.get("seller").get("id"), userId));
             } else {
                 predicates.add(cb.or(
-                        cb.equal(root.get("buyer").get("id"), user.getId()),
-                        cb.equal(root.get("seller").get("id"), user.getId())));
+                        cb.equal(root.get("buyer").get("id"), userId),
+                        cb.equal(root.get("seller").get("id"), userId)));
             }
             if (query != null && !Long.class.equals(query.getResultType())) {
                 root.fetch("listing", JoinType.LEFT).fetch("domain", JoinType.LEFT);

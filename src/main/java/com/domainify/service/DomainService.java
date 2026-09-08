@@ -79,7 +79,22 @@ public class DomainService {
             BigDecimal priceMax,
             Pageable pageable) {
         requireUser(owner);
-        Specification<Domain> spec = buildListSpec(owner.getId(), q, status, categoryId, priceMin, priceMax);
+        return listForOwnerId(owner.getId(), q, status, categoryId, priceMin, priceMax, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<DomainDto> listForOwnerId(
+            Long ownerId,
+            String q,
+            DomainStatus status,
+            Long categoryId,
+            BigDecimal priceMin,
+            BigDecimal priceMax,
+            Pageable pageable) {
+        if (ownerId == null) {
+            throw new ApiException(ErrorCode.USER_NOT_FOUND);
+        }
+        Specification<Domain> spec = buildListSpec(ownerId, q, status, categoryId, priceMin, priceMax);
         Pageable safe = sanitizePageable(pageable);
         Page<DomainDto> page = domainRepository.findAll(spec, safe).map(DomainDto::from);
         return PagedResponse.from(page);
