@@ -20,6 +20,7 @@ public class TicketDetailDto {
     private boolean canMerge;
     private boolean canSplit;
     private boolean canLinkRelated;
+    private boolean canLinkDomains;
     private boolean canEditDueDate;
     private boolean canWatch;
     private boolean watching;
@@ -149,6 +150,14 @@ public class TicketDetailDto {
 
     public void setCanLinkRelated(boolean canLinkRelated) {
         this.canLinkRelated = canLinkRelated;
+    }
+
+    public boolean isCanLinkDomains() {
+        return canLinkDomains;
+    }
+
+    public void setCanLinkDomains(boolean canLinkDomains) {
+        this.canLinkDomains = canLinkDomains;
     }
 
     public boolean isCanEditDueDate() {

@@ -60,7 +60,7 @@ done - Saved views / custom filters
 
 6. Customer context (Domainify-specific — high value)
 done - Link ticket to user account
-Link to domain(s) owned by user
+done - Link to domain(s) owned by user
 Link to SMS pack / send / scheduled SMS (for SMS support cases)
 Show recent activity: last login, credit balance, last SMS send
 Impersonation / “view as customer” (admin-only, audited)

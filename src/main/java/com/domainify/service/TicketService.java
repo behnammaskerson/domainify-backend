@@ -1,9 +1,12 @@
 package com.domainify.service;
 
+import com.domainify.dto.DomainDto;
+import com.domainify.dto.LinkTicketDomainsRequest;
 import com.domainify.dto.LinkTicketRequesterRequest;
 import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
+import com.domainify.dto.RelatedDomainDto;
 import com.domainify.dto.RelatedTicketDto;
 import com.domainify.dto.SplitTicketRequest;
 import com.domainify.dto.SplitTicketResultDto;
@@ -25,11 +28,14 @@ import com.domainify.dto.TransferTicketRequest;
 import com.domainify.dto.UpdateTicketDueDateRequest;
 import com.domainify.dto.UpdateTicketMessageRequest;
 import com.domainify.dto.UpdateTicketTagsRequest;
+import com.domainify.entity.Domain;
+import com.domainify.entity.DomainOwnershipStatus;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketAttachment;
 import com.domainify.entity.TicketCategory;
 import com.domainify.entity.TicketChannel;
 import com.domainify.entity.TicketCsat;
+import com.domainify.entity.TicketDomainLink;
 import com.domainify.entity.TicketEscalation;
 import com.domainify.entity.TicketEscalationTrigger;
 import com.domainify.entity.TicketMention;
@@ -49,8 +55,10 @@ import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
 import com.domainify.util.TicketFullTextSearch;
+import com.domainify.repository.DomainRepository;
 import com.domainify.repository.TicketAttachmentRepository;
 import com.domainify.repository.TicketCsatRepository;
+import com.domainify.repository.TicketDomainLinkRepository;
 import com.domainify.repository.TicketEscalationRepository;
 import com.domainify.repository.TicketMentionRepository;
 import com.domainify.repository.TicketMessageAttachmentRepository;
@@ -110,6 +118,7 @@ public class TicketService {
     private final TicketMentionRepository ticketMentionRepository;
     private final TicketReplyDraftRepository ticketReplyDraftRepository;
     private final TicketRelatedLinkRepository ticketRelatedLinkRepository;
+    private final TicketDomainLinkRepository ticketDomainLinkRepository;
     private final TicketWatcherRepository ticketWatcherRepository;
     private final TicketTransferRepository ticketTransferRepository;
     private final TicketRequesterChangeRepository ticketRequesterChangeRepository;
@@ -123,6 +132,8 @@ public class TicketService {
     private final TicketSettingsService ticketSettingsService;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final DomainRepository domainRepository;
+    private final DomainService domainService;
     private final TicketAutoAssignService ticketAutoAssignService;
 
     public TicketService(
@@ -134,6 +145,7 @@ public class TicketService {
             TicketMentionRepository ticketMentionRepository,
             TicketReplyDraftRepository ticketReplyDraftRepository,
             TicketRelatedLinkRepository ticketRelatedLinkRepository,
+            TicketDomainLinkRepository ticketDomainLinkRepository,
             TicketWatcherRepository ticketWatcherRepository,
             TicketTransferRepository ticketTransferRepository,
             TicketRequesterChangeRepository ticketRequesterChangeRepository,
@@ -147,6 +159,8 @@ public class TicketService {
             TicketSettingsService ticketSettingsService,
             NotificationService notificationService,
             UserRepository userRepository,
+            DomainRepository domainRepository,
+            DomainService domainService,
             TicketAutoAssignService ticketAutoAssignService) {
         this.ticketRepository = ticketRepository;
         this.ticketMessageRepository = ticketMessageRepository;
@@ -156,6 +170,7 @@ public class TicketService {
         this.ticketMentionRepository = ticketMentionRepository;
         this.ticketReplyDraftRepository = ticketReplyDraftRepository;
         this.ticketRelatedLinkRepository = ticketRelatedLinkRepository;
+        this.ticketDomainLinkRepository = ticketDomainLinkRepository;
         this.ticketWatcherRepository = ticketWatcherRepository;
         this.ticketTransferRepository = ticketTransferRepository;
         this.ticketRequesterChangeRepository = ticketRequesterChangeRepository;
@@ -169,6 +184,8 @@ public class TicketService {
         this.ticketSettingsService = ticketSettingsService;
         this.notificationService = notificationService;
         this.userRepository = userRepository;
+        this.domainRepository = domainRepository;
+        this.domainService = domainService;
         this.ticketAutoAssignService = ticketAutoAssignService;
     }
 
@@ -1155,6 +1172,98 @@ public class TicketService {
         return toDetailDto(ticket, agent, true);
     }
 
+    @Transactional(readOnly = true)
+    public PagedResponse<DomainDto> listLinkableDomainsAsStaff(
+            User agent,
+            Long ticketId,
+            String q,
+            Pageable pageable) {
+        requireAgent(agent);
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (ticket.getRequester() == null || ticket.getRequester().getId() == null) {
+            throw new ApiException(ErrorCode.TICKET_DOMAIN_NO_REQUESTER);
+        }
+        Set<Long> linkedIds = new HashSet<>(ticketDomainLinkRepository.findDomainIdsByTicketId(ticketId));
+        PagedResponse<DomainDto> page = domainService.listForOwnerId(
+                ticket.getRequester().getId(),
+                q,
+                null,
+                null,
+                null,
+                null,
+                pageable);
+        List<DomainDto> filtered = (page.getContent() == null ? List.<DomainDto>of() : page.getContent()).stream()
+                .filter(d -> d.getId() != null && !linkedIds.contains(d.getId()))
+                .toList();
+        return new PagedResponse<>(
+                filtered,
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.getNumber(),
+                page.getSize());
+    }
+
+    @Transactional
+    public TicketDetailDto linkDomainsAsStaff(User agent, Long ticketId, LinkTicketDomainsRequest request) {
+        requireAgent(agent);
+        if (request == null || request.getDomainIds() == null || request.getDomainIds().isEmpty()) {
+            throw new ApiException(ErrorCode.TICKET_DOMAIN_TARGET_REQUIRED);
+        }
+
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        assertNotDeleted(ticket);
+        if (ticket.isMerged()) {
+            throw new ApiException(ErrorCode.TICKET_LINK_INVALID);
+        }
+        if (ticket.getRequester() == null || ticket.getRequester().getId() == null) {
+            throw new ApiException(ErrorCode.TICKET_DOMAIN_NO_REQUESTER);
+        }
+        Long ownerId = ticket.getRequester().getId();
+
+        List<Long> domainIds = request.getDomainIds().stream()
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        if (domainIds.isEmpty()) {
+            throw new ApiException(ErrorCode.TICKET_DOMAIN_TARGET_REQUIRED);
+        }
+
+        for (Long domainId : domainIds) {
+            Domain domain = domainRepository.findById(domainId)
+                    .orElseThrow(() -> new ApiException(ErrorCode.DOMAIN_NOT_FOUND));
+            if (domain.getOwner() == null || domain.getOwner().getId() == null
+                    || !domain.getOwner().getId().equals(ownerId)) {
+                throw new ApiException(ErrorCode.TICKET_DOMAIN_NOT_OWNED);
+            }
+            if (ticketDomainLinkRepository.existsByTicketIdAndDomainId(ticketId, domainId)) {
+                throw new ApiException(ErrorCode.TICKET_DOMAIN_ALREADY_LINKED);
+            }
+
+            TicketDomainLink link = new TicketDomainLink();
+            link.setTicket(ticket);
+            link.setDomain(domain);
+            ticketDomainLinkRepository.save(link);
+        }
+
+        return toDetailDto(ticket, agent, true);
+    }
+
+    @Transactional
+    public TicketDetailDto unlinkDomainAsStaff(User agent, Long ticketId, Long domainId) {
+        requireAgent(agent);
+        if (domainId == null) {
+            throw new ApiException(ErrorCode.DOMAIN_NOT_FOUND);
+        }
+
+        Ticket ticket = requireStaffTicket(ticketId, false);
+        if (!ticketDomainLinkRepository.existsByTicketIdAndDomainId(ticketId, domainId)) {
+            throw new ApiException(ErrorCode.TICKET_DOMAIN_NOT_LINKED);
+        }
+
+        ticketDomainLinkRepository.deleteByTicketIdAndDomainId(ticketId, domainId);
+        return toDetailDto(ticket, agent, true);
+    }
+
     @Transactional
     public TicketDetailDto watchAsStaff(User agent, Long ticketId) {
         requireAgent(agent);
@@ -1718,6 +1827,8 @@ public class TicketService {
         long replyCount = ticketMessageRepository.findByTicketOrderByCreatedAtAscIdAsc(ticket).size();
         detail.setCanSplit(includeWorkflow && !deleted && !archived && !ticket.isMerged() && replyCount > 0);
         detail.setCanLinkRelated(includeWorkflow && !deleted && !ticket.isMerged());
+        detail.setCanLinkDomains(includeWorkflow && !deleted && !ticket.isMerged()
+                && ticket.getRequester() != null && ticket.getRequester().getId() != null);
         detail.setCanEditDueDate(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setCanWatch(includeWorkflow && !deleted);
         detail.setCanTransfer(includeWorkflow && !deleted && !archived && !ticket.isMerged());
@@ -2237,6 +2348,13 @@ public class TicketService {
                     .map(link -> toRelatedDto(link.getRelatedTicket()))
                     .toList();
             dto.setRelatedTickets(relatedTickets);
+
+            List<RelatedDomainDto> relatedDomains = ticketDomainLinkRepository
+                    .findByTicketIdOrderByCreatedAtAscIdAsc(ticket.getId())
+                    .stream()
+                    .map(link -> toRelatedDomainDto(link.getDomain()))
+                    .toList();
+            dto.setRelatedDomains(relatedDomains);
         }
         return dto;
     }
@@ -2250,6 +2368,20 @@ public class TicketService {
         if (related.getRequester() != null) {
             dto.setRequesterName(displayName(related.getRequester()));
         }
+        return dto;
+    }
+
+    private RelatedDomainDto toRelatedDomainDto(Domain domain) {
+        RelatedDomainDto dto = new RelatedDomainDto();
+        if (domain == null) {
+            return dto;
+        }
+        dto.setId(domain.getId());
+        dto.setName(domain.getName());
+        dto.setStatus(domain.getStatus());
+        dto.setOwnershipStatus(domain.getOwnershipStatus() != null
+                ? domain.getOwnershipStatus()
+                : DomainOwnershipStatus.UNVERIFIED);
         return dto;
     }
 

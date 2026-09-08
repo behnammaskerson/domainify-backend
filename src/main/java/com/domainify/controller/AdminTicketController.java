@@ -5,6 +5,8 @@ import com.domainify.dto.AssignTicketQueueRequest;
 import com.domainify.dto.AssignTicketRequest;
 import com.domainify.dto.BulkTicketActionRequest;
 import com.domainify.dto.BulkTicketActionResultDto;
+import com.domainify.dto.DomainDto;
+import com.domainify.dto.LinkTicketDomainsRequest;
 import com.domainify.dto.LinkTicketRequesterRequest;
 import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
@@ -374,6 +376,31 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @PathVariable("relatedId") Long relatedId) {
         return ResponseEntity.ok(ticketService.unlinkRelatedAsStaff(agent, id, relatedId));
+    }
+
+    @GetMapping("/{id}/linkable-domains")
+    public ResponseEntity<PagedResponse<DomainDto>> listLinkableDomains(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestParam(value = "q", required = false) String q,
+            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
+        return ResponseEntity.ok(ticketService.listLinkableDomainsAsStaff(agent, id, q, pageable));
+    }
+
+    @PostMapping("/{id}/domains")
+    public ResponseEntity<TicketDetailDto> linkDomains(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody LinkTicketDomainsRequest request) {
+        return ResponseEntity.ok(ticketService.linkDomainsAsStaff(agent, id, request));
+    }
+
+    @DeleteMapping("/{id}/domains/{domainId}")
+    public ResponseEntity<TicketDetailDto> unlinkDomain(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @PathVariable("domainId") Long domainId) {
+        return ResponseEntity.ok(ticketService.unlinkDomainAsStaff(agent, id, domainId));
     }
 
     @PostMapping("/{id}/watch")
