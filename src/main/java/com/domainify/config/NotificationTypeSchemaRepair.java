@@ -33,6 +33,8 @@ public class NotificationTypeSchemaRepair implements ApplicationRunner {
                     + "'TICKET_TRANSFERRED',"
                     + "'TICKET_ESCALATED',"
                     + "'TICKET_SLA_APPROACHING',"
+                    + "'TICKET_ACK',"
+                    + "'TICKET_NO_REPLY_REMIND',"
                     + "'DOMAIN_RENEWAL',"
                     + "'OFFER_RECEIVED',"
                     + "'OFFER_COUNTERED',"

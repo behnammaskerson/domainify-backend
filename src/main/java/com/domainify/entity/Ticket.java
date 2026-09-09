@@ -115,6 +115,18 @@ public class Ticket {
     @Column(name = "staff_last_read_at")
     private Instant staffLastReadAt;
 
+    /** Last public staff reply (not internal note). */
+    @Column(name = "last_staff_public_reply_at")
+    private Instant lastStaffPublicReplyAt;
+
+    /** Last public customer reply. */
+    @Column(name = "last_customer_public_reply_at")
+    private Instant lastCustomerPublicReplyAt;
+
+    /** When a no-reply reminder was sent to the customer. */
+    @Column(name = "no_reply_reminded_at")
+    private Instant noReplyRemindedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "merged_into_ticket_id")
     private Ticket mergedInto;
@@ -336,6 +348,30 @@ public class Ticket {
 
     public void setStaffLastReadAt(Instant staffLastReadAt) {
         this.staffLastReadAt = staffLastReadAt;
+    }
+
+    public Instant getLastStaffPublicReplyAt() {
+        return lastStaffPublicReplyAt;
+    }
+
+    public void setLastStaffPublicReplyAt(Instant lastStaffPublicReplyAt) {
+        this.lastStaffPublicReplyAt = lastStaffPublicReplyAt;
+    }
+
+    public Instant getLastCustomerPublicReplyAt() {
+        return lastCustomerPublicReplyAt;
+    }
+
+    public void setLastCustomerPublicReplyAt(Instant lastCustomerPublicReplyAt) {
+        this.lastCustomerPublicReplyAt = lastCustomerPublicReplyAt;
+    }
+
+    public Instant getNoReplyRemindedAt() {
+        return noReplyRemindedAt;
+    }
+
+    public void setNoReplyRemindedAt(Instant noReplyRemindedAt) {
+        this.noReplyRemindedAt = noReplyRemindedAt;
     }
 
     public boolean isArchived() {

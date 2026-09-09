@@ -1,6 +1,8 @@
 package com.domainify.dto;
 
 import com.domainify.entity.TicketAutoAssignMode;
+import com.domainify.entity.TicketNoReplyAction;
+import com.domainify.entity.TicketPriority;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -140,6 +142,25 @@ public class TicketSettingsDto {
     private Long slaBreachAssigneeId;
 
     private Long slaBreachQueueId;
+
+    private TicketPriority automationDefaultPriority;
+
+    @NotNull
+    private Boolean automationCustomerAckEnabled = true;
+
+    @NotNull
+    private Boolean automationNoReplyEnabled = false;
+
+    @NotNull
+    @Min(1)
+    @Max(8760)
+    private Integer automationNoReplyHours = 48;
+
+    @NotNull
+    private TicketNoReplyAction automationNoReplyAction = TicketNoReplyAction.REMIND;
+
+    @NotNull
+    private Boolean automationCsatInviteEnabled = true;
 
     public TicketSettingsDto() {
     }
@@ -457,5 +478,53 @@ public class TicketSettingsDto {
 
     public void setSlaBreachQueueId(Long slaBreachQueueId) {
         this.slaBreachQueueId = slaBreachQueueId;
+    }
+
+    public TicketPriority getAutomationDefaultPriority() {
+        return automationDefaultPriority;
+    }
+
+    public void setAutomationDefaultPriority(TicketPriority automationDefaultPriority) {
+        this.automationDefaultPriority = automationDefaultPriority;
+    }
+
+    public Boolean getAutomationCustomerAckEnabled() {
+        return automationCustomerAckEnabled;
+    }
+
+    public void setAutomationCustomerAckEnabled(Boolean automationCustomerAckEnabled) {
+        this.automationCustomerAckEnabled = automationCustomerAckEnabled;
+    }
+
+    public Boolean getAutomationNoReplyEnabled() {
+        return automationNoReplyEnabled;
+    }
+
+    public void setAutomationNoReplyEnabled(Boolean automationNoReplyEnabled) {
+        this.automationNoReplyEnabled = automationNoReplyEnabled;
+    }
+
+    public Integer getAutomationNoReplyHours() {
+        return automationNoReplyHours;
+    }
+
+    public void setAutomationNoReplyHours(Integer automationNoReplyHours) {
+        this.automationNoReplyHours = automationNoReplyHours;
+    }
+
+    public TicketNoReplyAction getAutomationNoReplyAction() {
+        return automationNoReplyAction;
+    }
+
+    public void setAutomationNoReplyAction(TicketNoReplyAction automationNoReplyAction) {
+        this.automationNoReplyAction = automationNoReplyAction;
+    }
+
+    public Boolean getAutomationCsatInviteEnabled() {
+        return automationCsatInviteEnabled;
+    }
+
+    public void setAutomationCsatInviteEnabled(Boolean automationCsatInviteEnabled) {
+        this.automationCsatInviteEnabled = automationCsatInviteEnabled;
     }
 }

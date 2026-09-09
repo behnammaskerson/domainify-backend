@@ -8,6 +8,7 @@ import com.domainify.entity.TicketAttachmentKind;
 import com.domainify.entity.TicketAutoAssignMode;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketCategory;
+import com.domainify.entity.TicketNoReplyAction;
 import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketSettings;
 import com.domainify.entity.TicketStatus;
@@ -113,7 +114,12 @@ public class TicketSettingsService {
                 || !StringUtils.hasText(request.getSlaTimezone())
                 || request.getSlaWarnEnabled() == null
                 || request.getSlaBreachEscalationEnabled() == null
-                || request.getSlaBreachBumpPriority() == null) {
+                || request.getSlaBreachBumpPriority() == null
+                || request.getAutomationCustomerAckEnabled() == null
+                || request.getAutomationNoReplyEnabled() == null
+                || request.getAutomationNoReplyHours() == null
+                || request.getAutomationNoReplyAction() == null
+                || request.getAutomationCsatInviteEnabled() == null) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
@@ -225,6 +231,15 @@ public class TicketSettingsService {
             ticketQueueService.requireActiveQueue(slaBreachQueueId);
         }
 
+        int automationNoReplyHours = request.getAutomationNoReplyHours();
+        if (automationNoReplyHours < 1 || automationNoReplyHours > 8760) {
+            throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+        }
+        TicketNoReplyAction automationNoReplyAction = request.getAutomationNoReplyAction();
+        if (automationNoReplyAction == null) {
+            throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+        }
+
         TicketSettings settings = getOrCreate();
         settings.setReopenWindowDays(days);
         settings.setMaxAttachments(maxAttachments);
@@ -266,8 +281,19 @@ public class TicketSettingsService {
         settings.setSlaBreachBumpPriority(request.getSlaBreachBumpPriority());
         settings.setSlaBreachAssigneeId(slaBreachAssigneeId);
         settings.setSlaBreachQueueId(slaBreachQueueId);
+        settings.setAutomationDefaultPriority(request.getAutomationDefaultPriority());
+        settings.setAutomationCustomerAckEnabled(request.getAutomationCustomerAckEnabled());
+        settings.setAutomationNoReplyEnabled(request.getAutomationNoReplyEnabled());
+        settings.setAutomationNoReplyHours(automationNoReplyHours);
+        settings.setAutomationNoReplyAction(automationNoReplyAction);
+        settings.setAutomationCsatInviteEnabled(request.getAutomationCsatInviteEnabled());
         settings.normalize();
         return toDto(ticketSettingsRepository.save(settings));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isAutomationCsatInviteEnabled() {
+        return getOrCreate().isAutomationCsatInviteEnabled();
     }
 
     /**
@@ -554,6 +580,12 @@ public class TicketSettingsService {
         dto.setSlaBreachBumpPriority(settings.isSlaBreachBumpPriority());
         dto.setSlaBreachAssigneeId(settings.getSlaBreachAssigneeId());
         dto.setSlaBreachQueueId(settings.getSlaBreachQueueId());
+        dto.setAutomationDefaultPriority(settings.getAutomationDefaultPriority());
+        dto.setAutomationCustomerAckEnabled(settings.isAutomationCustomerAckEnabled());
+        dto.setAutomationNoReplyEnabled(settings.isAutomationNoReplyEnabled());
+        dto.setAutomationNoReplyHours(settings.getAutomationNoReplyHours());
+        dto.setAutomationNoReplyAction(settings.getAutomationNoReplyAction());
+        dto.setAutomationCsatInviteEnabled(settings.isAutomationCsatInviteEnabled());
         return dto;
     }
 

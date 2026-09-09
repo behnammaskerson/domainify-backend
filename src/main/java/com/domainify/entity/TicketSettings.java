@@ -43,6 +43,7 @@ public class TicketSettings {
                     + "\"friday\":{\"start\":\"09:00\",\"end\":\"17:00\"},\"saturday\":null,\"sunday\":null}";
     public static final String DEFAULT_BUSINESS_HOLIDAYS_JSON = "[]";
     public static final int DEFAULT_SLA_WARN_HOURS_BEFORE = 2;
+    public static final int DEFAULT_AUTOMATION_NO_REPLY_HOURS = 48;
 
     @Id
     private Long id = SINGLETON_ID;
@@ -201,6 +202,35 @@ public class TicketSettings {
     @Column(name = "sla_breach_queue_id")
     private Long slaBreachQueueId;
 
+    /** When set, force this priority on customer-created tickets (null = keep customer choice). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "automation_default_priority", length = 16)
+    private TicketPriority automationDefaultPriority;
+
+    /** Send customer acknowledgement notification on ticket create. */
+    @ColumnDefault("true")
+    @Column(name = "automation_customer_ack_enabled", nullable = true)
+    private Boolean automationCustomerAckEnabled = true;
+
+    /** Enable no-reply automations while status is PENDING (waiting on customer). */
+    @ColumnDefault("false")
+    @Column(name = "automation_no_reply_enabled", nullable = true)
+    private Boolean automationNoReplyEnabled = false;
+
+    /** Hours after last staff public reply before no-reply action runs. */
+    @ColumnDefault("48")
+    @Column(name = "automation_no_reply_hours", nullable = true)
+    private Integer automationNoReplyHours = DEFAULT_AUTOMATION_NO_REPLY_HOURS;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "automation_no_reply_action", length = 32)
+    private TicketNoReplyAction automationNoReplyAction = TicketNoReplyAction.REMIND;
+
+    /** Include CSAT invite in resolve emails and allow rating in portal. */
+    @ColumnDefault("true")
+    @Column(name = "automation_csat_invite_enabled", nullable = true)
+    private Boolean automationCsatInviteEnabled = true;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -291,6 +321,21 @@ public class TicketSettings {
         if (slaBreachBumpPriority == null) {
             slaBreachBumpPriority = true;
         }
+        if (automationCustomerAckEnabled == null) {
+            automationCustomerAckEnabled = true;
+        }
+        if (automationNoReplyEnabled == null) {
+            automationNoReplyEnabled = false;
+        }
+        if (automationNoReplyHours == null || automationNoReplyHours < 1 || automationNoReplyHours > 8760) {
+            automationNoReplyHours = DEFAULT_AUTOMATION_NO_REPLY_HOURS;
+        }
+        if (automationNoReplyAction == null) {
+            automationNoReplyAction = TicketNoReplyAction.REMIND;
+        }
+        if (automationCsatInviteEnabled == null) {
+            automationCsatInviteEnabled = true;
+        }
     }
 
     public static TicketSettings defaults() {
@@ -326,6 +371,11 @@ public class TicketSettings {
         settings.setSlaWarnHoursBefore(DEFAULT_SLA_WARN_HOURS_BEFORE);
         settings.setSlaBreachEscalationEnabled(true);
         settings.setSlaBreachBumpPriority(true);
+        settings.setAutomationCustomerAckEnabled(true);
+        settings.setAutomationNoReplyEnabled(false);
+        settings.setAutomationNoReplyHours(DEFAULT_AUTOMATION_NO_REPLY_HOURS);
+        settings.setAutomationNoReplyAction(TicketNoReplyAction.REMIND);
+        settings.setAutomationCsatInviteEnabled(true);
         settings.normalize();
         return settings;
     }
@@ -701,6 +751,54 @@ public class TicketSettings {
 
     public void setSlaBreachQueueId(Long slaBreachQueueId) {
         this.slaBreachQueueId = slaBreachQueueId;
+    }
+
+    public TicketPriority getAutomationDefaultPriority() {
+        return automationDefaultPriority;
+    }
+
+    public void setAutomationDefaultPriority(TicketPriority automationDefaultPriority) {
+        this.automationDefaultPriority = automationDefaultPriority;
+    }
+
+    public boolean isAutomationCustomerAckEnabled() {
+        return automationCustomerAckEnabled == null || Boolean.TRUE.equals(automationCustomerAckEnabled);
+    }
+
+    public void setAutomationCustomerAckEnabled(Boolean automationCustomerAckEnabled) {
+        this.automationCustomerAckEnabled = automationCustomerAckEnabled;
+    }
+
+    public boolean isAutomationNoReplyEnabled() {
+        return Boolean.TRUE.equals(automationNoReplyEnabled);
+    }
+
+    public void setAutomationNoReplyEnabled(Boolean automationNoReplyEnabled) {
+        this.automationNoReplyEnabled = automationNoReplyEnabled;
+    }
+
+    public int getAutomationNoReplyHours() {
+        return automationNoReplyHours != null ? automationNoReplyHours : DEFAULT_AUTOMATION_NO_REPLY_HOURS;
+    }
+
+    public void setAutomationNoReplyHours(Integer automationNoReplyHours) {
+        this.automationNoReplyHours = automationNoReplyHours;
+    }
+
+    public TicketNoReplyAction getAutomationNoReplyAction() {
+        return automationNoReplyAction != null ? automationNoReplyAction : TicketNoReplyAction.REMIND;
+    }
+
+    public void setAutomationNoReplyAction(TicketNoReplyAction automationNoReplyAction) {
+        this.automationNoReplyAction = automationNoReplyAction;
+    }
+
+    public boolean isAutomationCsatInviteEnabled() {
+        return automationCsatInviteEnabled == null || Boolean.TRUE.equals(automationCsatInviteEnabled);
+    }
+
+    public void setAutomationCsatInviteEnabled(Boolean automationCsatInviteEnabled) {
+        this.automationCsatInviteEnabled = automationCsatInviteEnabled;
     }
 
     public Instant getUpdatedAt() {

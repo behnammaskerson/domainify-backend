@@ -40,7 +40,9 @@ public class TicketEmailNotificationService {
             NotificationType.TICKET_SLA_APPROACHING,
             NotificationType.TICKET_STATUS_CHANGED,
             NotificationType.TICKET_CLOSED,
-            NotificationType.TICKET_REOPENED
+            NotificationType.TICKET_REOPENED,
+            NotificationType.TICKET_ACK,
+            NotificationType.TICKET_NO_REPLY_REMIND
     );
 
     private final EmailConfigService emailConfigService;
@@ -121,6 +123,12 @@ public class TicketEmailNotificationService {
                 .orElse(true);
     }
 
+    private boolean isCsatInviteEnabled() {
+        return ticketSettingsRepository.findById(TicketSettings.SINGLETON_ID)
+                .map(TicketSettings::isAutomationCsatInviteEnabled)
+                .orElse(true);
+    }
+
     private String buildSubject(NotificationType type, Ticket ticket, Locale locale) {
         String ref = ticketRef(ticket);
         String key = switch (type) {
@@ -131,6 +139,8 @@ public class TicketEmailNotificationService {
             case TICKET_STATUS_CHANGED -> "notification.email.subject.status";
             case TICKET_CLOSED -> "notification.email.subject.closed";
             case TICKET_REOPENED -> "notification.email.subject.reopened";
+            case TICKET_ACK -> "notification.email.subject.ack";
+            case TICKET_NO_REPLY_REMIND -> "notification.email.subject.no_reply_remind";
             default -> "notification.email.subject.update";
         };
         return messageService.get(key, new Object[]{ref}, locale);
@@ -187,6 +197,10 @@ public class TicketEmailNotificationService {
                     "notification.email.event.reopened",
                     new Object[]{actorName},
                     locale);
+            case TICKET_ACK -> messageService.get("notification.email.event.ack", locale);
+            case TICKET_NO_REPLY_REMIND -> messageService.get(
+                    "notification.email.event.no_reply_remind",
+                    locale);
             default -> messageService.get("notification.email.event.update", locale);
         };
 
@@ -200,7 +214,8 @@ public class TicketEmailNotificationService {
                 + "\n\n";
         if (type == NotificationType.TICKET_STATUS_CHANGED
                 && to == TicketStatus.RESOLVED
-                && recipient.getRole() != User.Role.ADMIN) {
+                && recipient.getRole() != User.Role.ADMIN
+                && isCsatInviteEnabled()) {
             body += messageService.get("notification.email.event.csat_invite", locale)
                     + "\n\n";
         }

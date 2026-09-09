@@ -39,6 +39,8 @@ import com.domainify.entity.TicketDomainLink;
 import com.domainify.entity.TicketEscalation;
 import com.domainify.entity.TicketEscalationTrigger;
 import com.domainify.entity.TicketMention;
+import com.domainify.entity.TicketNoReplyAction;
+import com.domainify.entity.TicketSettings;
 import com.domainify.entity.TicketMessage;
 import com.domainify.entity.TicketMessageAttachment;
 import com.domainify.entity.TicketMessageRevision;
@@ -304,6 +306,14 @@ public class TicketService {
             } else if (ticket.getStatus() == TicketStatus.NEW) {
                 maybeAutoTransition(ticket, TicketStatus.OPEN);
             }
+        }
+        Instant replyNow = Instant.now();
+        if (asStaff && !internalNote) {
+            ticket.setLastStaffPublicReplyAt(replyNow);
+            ticket.setNoReplyRemindedAt(null);
+        } else if (!asStaff) {
+            ticket.setLastCustomerPublicReplyAt(replyNow);
+            ticket.setNoReplyRemindedAt(null);
         }
         ticketRepository.save(ticket);
         clearReplyDraft(ticket, author);
@@ -686,8 +696,9 @@ public class TicketService {
                     || (fromQueueId != null && !fromQueueId.equals(toQueueId));
         }
 
-        // SLA auto-escalate always records even if already URGENT (priority unchanged).
-        boolean allowNoFieldChange = triggerType == TicketEscalationTrigger.SLA_BREACH;
+        // SLA / no-reply auto-escalate always records even if already URGENT (priority unchanged).
+        boolean allowNoFieldChange = triggerType == TicketEscalationTrigger.SLA_BREACH
+                || triggerType == TicketEscalationTrigger.NO_REPLY;
         if (!priorityChanged && !assigneeChanged && !queueChanged && !allowNoFieldChange) {
             if (request.isBumpPriority() || request.isPriorityChanged()
                     || request.isAssigneeChanged() || request.isQueueChanged()) {
@@ -1518,6 +1529,94 @@ public class TicketService {
         return count;
     }
 
+    @Transactional
+    public int processNoReplyAutomations() {
+        TicketSettings settings = ticketSettingsService.getOrCreate();
+        if (!settings.isAutomationNoReplyEnabled()) {
+            return 0;
+        }
+        int hours = settings.getAutomationNoReplyHours();
+        Instant cutoff = Instant.now().minus(Duration.ofHours(hours));
+        List<Ticket> candidates = ticketRepository.findEligibleForNoReplyAutomation(cutoff);
+        if (candidates.isEmpty()) {
+            return 0;
+        }
+        TicketNoReplyAction action = settings.getAutomationNoReplyAction();
+        int count = 0;
+        for (Ticket candidate : candidates) {
+            if (candidate.getId() == null) {
+                continue;
+            }
+            Ticket ticket = ticketRepository.findByIdForUpdate(candidate.getId()).orElse(null);
+            if (ticket == null || !isNoReplyEligible(ticket, cutoff)) {
+                continue;
+            }
+            switch (action) {
+                case REMIND -> {
+                    if (ticket.getNoReplyRemindedAt() == null) {
+                        notificationService.onNoReplyRemind(ticket);
+                        ticket.setNoReplyRemindedAt(Instant.now());
+                        ticketRepository.save(ticket);
+                        count++;
+                    }
+                }
+                case ESCALATE -> {
+                    if (!ticket.isEscalated()) {
+                        applyNoReplyEscalation(ticket, settings);
+                        count++;
+                    }
+                }
+                case REMIND_AND_ESCALATE -> {
+                    if (ticket.getNoReplyRemindedAt() == null) {
+                        notificationService.onNoReplyRemind(ticket);
+                        ticket.setNoReplyRemindedAt(Instant.now());
+                        ticketRepository.save(ticket);
+                        count++;
+                    } else if (!ticket.isEscalated()) {
+                        applyNoReplyEscalation(ticket, settings);
+                        count++;
+                    }
+                }
+                default -> {
+                    // unreachable
+                }
+            }
+        }
+        return count;
+    }
+
+    private boolean isNoReplyEligible(Ticket ticket, Instant cutoff) {
+        if (ticket.getDeletedAt() != null || ticket.getArchivedAt() != null) {
+            return false;
+        }
+        if (ticket.getStatus() != TicketStatus.PENDING) {
+            return false;
+        }
+        Instant lastStaff = ticket.getLastStaffPublicReplyAt();
+        if (lastStaff == null || !lastStaff.isBefore(cutoff)) {
+            return false;
+        }
+        Instant lastCustomer = ticket.getLastCustomerPublicReplyAt();
+        return lastCustomer == null || lastCustomer.isBefore(lastStaff);
+    }
+
+    private void applyNoReplyEscalation(Ticket ticket, TicketSettings settings) {
+        EscalateTicketRequest request = new EscalateTicketRequest();
+        request.setBumpPriority(settings.isSlaBreachBumpPriority());
+        if (settings.getSlaBreachAssigneeId() != null) {
+            request.setAssigneeChanged(true);
+            request.setAssigneeId(settings.getSlaBreachAssigneeId());
+        }
+        if (settings.getSlaBreachQueueId() != null) {
+            request.setQueueChanged(true);
+            request.setQueueId(settings.getSlaBreachQueueId());
+        }
+        if (!request.isBumpPriority() && !request.isAssigneeChanged() && !request.isQueueChanged()) {
+            request.setBumpPriority(true);
+        }
+        applyEscalation(ticket, null, request, TicketEscalationTrigger.NO_REPLY);
+    }
+
     private TicketDetailDto closeTicket(Ticket ticket, User viewer, boolean asStaff) {
         if (ticket.getStatus() == TicketStatus.CLOSED) {
             throw new ApiException(ErrorCode.TICKET_ALREADY_CLOSED);
@@ -1805,15 +1904,20 @@ public class TicketService {
         }
 
         TicketCategory category = ticketCategoryService.requireActiveCategory(categoryId);
+        TicketSettings settings = ticketSettingsService.getOrCreate();
 
         List<MultipartFile> files = normalizeFiles(attachments);
         ticketSettingsService.validateAttachmentBatch(files);
+
+        TicketPriority effectivePriority = settings.getAutomationDefaultPriority() != null
+                ? settings.getAutomationDefaultPriority()
+                : priority;
 
         Ticket ticket = new Ticket();
         ticket.setSubject(trimmedSubject);
         ticket.setDescription(trimmedDescription);
         ticket.setCategory(category);
-        Long defaultQueueId = ticketSettingsService.getOrCreate().getDefaultQueueId();
+        Long defaultQueueId = settings.getDefaultQueueId();
         if (defaultQueueId != null) {
             try {
                 ticket.setQueue(ticketQueueService.requireActiveQueue(defaultQueueId));
@@ -1821,14 +1925,15 @@ public class TicketService {
                 // Invalid/inactive default queue — leave unset.
             }
         }
-        ticket.setPriority(priority);
+        ticket.setPriority(effectivePriority);
         ticket.setStatus(TicketStatus.NEW);
         ticket.setChannel(TicketChannel.PORTAL);
         ticket.setRequester(requester);
         ticket.setPublicNumber("TMP-" + System.nanoTime());
         Instant slaBase = Instant.now();
-        ticket.setDueAt(ticketSettingsService.computeResolveDueAt(priority, category, slaBase));
-        ticket.setFirstResponseDueAt(ticketSettingsService.computeFirstResponseDueAt(priority, category, slaBase));
+        ticket.setDueAt(ticketSettingsService.computeResolveDueAt(effectivePriority, category, slaBase));
+        ticket.setFirstResponseDueAt(ticketSettingsService.computeFirstResponseDueAt(
+                effectivePriority, category, slaBase));
 
         for (MultipartFile file : files) {
             ticket.addAttachment(toTicketAttachment(file));
@@ -1842,6 +1947,9 @@ public class TicketService {
             notificationService.onAssigned(saved, autoAssignee, requester);
         } else {
             notificationService.onTicketCreated(saved, requester);
+        }
+        if (settings.isAutomationCustomerAckEnabled()) {
+            notificationService.onTicketCreatedAck(saved, requester);
         }
         return toDto(saved);
     }
@@ -1967,6 +2075,7 @@ public class TicketService {
                 && !deleted
                 && !archived
                 && existingCsat == null
+                && ticketSettingsService.isAutomationCsatInviteEnabled()
                 && (ticket.getStatus() == TicketStatus.RESOLVED || ticket.getStatus() == TicketStatus.CLOSED));
         if (includeWorkflow && ticket.getId() != null) {
             boolean watching = viewer != null && viewer.getId() != null

@@ -322,6 +322,30 @@ public class NotificationService {
     }
 
     @Transactional
+    public void onTicketCreatedAck(Ticket ticket, User requester) {
+        if (ticket == null || ticket.getId() == null) {
+            return;
+        }
+        User recipient = requester != null ? requester : ticket.getRequester();
+        if (recipient == null || !recipient.isEnabled()) {
+            return;
+        }
+        createNotification(recipient, null, NotificationType.TICKET_ACK, ticket, null, null);
+    }
+
+    @Transactional
+    public void onNoReplyRemind(Ticket ticket) {
+        if (ticket == null || ticket.getId() == null) {
+            return;
+        }
+        User requester = ticket.getRequester();
+        if (requester == null || !requester.isEnabled()) {
+            return;
+        }
+        createNotification(requester, null, NotificationType.TICKET_NO_REPLY_REMIND, ticket, null, null);
+    }
+
+    @Transactional
     public void onTicketCreated(Ticket ticket, User requester) {
         if (ticket == null || ticket.getId() == null) {
             return;

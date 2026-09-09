@@ -69,10 +69,10 @@ done - SLA policies by priority/category (first response time, resolve time)
 done - Business hours calendar (timezone-aware)
 done - Pause SLA when status = Pending (waiting on customer)
 done - Breach warnings & escalation rules
-Automations / triggers:
-On create → set priority, assign queue, send ack
-on no reply X hours → remind customer or escalate
-On resolve → ask CSAT
+done - Automations / triggers:
+done - On create → set priority, assign queue, send ack
+done - on no reply X hours → remind customer or escalate
+done - On resolve → ask CSAT
 Auto-close if customer silent for N days after resolve
 Business rules engine (if/then) — later phase
 

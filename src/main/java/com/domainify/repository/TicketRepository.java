@@ -87,6 +87,18 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
     List<Ticket> findEligibleForSlaWarning(@Param("now") Instant now, @Param("warnUntil") Instant warnUntil);
 
     @Query("""
+            select t from Ticket t
+            where t.deletedAt is null
+              and t.archivedAt is null
+              and t.status = com.domainify.entity.TicketStatus.PENDING
+              and t.lastStaffPublicReplyAt is not null
+              and t.lastStaffPublicReplyAt < :cutoff
+              and (t.lastCustomerPublicReplyAt is null
+                   or t.lastCustomerPublicReplyAt < t.lastStaffPublicReplyAt)
+            """)
+    List<Ticket> findEligibleForNoReplyAutomation(@Param("cutoff") Instant cutoff);
+
+    @Query("""
             select t.assignee.id, count(t)
             from Ticket t
             where t.deletedAt is null
