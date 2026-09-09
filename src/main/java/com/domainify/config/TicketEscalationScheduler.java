@@ -25,9 +25,13 @@ public class TicketEscalationScheduler {
     @Scheduled(fixedDelayString = "${app.tickets.sla-escalation-delay-ms:60000}")
     public void escalateOverdueTickets() {
         try {
-            int count = ticketService.autoEscalateOverdueTickets();
-            if (count > 0) {
-                log.info("Auto-escalated {} overdue ticket(s)", count);
+            int warned = ticketService.autoWarnApproachingSla();
+            if (warned > 0) {
+                log.info("Sent approaching-SLA warnings for {} ticket(s)", warned);
+            }
+            int escalated = ticketService.autoEscalateOverdueTickets();
+            if (escalated > 0) {
+                log.info("Auto-escalated {} overdue ticket(s)", escalated);
             }
         } catch (Exception ex) {
             log.warn("SLA auto-escalation run failed: {}", ex.getMessage());

@@ -9,7 +9,6 @@ import com.domainify.dto.TicketWorkloadRowDto;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketInboxView;
 import com.domainify.entity.TicketMention;
-import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketStatus;
 import com.domainify.entity.TicketTag;
 import com.domainify.entity.TicketWatcher;
@@ -59,18 +58,21 @@ public class AdminTicketService {
     private final TicketTagService ticketTagService;
     private final UserRepository userRepository;
     private final TicketAgentQueueMembershipRepository queueMembershipRepository;
+    private final TicketSettingsService ticketSettingsService;
 
     public AdminTicketService(
             TicketRepository ticketRepository,
             TicketCategoryService ticketCategoryService,
             TicketTagService ticketTagService,
             UserRepository userRepository,
-            TicketAgentQueueMembershipRepository queueMembershipRepository) {
+            TicketAgentQueueMembershipRepository queueMembershipRepository,
+            TicketSettingsService ticketSettingsService) {
         this.ticketRepository = ticketRepository;
         this.ticketCategoryService = ticketCategoryService;
         this.ticketTagService = ticketTagService;
         this.userRepository = userRepository;
         this.queueMembershipRepository = queueMembershipRepository;
+        this.ticketSettingsService = ticketSettingsService;
     }
 
     @Transactional(readOnly = true)
@@ -94,6 +96,20 @@ public class AdminTicketService {
         Pageable safePageable = sanitizePageable(pageable);
         Page<TicketDto> page = ticketRepository.findAll(spec, safePageable).map(ticket -> toListDto(ticket, Instant.now()));
         return PagedResponse.from(page);
+    }
+
+    @Transactional(readOnly = true)
+    public long countInbox(User agent, TicketInboxView view, TicketInboxFilter filter) {
+        if (agent == null || agent.getId() == null) {
+            throw new IllegalArgumentException("Agent is required");
+        }
+        if (view == null) {
+            view = TicketInboxView.ALL;
+        }
+        if (filter == null) {
+            filter = new TicketInboxFilter();
+        }
+        return ticketRepository.count(buildInboxSpec(agent.getId(), view, null, filter));
     }
 
     @Transactional(readOnly = true)
@@ -207,9 +223,19 @@ public class AdminTicketService {
                     Instant now = Instant.now();
                     predicates.add(cb.isNull(root.get("deletedAt")));
                     predicates.add(cb.isNull(root.get("archivedAt")));
-                    predicates.add(cb.isNotNull(root.get("dueAt")));
-                    predicates.add(cb.lessThan(root.get("dueAt"), now));
+                    predicates.add(cb.isNull(root.get("slaPausedAt")));
                     predicates.add(root.get("status").in(ACTIVE_STATUSES));
+                    predicates.add(cb.or(
+                            cb.and(
+                                    cb.isNotNull(root.get("dueAt")),
+                                    cb.lessThan(root.get("dueAt"), now)
+                            ),
+                            cb.and(
+                                    cb.isNotNull(root.get("firstResponseDueAt")),
+                                    cb.isNull(root.get("firstRespondedAt")),
+                                    cb.lessThan(root.get("firstResponseDueAt"), now)
+                            )
+                    ));
                 }
                 case ESCALATED -> {
                     predicates.add(cb.isNull(root.get("deletedAt")));
@@ -314,6 +340,11 @@ public class AdminTicketService {
         dto.setStatus(ticket.getStatus());
         dto.setChannel(ticket.getChannel());
         dto.setDueAt(ticket.getDueAt());
+        dto.setFirstResponseDueAt(ticket.getFirstResponseDueAt());
+        dto.setFirstRespondedAt(ticket.getFirstRespondedAt());
+        dto.setSlaPausedAt(ticket.getSlaPausedAt());
+        dto.setSlaPaused(ticket.getSlaPausedAt() != null);
+        dto.setSlaWarnedAt(ticket.getSlaWarnedAt());
         dto.setEscalatedAt(ticket.getEscalatedAt());
         dto.setEscalated(ticket.isEscalated());
         dto.setClosedAt(ticket.getClosedAt());
@@ -321,7 +352,10 @@ public class AdminTicketService {
         dto.setDeletedAt(ticket.getDeletedAt());
         dto.setArchived(ticket.isArchived());
         dto.setDeleted(ticket.isDeleted());
+        dto.setResolveOverdue(isResolveOverdue(ticket, now));
+        dto.setFirstResponseOverdue(isFirstResponseOverdue(ticket, now));
         dto.setOverdue(isOverdue(ticket, now));
+        dto.setApproachingSla(ticketSettingsService.isApproachingSla(ticket, now));
         if (ticket.getRequester() != null) {
             dto.setRequesterId(ticket.getRequester().getId());
             dto.setRequesterEmail(ticket.getRequester().getEmail());
@@ -343,7 +377,10 @@ public class AdminTicketService {
         return dto;
     }
 
-    static boolean isOverdue(Ticket ticket, Instant now) {
+    static boolean isResolveOverdue(Ticket ticket, Instant now) {
+        if (ticket.getSlaPausedAt() != null) {
+            return false;
+        }
         if (ticket.getDueAt() == null || now == null) {
             return false;
         }
@@ -353,17 +390,21 @@ public class AdminTicketService {
         return ticket.getDueAt().isBefore(now);
     }
 
-    static Instant computeDueAt(TicketPriority priority, Instant from) {
-        if (priority == null || from == null) {
-            return null;
+    static boolean isFirstResponseOverdue(Ticket ticket, Instant now) {
+        if (ticket.getSlaPausedAt() != null) {
+            return false;
         }
-        long hours = switch (priority) {
-            case URGENT -> 4;
-            case HIGH -> 24;
-            case MEDIUM -> 72;
-            case LOW -> 168;
-        };
-        return from.plusSeconds(hours * 3600);
+        if (ticket.getFirstResponseDueAt() == null || ticket.getFirstRespondedAt() != null || now == null) {
+            return false;
+        }
+        if (!ACTIVE_STATUSES.contains(ticket.getStatus())) {
+            return false;
+        }
+        return ticket.getFirstResponseDueAt().isBefore(now);
+    }
+
+    static boolean isOverdue(Ticket ticket, Instant now) {
+        return isResolveOverdue(ticket, now) || isFirstResponseOverdue(ticket, now);
     }
 
     private String displayName(User user) {

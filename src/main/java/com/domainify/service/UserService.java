@@ -289,6 +289,20 @@ public class UserService {
     }
 
     @Transactional
+    public UserDto setTicketDigestEmailEnabled(Long id, boolean enabled) {
+        User user = findUser(id);
+        user.setTicketDigestEmailEnabled(enabled);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserDto setTicketDigestEmailEnabled(User currentUser, boolean enabled) {
+        User user = findUser(currentUser.getId());
+        user.setTicketDigestEmailEnabled(enabled);
+        return UserDto.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
     public UserDto setPreferredLanguage(User currentUser, String language) {
         User user = findUser(currentUser.getId());
         user.setPreferredLanguage(com.domainify.util.UserPreferredLanguage.normalize(language));

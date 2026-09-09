@@ -8,6 +8,7 @@ import com.domainify.dto.BulkTicketActionResultDto;
 import com.domainify.dto.DomainDto;
 import com.domainify.dto.LinkTicketDomainsRequest;
 import com.domainify.dto.LinkTicketRequesterRequest;
+import com.domainify.dto.LinkTicketSmsRequest;
 import com.domainify.dto.LinkTicketsRequest;
 import com.domainify.dto.MergeTicketRequest;
 import com.domainify.dto.PagedResponse;
@@ -19,6 +20,7 @@ import com.domainify.dto.TicketCustomerContextDto;
 import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketReplyDraftDto;
 import com.domainify.dto.TicketDto;
+import com.domainify.dto.TicketSmsLinkableItemDto;
 import com.domainify.dto.TicketInboxSavedViewDto;
 import com.domainify.dto.TicketInboxSavedViewRequest;
 import com.domainify.dto.TicketInboxFilter;
@@ -33,6 +35,7 @@ import com.domainify.dto.UpdateTicketStatusRequest;
 import com.domainify.dto.UpdateTicketTagsRequest;
 import com.domainify.entity.TicketInboxView;
 import com.domainify.entity.TicketPriority;
+import com.domainify.entity.TicketSmsLinkType;
 import com.domainify.entity.TicketStatus;
 import com.domainify.entity.User;
 import com.domainify.service.AdminTicketService;
@@ -40,6 +43,7 @@ import com.domainify.service.BulkTicketService;
 import com.domainify.service.TicketCustomerContextService;
 import com.domainify.service.TicketInboxSavedViewService;
 import com.domainify.service.TicketService;
+import com.domainify.service.TicketSmsLinkService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Pageable;
@@ -75,18 +79,21 @@ public class AdminTicketController {
     private final BulkTicketService bulkTicketService;
     private final TicketCustomerContextService ticketCustomerContextService;
     private final TicketInboxSavedViewService ticketInboxSavedViewService;
+    private final TicketSmsLinkService ticketSmsLinkService;
 
     public AdminTicketController(
             AdminTicketService adminTicketService,
             TicketService ticketService,
             BulkTicketService bulkTicketService,
             TicketCustomerContextService ticketCustomerContextService,
-            TicketInboxSavedViewService ticketInboxSavedViewService) {
+            TicketInboxSavedViewService ticketInboxSavedViewService,
+            TicketSmsLinkService ticketSmsLinkService) {
         this.adminTicketService = adminTicketService;
         this.ticketService = ticketService;
         this.bulkTicketService = bulkTicketService;
         this.ticketCustomerContextService = ticketCustomerContextService;
         this.ticketInboxSavedViewService = ticketInboxSavedViewService;
+        this.ticketSmsLinkService = ticketSmsLinkService;
     }
 
     @GetMapping("/inbox")
@@ -108,6 +115,7 @@ public class AdminTicketController {
             @RequestParam(value = "customer", required = false) String customer,
             @PageableDefault(size = 10, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         ticketService.autoArchiveClosedTickets();
+        ticketService.autoWarnApproachingSla();
         ticketService.autoEscalateOverdueTickets();
         TicketInboxFilter filter = new TicketInboxFilter();
         filter.setStatus(status);
@@ -401,6 +409,32 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @PathVariable("domainId") Long domainId) {
         return ResponseEntity.ok(ticketService.unlinkDomainAsStaff(agent, id, domainId));
+    }
+
+    @GetMapping("/{id}/linkable-sms")
+    public ResponseEntity<PagedResponse<TicketSmsLinkableItemDto>> listLinkableSms(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestParam("type") TicketSmsLinkType type,
+            @RequestParam(value = "q", required = false) String q,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ticketSmsLinkService.listLinkable(agent, id, type, q, pageable));
+    }
+
+    @PostMapping("/{id}/sms-links")
+    public ResponseEntity<TicketDetailDto> linkSms(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody LinkTicketSmsRequest request) {
+        return ResponseEntity.ok(ticketSmsLinkService.link(agent, id, request));
+    }
+
+    @DeleteMapping("/{id}/sms-links/{linkId}")
+    public ResponseEntity<TicketDetailDto> unlinkSms(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @PathVariable("linkId") Long linkId) {
+        return ResponseEntity.ok(ticketSmsLinkService.unlink(agent, id, linkId));
     }
 
     @PostMapping("/{id}/watch")

@@ -3,6 +3,7 @@ package com.domainify.dto;
 import com.domainify.entity.TicketAutoAssignMode;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -58,6 +59,26 @@ public class TicketSettingsDto {
     private Integer slaLowHours;
 
     @NotNull
+    @Min(1)
+    @Max(8760)
+    private Integer firstResponseSlaUrgentHours;
+
+    @NotNull
+    @Min(1)
+    @Max(8760)
+    private Integer firstResponseSlaHighHours;
+
+    @NotNull
+    @Min(1)
+    @Max(8760)
+    private Integer firstResponseSlaMediumHours;
+
+    @NotNull
+    @Min(1)
+    @Max(8760)
+    private Integer firstResponseSlaLowHours;
+
+    @NotNull
     private TicketAutoAssignMode autoAssignMode = TicketAutoAssignMode.OFF;
 
     @NotNull
@@ -79,6 +100,47 @@ public class TicketSettingsDto {
     @Size(max = 4)
     private List<String> smsNotificationPriorities = new ArrayList<>();
 
+    @NotNull
+    private Boolean agentDigestEnabled = false;
+
+    @NotNull
+    @Min(0)
+    @Max(23)
+    private Integer agentDigestSendHour = 8;
+
+    @NotNull
+    @Min(0)
+    @Max(59)
+    private Integer agentDigestSendMinute = 0;
+
+    @NotNull
+    private Boolean slaUseBusinessHours = false;
+
+    @NotBlank
+    @Size(max = 64)
+    private String slaTimezone = "UTC";
+
+    private BusinessHoursWeekDto businessHours;
+
+    private List<BusinessHolidayDto> businessHolidays = new ArrayList<>();
+
+    @NotNull
+    private Boolean slaWarnEnabled = false;
+
+    @Min(1)
+    @Max(8760)
+    private Integer slaWarnHoursBefore = 2;
+
+    @NotNull
+    private Boolean slaBreachEscalationEnabled = true;
+
+    @NotNull
+    private Boolean slaBreachBumpPriority = true;
+
+    private Long slaBreachAssigneeId;
+
+    private Long slaBreachQueueId;
+
     public TicketSettingsDto() {
     }
 
@@ -92,12 +154,19 @@ public class TicketSettingsDto {
             Integer slaHighHours,
             Integer slaMediumHours,
             Integer slaLowHours,
+            Integer firstResponseSlaUrgentHours,
+            Integer firstResponseSlaHighHours,
+            Integer firstResponseSlaMediumHours,
+            Integer firstResponseSlaLowHours,
             TicketAutoAssignMode autoAssignMode,
             Boolean autoAssignFallbackRoundRobin,
             Boolean ticketEmailNotificationsEnabled,
             Boolean ticketSmsNotificationsEnabled,
             List<String> emailNotificationPriorities,
-            List<String> smsNotificationPriorities) {
+            List<String> smsNotificationPriorities,
+            Boolean agentDigestEnabled,
+            Integer agentDigestSendHour,
+            Integer agentDigestSendMinute) {
         this.reopenWindowDays = reopenWindowDays;
         this.maxAttachments = maxAttachments;
         this.maxAttachmentSizeMb = maxAttachmentSizeMb;
@@ -107,12 +176,19 @@ public class TicketSettingsDto {
         this.slaHighHours = slaHighHours;
         this.slaMediumHours = slaMediumHours;
         this.slaLowHours = slaLowHours;
+        this.firstResponseSlaUrgentHours = firstResponseSlaUrgentHours;
+        this.firstResponseSlaHighHours = firstResponseSlaHighHours;
+        this.firstResponseSlaMediumHours = firstResponseSlaMediumHours;
+        this.firstResponseSlaLowHours = firstResponseSlaLowHours;
         this.autoAssignMode = autoAssignMode != null ? autoAssignMode : TicketAutoAssignMode.OFF;
         this.autoAssignFallbackRoundRobin = autoAssignFallbackRoundRobin == null || autoAssignFallbackRoundRobin;
         this.ticketEmailNotificationsEnabled = ticketEmailNotificationsEnabled == null || ticketEmailNotificationsEnabled;
         this.ticketSmsNotificationsEnabled = ticketSmsNotificationsEnabled == null || ticketSmsNotificationsEnabled;
         this.emailNotificationPriorities = emailNotificationPriorities != null ? emailNotificationPriorities : new ArrayList<>();
         this.smsNotificationPriorities = smsNotificationPriorities != null ? smsNotificationPriorities : new ArrayList<>();
+        this.agentDigestEnabled = Boolean.TRUE.equals(agentDigestEnabled);
+        this.agentDigestSendHour = agentDigestSendHour != null ? agentDigestSendHour : 8;
+        this.agentDigestSendMinute = agentDigestSendMinute != null ? agentDigestSendMinute : 0;
     }
 
     public Integer getReopenWindowDays() {
@@ -187,6 +263,38 @@ public class TicketSettingsDto {
         this.slaLowHours = slaLowHours;
     }
 
+    public Integer getFirstResponseSlaUrgentHours() {
+        return firstResponseSlaUrgentHours;
+    }
+
+    public void setFirstResponseSlaUrgentHours(Integer firstResponseSlaUrgentHours) {
+        this.firstResponseSlaUrgentHours = firstResponseSlaUrgentHours;
+    }
+
+    public Integer getFirstResponseSlaHighHours() {
+        return firstResponseSlaHighHours;
+    }
+
+    public void setFirstResponseSlaHighHours(Integer firstResponseSlaHighHours) {
+        this.firstResponseSlaHighHours = firstResponseSlaHighHours;
+    }
+
+    public Integer getFirstResponseSlaMediumHours() {
+        return firstResponseSlaMediumHours;
+    }
+
+    public void setFirstResponseSlaMediumHours(Integer firstResponseSlaMediumHours) {
+        this.firstResponseSlaMediumHours = firstResponseSlaMediumHours;
+    }
+
+    public Integer getFirstResponseSlaLowHours() {
+        return firstResponseSlaLowHours;
+    }
+
+    public void setFirstResponseSlaLowHours(Integer firstResponseSlaLowHours) {
+        this.firstResponseSlaLowHours = firstResponseSlaLowHours;
+    }
+
     public TicketAutoAssignMode getAutoAssignMode() {
         return autoAssignMode;
     }
@@ -245,5 +353,109 @@ public class TicketSettingsDto {
         this.smsNotificationPriorities = smsNotificationPriorities != null
                 ? smsNotificationPriorities
                 : new ArrayList<>();
+    }
+
+    public Boolean getAgentDigestEnabled() {
+        return agentDigestEnabled;
+    }
+
+    public void setAgentDigestEnabled(Boolean agentDigestEnabled) {
+        this.agentDigestEnabled = agentDigestEnabled;
+    }
+
+    public Integer getAgentDigestSendHour() {
+        return agentDigestSendHour;
+    }
+
+    public void setAgentDigestSendHour(Integer agentDigestSendHour) {
+        this.agentDigestSendHour = agentDigestSendHour;
+    }
+
+    public Integer getAgentDigestSendMinute() {
+        return agentDigestSendMinute;
+    }
+
+    public void setAgentDigestSendMinute(Integer agentDigestSendMinute) {
+        this.agentDigestSendMinute = agentDigestSendMinute;
+    }
+
+    public Boolean getSlaUseBusinessHours() {
+        return slaUseBusinessHours;
+    }
+
+    public void setSlaUseBusinessHours(Boolean slaUseBusinessHours) {
+        this.slaUseBusinessHours = slaUseBusinessHours;
+    }
+
+    public String getSlaTimezone() {
+        return slaTimezone;
+    }
+
+    public void setSlaTimezone(String slaTimezone) {
+        this.slaTimezone = slaTimezone;
+    }
+
+    public BusinessHoursWeekDto getBusinessHours() {
+        return businessHours;
+    }
+
+    public void setBusinessHours(BusinessHoursWeekDto businessHours) {
+        this.businessHours = businessHours;
+    }
+
+    public List<BusinessHolidayDto> getBusinessHolidays() {
+        return businessHolidays;
+    }
+
+    public void setBusinessHolidays(List<BusinessHolidayDto> businessHolidays) {
+        this.businessHolidays = businessHolidays != null ? businessHolidays : new ArrayList<>();
+    }
+
+    public Boolean getSlaWarnEnabled() {
+        return slaWarnEnabled;
+    }
+
+    public void setSlaWarnEnabled(Boolean slaWarnEnabled) {
+        this.slaWarnEnabled = slaWarnEnabled;
+    }
+
+    public Integer getSlaWarnHoursBefore() {
+        return slaWarnHoursBefore;
+    }
+
+    public void setSlaWarnHoursBefore(Integer slaWarnHoursBefore) {
+        this.slaWarnHoursBefore = slaWarnHoursBefore;
+    }
+
+    public Boolean getSlaBreachEscalationEnabled() {
+        return slaBreachEscalationEnabled;
+    }
+
+    public void setSlaBreachEscalationEnabled(Boolean slaBreachEscalationEnabled) {
+        this.slaBreachEscalationEnabled = slaBreachEscalationEnabled;
+    }
+
+    public Boolean getSlaBreachBumpPriority() {
+        return slaBreachBumpPriority;
+    }
+
+    public void setSlaBreachBumpPriority(Boolean slaBreachBumpPriority) {
+        this.slaBreachBumpPriority = slaBreachBumpPriority;
+    }
+
+    public Long getSlaBreachAssigneeId() {
+        return slaBreachAssigneeId;
+    }
+
+    public void setSlaBreachAssigneeId(Long slaBreachAssigneeId) {
+        this.slaBreachAssigneeId = slaBreachAssigneeId;
+    }
+
+    public Long getSlaBreachQueueId() {
+        return slaBreachQueueId;
+    }
+
+    public void setSlaBreachQueueId(Long slaBreachQueueId) {
+        this.slaBreachQueueId = slaBreachQueueId;
     }
 }

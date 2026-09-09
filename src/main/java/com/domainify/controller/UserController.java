@@ -2,6 +2,7 @@ package com.domainify.controller;
 
 import com.domainify.dto.*;
 import com.domainify.entity.User;
+import com.domainify.service.ImpersonationService;
 import com.domainify.service.MessageService;
 import com.domainify.service.UserService;
 import jakarta.validation.Valid;
@@ -24,10 +25,13 @@ public class UserController {
 
     private final UserService userService;
     private final MessageService messageService;
+    private final ImpersonationService impersonationService;
 
-    public UserController(UserService userService, MessageService messageService) {
+    public UserController(UserService userService, MessageService messageService,
+                          ImpersonationService impersonationService) {
         this.userService = userService;
         this.messageService = messageService;
+        this.impersonationService = impersonationService;
     }
 
     @GetMapping("/me")
@@ -75,6 +79,12 @@ public class UserController {
     public ResponseEntity<UserDto> setTicketAvailability(@AuthenticationPrincipal User user,
                                                          @Valid @RequestBody UpdateEmailNotificationsRequest request) {
         return ResponseEntity.ok(userService.setTicketAvailable(user, Boolean.TRUE.equals(request.getEnabled())));
+    }
+
+    @PatchMapping("/me/ticket-digest-email")
+    public ResponseEntity<UserDto> setTicketDigestEmail(@AuthenticationPrincipal User user,
+                                                        @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setTicketDigestEmailEnabled(user, Boolean.TRUE.equals(request.getEnabled())));
     }
 
     @PatchMapping("/me/preferred-language")
@@ -180,6 +190,13 @@ public class UserController {
         return ResponseEntity.ok(userService.setTicketAvailable(id, Boolean.TRUE.equals(request.getEnabled())));
     }
 
+    @PatchMapping("/{id}/ticket-digest-email")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> setUserTicketDigestEmail(@PathVariable Long id,
+                                                            @Valid @RequestBody UpdateEmailNotificationsRequest request) {
+        return ResponseEntity.ok(userService.setTicketDigestEmailEnabled(id, Boolean.TRUE.equals(request.getEnabled())));
+    }
+
     @PatchMapping("/{id}/enabled")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> setEnabled(@PathVariable Long id,
@@ -193,6 +210,31 @@ public class UserController {
     public ResponseEntity<UserDto> setRole(@PathVariable Long id,
                                            @Valid @RequestBody UpdateRoleRequest request) {
         return ResponseEntity.ok(userService.setRole(id, request.getRole()));
+    }
+
+    @PostMapping("/{id}/impersonate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ImpersonationResponse> startImpersonation(
+            @PathVariable Long id,
+            @RequestBody(required = false) StartImpersonationRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(impersonationService.start(currentUser, id, request));
+    }
+
+    @PostMapping("/impersonation/{auditId}/end")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> endImpersonation(
+            @PathVariable Long auditId,
+            @AuthenticationPrincipal User currentUser) {
+        impersonationService.endByAdmin(currentUser, auditId);
+        return ResponseEntity.ok(ApiResponse.success(messageService.get("impersonation.ended"), null));
+    }
+
+    @PostMapping("/impersonation/end")
+    public ResponseEntity<ApiResponse<Void>> endImpersonationFromToken(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        impersonationService.endFromImpersonationToken(authorization);
+        return ResponseEntity.ok(ApiResponse.success(messageService.get("impersonation.ended"), null));
     }
 
     @DeleteMapping("/{id}")

@@ -46,7 +46,6 @@ done - Create ticket from portal
 done - Reply / add attachments
 done - Rate satisfaction after resolve (CSAT 1–5 + comment)
 done - Multi-language ticket UI (reuse your i18n: en/fa/ar/tr)
-
 Knowledge-base suggestions while creating (“Did you mean…?”)
 
 5. Agent / admin console
@@ -61,15 +60,15 @@ done - Saved views / custom filters
 6. Customer context (Domainify-specific — high value)
 done - Link ticket to user account
 done - Link to domain(s) owned by user
-Link to SMS pack / send / scheduled SMS (for SMS support cases)
-Show recent activity: last login, credit balance, last SMS send
-Impersonation / “view as customer” (admin-only, audited)
+done - Link to SMS pack / send / scheduled SMS (for SMS support cases)
+done - Show recent activity: last login, credit balance, last SMS send
+done - Impersonation / “view as customer” (admin-only, audited)
 
 7. SLA & automation
-SLA policies by priority/category (first response time, resolve time)
-Business hours calendar (timezone-aware)
-Pause SLA when status = Pending (waiting on customer)
-Breach warnings & escalation rules
+done - SLA policies by priority/category (first response time, resolve time)
+done - Business hours calendar (timezone-aware)
+done - Pause SLA when status = Pending (waiting on customer)
+done - Breach warnings & escalation rules
 Automations / triggers:
 On create → set priority, assign queue, send ack
 on no reply X hours → remind customer or escalate
@@ -82,8 +81,7 @@ done - In-app notifications (bell)
 done - Email notifications (new reply, assignment, status change)
 done - SMS notifications (urgent / opt-in)
 done - Per-user notification preferences (global / user / category email gates)
-
-Digest / daily summary for agents
+done - Digest / daily summary for agents
 
 
 9. Knowledge base & self-service

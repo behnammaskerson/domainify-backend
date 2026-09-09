@@ -491,6 +491,21 @@ public class NotificationService {
     }
 
     @Transactional
+    public void onSlaApproaching(Ticket ticket) {
+        if (ticket == null || ticket.getId() == null) {
+            return;
+        }
+        Set<Long> notified = new HashSet<>();
+        User assignee = ticket.getAssignee();
+        if (assignee != null && assignee.isEnabled() && notified.add(assignee.getId())) {
+            createNotification(assignee, null, NotificationType.TICKET_SLA_APPROACHING, ticket, null, null);
+        } else if (assignee == null) {
+            notifyAllAdminsExcept(null, null, NotificationType.TICKET_SLA_APPROACHING, ticket, null, null, notified);
+        }
+        notifyWatchers(ticket, null, NotificationType.TICKET_SLA_APPROACHING, null, null, notified);
+    }
+
+    @Transactional
     public void onEscalated(Ticket ticket, User actor) {
         if (ticket == null || ticket.getId() == null) {
             return;

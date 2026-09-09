@@ -18,6 +18,7 @@ public class TicketCustomerContextDto {
     private List<MarketplaceOrderDto> orders = new ArrayList<>();
     private long orderTotal;
     private List<SmsSnippet> recentSms = new ArrayList<>();
+    private SmsSendSnippet lastSmsSend;
     private String smsMobile;
     private boolean smsAvailable;
     private String smsUnavailableReason;
@@ -92,6 +93,14 @@ public class TicketCustomerContextDto {
 
     public void setRecentSms(List<SmsSnippet> recentSms) {
         this.recentSms = recentSms != null ? recentSms : new ArrayList<>();
+    }
+
+    public SmsSendSnippet getLastSmsSend() {
+        return lastSmsSend;
+    }
+
+    public void setLastSmsSend(SmsSendSnippet lastSmsSend) {
+        this.lastSmsSend = lastSmsSend;
     }
 
     public String getSmsMobile() {
@@ -202,6 +211,64 @@ public class TicketCustomerContextDto {
 
         public void setLineNumber(Long lineNumber) {
             this.lineNumber = lineNumber;
+        }
+    }
+
+    /** Latest outbound SMS matching the customer's phone. */
+    public static class SmsSendSnippet {
+        private Long messageId;
+        private String messageText;
+        private String mobile;
+        private Long sendDateTime;
+        private Long lineNumber;
+        private String statusLabel;
+
+        public Long getMessageId() {
+            return messageId;
+        }
+
+        public void setMessageId(Long messageId) {
+            this.messageId = messageId;
+        }
+
+        public String getMessageText() {
+            return messageText;
+        }
+
+        public void setMessageText(String messageText) {
+            this.messageText = messageText;
+        }
+
+        public String getMobile() {
+            return mobile;
+        }
+
+        public void setMobile(String mobile) {
+            this.mobile = mobile;
+        }
+
+        public Long getSendDateTime() {
+            return sendDateTime;
+        }
+
+        public void setSendDateTime(Long sendDateTime) {
+            this.sendDateTime = sendDateTime;
+        }
+
+        public Long getLineNumber() {
+            return lineNumber;
+        }
+
+        public void setLineNumber(Long lineNumber) {
+            this.lineNumber = lineNumber;
+        }
+
+        public String getStatusLabel() {
+            return statusLabel;
+        }
+
+        public void setStatusLabel(String statusLabel) {
+            this.statusLabel = statusLabel;
         }
     }
 }

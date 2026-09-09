@@ -59,14 +59,32 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
               and t.escalatedAt is null
               and t.dueAt is not null
               and t.dueAt < :now
+              and t.slaPausedAt is null
               and t.status in (
                 com.domainify.entity.TicketStatus.NEW,
                 com.domainify.entity.TicketStatus.OPEN,
-                com.domainify.entity.TicketStatus.PENDING,
                 com.domainify.entity.TicketStatus.ON_HOLD
               )
             """)
     List<Ticket> findEligibleForSlaEscalation(@Param("now") Instant now);
+
+    @Query("""
+            select t from Ticket t
+            where t.deletedAt is null
+              and t.archivedAt is null
+              and t.escalatedAt is null
+              and t.slaWarnedAt is null
+              and t.slaPausedAt is null
+              and t.dueAt is not null
+              and t.dueAt > :now
+              and t.dueAt <= :warnUntil
+              and t.status in (
+                com.domainify.entity.TicketStatus.NEW,
+                com.domainify.entity.TicketStatus.OPEN,
+                com.domainify.entity.TicketStatus.ON_HOLD
+              )
+            """)
+    List<Ticket> findEligibleForSlaWarning(@Param("now") Instant now, @Param("warnUntil") Instant warnUntil);
 
     @Query("""
             select t.assignee.id, count(t)

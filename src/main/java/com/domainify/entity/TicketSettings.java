@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -27,9 +28,21 @@ public class TicketSettings {
     public static final int DEFAULT_SLA_HIGH_HOURS = 24;
     public static final int DEFAULT_SLA_MEDIUM_HOURS = 72;
     public static final int DEFAULT_SLA_LOW_HOURS = 168;
+
+    public static final int DEFAULT_FIRST_RESPONSE_SLA_URGENT_HOURS = 1;
+    public static final int DEFAULT_FIRST_RESPONSE_SLA_HIGH_HOURS = 4;
+    public static final int DEFAULT_FIRST_RESPONSE_SLA_MEDIUM_HOURS = 8;
+    public static final int DEFAULT_FIRST_RESPONSE_SLA_LOW_HOURS = 24;
     public static final String DEFAULT_ALLOWED_ATTACHMENT_KINDS = "IMAGE,PDF,LOG,DOCUMENT";
     public static final String DEFAULT_EMAIL_NOTIFICATION_PRIORITIES = "LOW,MEDIUM,HIGH,URGENT";
     public static final String DEFAULT_SMS_NOTIFICATION_PRIORITIES = "URGENT";
+    public static final String DEFAULT_SLA_TIMEZONE = "UTC";
+    public static final String DEFAULT_BUSINESS_HOURS_JSON =
+            "{\"monday\":{\"start\":\"09:00\",\"end\":\"17:00\"},\"tuesday\":{\"start\":\"09:00\",\"end\":\"17:00\"},"
+                    + "\"wednesday\":{\"start\":\"09:00\",\"end\":\"17:00\"},\"thursday\":{\"start\":\"09:00\",\"end\":\"17:00\"},"
+                    + "\"friday\":{\"start\":\"09:00\",\"end\":\"17:00\"},\"saturday\":null,\"sunday\":null}";
+    public static final String DEFAULT_BUSINESS_HOLIDAYS_JSON = "[]";
+    public static final int DEFAULT_SLA_WARN_HOURS_BEFORE = 2;
 
     @Id
     private Long id = SINGLETON_ID;
@@ -77,6 +90,19 @@ public class TicketSettings {
     @Column(name = "sla_low_hours", nullable = false, columnDefinition = "integer not null default 168")
     private int slaLowHours = DEFAULT_SLA_LOW_HOURS;
 
+    /** Org default first-response SLA hours by priority. */
+    @Column(name = "first_response_sla_urgent_hours", nullable = true)
+    private Integer firstResponseSlaUrgentHours = DEFAULT_FIRST_RESPONSE_SLA_URGENT_HOURS;
+
+    @Column(name = "first_response_sla_high_hours", nullable = true)
+    private Integer firstResponseSlaHighHours = DEFAULT_FIRST_RESPONSE_SLA_HIGH_HOURS;
+
+    @Column(name = "first_response_sla_medium_hours", nullable = true)
+    private Integer firstResponseSlaMediumHours = DEFAULT_FIRST_RESPONSE_SLA_MEDIUM_HOURS;
+
+    @Column(name = "first_response_sla_low_hours", nullable = true)
+    private Integer firstResponseSlaLowHours = DEFAULT_FIRST_RESPONSE_SLA_LOW_HOURS;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "auto_assign_mode", nullable = false, length = 32)
     private TicketAutoAssignMode autoAssignMode = TicketAutoAssignMode.OFF;
@@ -113,6 +139,68 @@ public class TicketSettings {
     @Column(name = "sms_notification_priorities", length = 64)
     private String smsNotificationPriorities = DEFAULT_SMS_NOTIFICATION_PRIORITIES;
 
+    /** Master switch for daily agent digest emails. Default off. */
+    @ColumnDefault("false")
+    @Column(name = "agent_digest_enabled", nullable = true)
+    private Boolean agentDigestEnabled = false;
+
+    @ColumnDefault("8")
+    @Column(name = "agent_digest_send_hour", nullable = true)
+    private Integer agentDigestSendHour = 8;
+
+    @ColumnDefault("0")
+    @Column(name = "agent_digest_send_minute", nullable = true)
+    private Integer agentDigestSendMinute = 0;
+
+    /** Calendar date (server local) of last successful digest run. */
+    @Column(name = "agent_digest_last_run_date")
+    private LocalDate agentDigestLastRunDate;
+
+    /** When true, SLA due dates advance by business hours in {@link #slaTimezone}. */
+    @ColumnDefault("false")
+    @Column(name = "sla_use_business_hours", nullable = true)
+    private Boolean slaUseBusinessHours = false;
+
+    /** IANA timezone for business-hours SLA calculation. */
+    @Column(name = "sla_timezone", length = 64)
+    private String slaTimezone = DEFAULT_SLA_TIMEZONE;
+
+    /** Weekly business hours JSON ({@code BusinessHoursWeekDto}). */
+    @Column(name = "business_hours_json", columnDefinition = "text")
+    private String businessHoursJson = DEFAULT_BUSINESS_HOURS_JSON;
+
+    /** Holiday list JSON ({@code List<BusinessHolidayDto>}). */
+    @Column(name = "business_holidays_json", columnDefinition = "text")
+    private String businessHolidaysJson = DEFAULT_BUSINESS_HOLIDAYS_JSON;
+
+    /** When true, notify before resolve SLA due date within {@link #slaWarnHoursBefore}. */
+    @ColumnDefault("false")
+    @Column(name = "sla_warn_enabled", nullable = true)
+    private Boolean slaWarnEnabled = false;
+
+    /** Wall-clock hours before resolve due to send approaching-SLA warning. */
+    @ColumnDefault("2")
+    @Column(name = "sla_warn_hours_before", nullable = true)
+    private Integer slaWarnHoursBefore = DEFAULT_SLA_WARN_HOURS_BEFORE;
+
+    /** When false, overdue tickets are not auto-escalated (overdue UI still works). */
+    @ColumnDefault("true")
+    @Column(name = "sla_breach_escalation_enabled", nullable = true)
+    private Boolean slaBreachEscalationEnabled = true;
+
+    /** Bump priority on SLA breach auto-escalation. */
+    @ColumnDefault("true")
+    @Column(name = "sla_breach_bump_priority", nullable = true)
+    private Boolean slaBreachBumpPriority = true;
+
+    /** Optional assignee applied on SLA breach auto-escalation. */
+    @Column(name = "sla_breach_assignee_id")
+    private Long slaBreachAssigneeId;
+
+    /** Optional queue applied on SLA breach auto-escalation. */
+    @Column(name = "sla_breach_queue_id")
+    private Long slaBreachQueueId;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -148,6 +236,18 @@ public class TicketSettings {
         if (slaLowHours < 1) {
             slaLowHours = DEFAULT_SLA_LOW_HOURS;
         }
+        if (firstResponseSlaUrgentHours == null || firstResponseSlaUrgentHours < 1) {
+            firstResponseSlaUrgentHours = DEFAULT_FIRST_RESPONSE_SLA_URGENT_HOURS;
+        }
+        if (firstResponseSlaHighHours == null || firstResponseSlaHighHours < 1) {
+            firstResponseSlaHighHours = DEFAULT_FIRST_RESPONSE_SLA_HIGH_HOURS;
+        }
+        if (firstResponseSlaMediumHours == null || firstResponseSlaMediumHours < 1) {
+            firstResponseSlaMediumHours = DEFAULT_FIRST_RESPONSE_SLA_MEDIUM_HOURS;
+        }
+        if (firstResponseSlaLowHours == null || firstResponseSlaLowHours < 1) {
+            firstResponseSlaLowHours = DEFAULT_FIRST_RESPONSE_SLA_LOW_HOURS;
+        }
         if (autoAssignMode == null) {
             autoAssignMode = TicketAutoAssignMode.OFF;
         }
@@ -158,6 +258,39 @@ public class TicketSettings {
         allowedAttachmentKinds = TicketAttachmentKind.toCsv(kinds);
         emailNotificationPriorities = toPriorityCsv(resolvedEmailNotificationPriorities());
         smsNotificationPriorities = toPriorityCsv(resolvedSmsNotificationPriorities());
+        if (agentDigestEnabled == null) {
+            agentDigestEnabled = false;
+        }
+        if (agentDigestSendHour == null || agentDigestSendHour < 0 || agentDigestSendHour > 23) {
+            agentDigestSendHour = 8;
+        }
+        if (agentDigestSendMinute == null || agentDigestSendMinute < 0 || agentDigestSendMinute > 59) {
+            agentDigestSendMinute = 0;
+        }
+        if (slaUseBusinessHours == null) {
+            slaUseBusinessHours = false;
+        }
+        if (slaTimezone == null || slaTimezone.isBlank()) {
+            slaTimezone = DEFAULT_SLA_TIMEZONE;
+        }
+        if (businessHoursJson == null || businessHoursJson.isBlank()) {
+            businessHoursJson = DEFAULT_BUSINESS_HOURS_JSON;
+        }
+        if (businessHolidaysJson == null || businessHolidaysJson.isBlank()) {
+            businessHolidaysJson = DEFAULT_BUSINESS_HOLIDAYS_JSON;
+        }
+        if (slaWarnEnabled == null) {
+            slaWarnEnabled = false;
+        }
+        if (slaWarnHoursBefore == null || slaWarnHoursBefore < 1 || slaWarnHoursBefore > 8760) {
+            slaWarnHoursBefore = DEFAULT_SLA_WARN_HOURS_BEFORE;
+        }
+        if (slaBreachEscalationEnabled == null) {
+            slaBreachEscalationEnabled = true;
+        }
+        if (slaBreachBumpPriority == null) {
+            slaBreachBumpPriority = true;
+        }
     }
 
     public static TicketSettings defaults() {
@@ -171,13 +304,28 @@ public class TicketSettings {
         settings.setSlaHighHours(DEFAULT_SLA_HIGH_HOURS);
         settings.setSlaMediumHours(DEFAULT_SLA_MEDIUM_HOURS);
         settings.setSlaLowHours(DEFAULT_SLA_LOW_HOURS);
+        settings.setFirstResponseSlaUrgentHours(DEFAULT_FIRST_RESPONSE_SLA_URGENT_HOURS);
+        settings.setFirstResponseSlaHighHours(DEFAULT_FIRST_RESPONSE_SLA_HIGH_HOURS);
+        settings.setFirstResponseSlaMediumHours(DEFAULT_FIRST_RESPONSE_SLA_MEDIUM_HOURS);
+        settings.setFirstResponseSlaLowHours(DEFAULT_FIRST_RESPONSE_SLA_LOW_HOURS);
         settings.setAutoAssignMode(TicketAutoAssignMode.OFF);
         settings.setAutoAssignFallbackRoundRobin(true);
         settings.setTicketEmailNotificationsEnabled(true);
         settings.setTicketSmsNotificationsEnabled(true);
         settings.setEmailNotificationPriorities(DEFAULT_EMAIL_NOTIFICATION_PRIORITIES);
         settings.setSmsNotificationPriorities(DEFAULT_SMS_NOTIFICATION_PRIORITIES);
+        settings.setAgentDigestEnabled(false);
+        settings.setAgentDigestSendHour(8);
+        settings.setAgentDigestSendMinute(0);
         settings.setAllowedAttachmentKinds(DEFAULT_ALLOWED_ATTACHMENT_KINDS);
+        settings.setSlaUseBusinessHours(false);
+        settings.setSlaTimezone(DEFAULT_SLA_TIMEZONE);
+        settings.setBusinessHoursJson(DEFAULT_BUSINESS_HOURS_JSON);
+        settings.setBusinessHolidaysJson(DEFAULT_BUSINESS_HOLIDAYS_JSON);
+        settings.setSlaWarnEnabled(false);
+        settings.setSlaWarnHoursBefore(DEFAULT_SLA_WARN_HOURS_BEFORE);
+        settings.setSlaBreachEscalationEnabled(true);
+        settings.setSlaBreachBumpPriority(true);
         settings.normalize();
         return settings;
     }
@@ -339,6 +487,46 @@ public class TicketSettings {
         this.slaLowHours = slaLowHours;
     }
 
+    public int getFirstResponseSlaUrgentHours() {
+        return firstResponseSlaUrgentHours != null
+                ? firstResponseSlaUrgentHours
+                : DEFAULT_FIRST_RESPONSE_SLA_URGENT_HOURS;
+    }
+
+    public void setFirstResponseSlaUrgentHours(Integer firstResponseSlaUrgentHours) {
+        this.firstResponseSlaUrgentHours = firstResponseSlaUrgentHours;
+    }
+
+    public int getFirstResponseSlaHighHours() {
+        return firstResponseSlaHighHours != null
+                ? firstResponseSlaHighHours
+                : DEFAULT_FIRST_RESPONSE_SLA_HIGH_HOURS;
+    }
+
+    public void setFirstResponseSlaHighHours(Integer firstResponseSlaHighHours) {
+        this.firstResponseSlaHighHours = firstResponseSlaHighHours;
+    }
+
+    public int getFirstResponseSlaMediumHours() {
+        return firstResponseSlaMediumHours != null
+                ? firstResponseSlaMediumHours
+                : DEFAULT_FIRST_RESPONSE_SLA_MEDIUM_HOURS;
+    }
+
+    public void setFirstResponseSlaMediumHours(Integer firstResponseSlaMediumHours) {
+        this.firstResponseSlaMediumHours = firstResponseSlaMediumHours;
+    }
+
+    public int getFirstResponseSlaLowHours() {
+        return firstResponseSlaLowHours != null
+                ? firstResponseSlaLowHours
+                : DEFAULT_FIRST_RESPONSE_SLA_LOW_HOURS;
+    }
+
+    public void setFirstResponseSlaLowHours(Integer firstResponseSlaLowHours) {
+        this.firstResponseSlaLowHours = firstResponseSlaLowHours;
+    }
+
     public TicketAutoAssignMode getAutoAssignMode() {
         return autoAssignMode;
     }
@@ -401,6 +589,118 @@ public class TicketSettings {
 
     public void setSmsNotificationPriorities(String smsNotificationPriorities) {
         this.smsNotificationPriorities = smsNotificationPriorities;
+    }
+
+    public boolean isAgentDigestEnabled() {
+        return Boolean.TRUE.equals(agentDigestEnabled);
+    }
+
+    public void setAgentDigestEnabled(boolean agentDigestEnabled) {
+        this.agentDigestEnabled = agentDigestEnabled;
+    }
+
+    public int getAgentDigestSendHour() {
+        return agentDigestSendHour != null ? agentDigestSendHour : 8;
+    }
+
+    public void setAgentDigestSendHour(Integer agentDigestSendHour) {
+        this.agentDigestSendHour = agentDigestSendHour;
+    }
+
+    public int getAgentDigestSendMinute() {
+        return agentDigestSendMinute != null ? agentDigestSendMinute : 0;
+    }
+
+    public void setAgentDigestSendMinute(Integer agentDigestSendMinute) {
+        this.agentDigestSendMinute = agentDigestSendMinute;
+    }
+
+    public LocalDate getAgentDigestLastRunDate() {
+        return agentDigestLastRunDate;
+    }
+
+    public void setAgentDigestLastRunDate(LocalDate agentDigestLastRunDate) {
+        this.agentDigestLastRunDate = agentDigestLastRunDate;
+    }
+
+    public boolean isSlaUseBusinessHours() {
+        return Boolean.TRUE.equals(slaUseBusinessHours);
+    }
+
+    public void setSlaUseBusinessHours(Boolean slaUseBusinessHours) {
+        this.slaUseBusinessHours = slaUseBusinessHours;
+    }
+
+    public String getSlaTimezone() {
+        return slaTimezone;
+    }
+
+    public void setSlaTimezone(String slaTimezone) {
+        this.slaTimezone = slaTimezone;
+    }
+
+    public String getBusinessHoursJson() {
+        return businessHoursJson;
+    }
+
+    public void setBusinessHoursJson(String businessHoursJson) {
+        this.businessHoursJson = businessHoursJson;
+    }
+
+    public String getBusinessHolidaysJson() {
+        return businessHolidaysJson;
+    }
+
+    public void setBusinessHolidaysJson(String businessHolidaysJson) {
+        this.businessHolidaysJson = businessHolidaysJson;
+    }
+
+    public boolean isSlaWarnEnabled() {
+        return Boolean.TRUE.equals(slaWarnEnabled);
+    }
+
+    public void setSlaWarnEnabled(Boolean slaWarnEnabled) {
+        this.slaWarnEnabled = slaWarnEnabled;
+    }
+
+    public int getSlaWarnHoursBefore() {
+        return slaWarnHoursBefore != null ? slaWarnHoursBefore : DEFAULT_SLA_WARN_HOURS_BEFORE;
+    }
+
+    public void setSlaWarnHoursBefore(Integer slaWarnHoursBefore) {
+        this.slaWarnHoursBefore = slaWarnHoursBefore;
+    }
+
+    public boolean isSlaBreachEscalationEnabled() {
+        return slaBreachEscalationEnabled == null || Boolean.TRUE.equals(slaBreachEscalationEnabled);
+    }
+
+    public void setSlaBreachEscalationEnabled(Boolean slaBreachEscalationEnabled) {
+        this.slaBreachEscalationEnabled = slaBreachEscalationEnabled;
+    }
+
+    public boolean isSlaBreachBumpPriority() {
+        return slaBreachBumpPriority == null || Boolean.TRUE.equals(slaBreachBumpPriority);
+    }
+
+    public void setSlaBreachBumpPriority(Boolean slaBreachBumpPriority) {
+        this.slaBreachBumpPriority = slaBreachBumpPriority;
+    }
+
+    public Long getSlaBreachAssigneeId() {
+        return slaBreachAssigneeId;
+    }
+
+    public void setSlaBreachAssigneeId(Long slaBreachAssigneeId) {
+        this.slaBreachAssigneeId = slaBreachAssigneeId;
+    }
+
+    public Long getSlaBreachQueueId() {
+        return slaBreachQueueId;
+    }
+
+    public void setSlaBreachQueueId(Long slaBreachQueueId) {
+        this.slaBreachQueueId = slaBreachQueueId;
     }
 
     public Instant getUpdatedAt() {

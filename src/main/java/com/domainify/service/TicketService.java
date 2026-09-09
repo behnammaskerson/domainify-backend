@@ -72,6 +72,7 @@ import com.domainify.repository.TicketTransferRepository;
 import com.domainify.repository.TicketWatcherRepository;
 import com.domainify.repository.UserRepository;
 import jakarta.persistence.criteria.Predicate;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
@@ -135,6 +136,7 @@ public class TicketService {
     private final DomainRepository domainRepository;
     private final DomainService domainService;
     private final TicketAutoAssignService ticketAutoAssignService;
+    private final TicketSmsLinkService ticketSmsLinkService;
 
     public TicketService(
             TicketRepository ticketRepository,
@@ -161,7 +163,8 @@ public class TicketService {
             UserRepository userRepository,
             DomainRepository domainRepository,
             DomainService domainService,
-            TicketAutoAssignService ticketAutoAssignService) {
+            TicketAutoAssignService ticketAutoAssignService,
+            @Lazy TicketSmsLinkService ticketSmsLinkService) {
         this.ticketRepository = ticketRepository;
         this.ticketMessageRepository = ticketMessageRepository;
         this.ticketMessageRevisionRepository = ticketMessageRevisionRepository;
@@ -187,6 +190,7 @@ public class TicketService {
         this.domainRepository = domainRepository;
         this.domainService = domainService;
         this.ticketAutoAssignService = ticketAutoAssignService;
+        this.ticketSmsLinkService = ticketSmsLinkService;
     }
 
     @Transactional(readOnly = true)
@@ -283,6 +287,9 @@ public class TicketService {
 
         User previousAssignee = ticket.getAssignee();
         if (asStaff && !internalNote) {
+            if (ticket.getFirstRespondedAt() == null) {
+                ticket.setFirstRespondedAt(Instant.now());
+            }
             if (ticket.getStatus() == TicketStatus.NEW || ticket.getStatus() == TicketStatus.OPEN) {
                 maybeAutoTransition(ticket, TicketStatus.PENDING);
             }
@@ -693,7 +700,12 @@ public class TicketService {
             ticket.setPriority(toPriority);
             if (triggerType == TicketEscalationTrigger.MANUAL) {
                 Instant base = ticket.getCreatedAt() != null ? ticket.getCreatedAt() : Instant.now();
-                ticket.setDueAt(ticketSettingsService.computeDueAt(toPriority, base));
+                ticket.setDueAt(ticketSettingsService.computeResolveDueAt(
+                        toPriority, ticket.getCategory(), base));
+                if (ticket.getFirstRespondedAt() == null) {
+                    ticket.setFirstResponseDueAt(ticketSettingsService.computeFirstResponseDueAt(
+                            toPriority, ticket.getCategory(), base));
+                }
             }
         }
         if (assigneeChanged) {
@@ -750,6 +762,16 @@ public class TicketService {
             return false;
         }
         return a.getId().equals(b.getId());
+    }
+
+    private static boolean isSameInstant(Instant a, Instant b) {
+        if (a == null && b == null) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.equals(b);
     }
 
     @Transactional
@@ -1064,7 +1086,11 @@ public class TicketService {
         child.setAssignee(source.getAssignee());
         child.setSplitFrom(source);
         child.setPublicNumber("TMP-" + System.nanoTime());
-        child.setDueAt(ticketSettingsService.computeDueAt(source.getPriority(), Instant.now()));
+        Instant slaBase = Instant.now();
+        child.setDueAt(ticketSettingsService.computeResolveDueAt(
+                source.getPriority(), source.getCategory(), slaBase));
+        child.setFirstResponseDueAt(ticketSettingsService.computeFirstResponseDueAt(
+                source.getPriority(), source.getCategory(), slaBase));
 
         Ticket savedChild = ticketRepository.saveAndFlush(child);
         savedChild.setPublicNumber(buildPublicNumber(savedChild.getId()));
@@ -1341,14 +1367,23 @@ public class TicketService {
         Instant nextDueAt;
         if (request != null && Boolean.TRUE.equals(request.getRecalculateFromPriority())) {
             Instant base = ticket.getCreatedAt() != null ? ticket.getCreatedAt() : Instant.now();
-            nextDueAt = ticketSettingsService.computeDueAt(ticket.getPriority(), base);
+            nextDueAt = ticketSettingsService.computeResolveDueAt(
+                    ticket.getPriority(), ticket.getCategory(), base);
+            if (ticket.getFirstRespondedAt() == null) {
+                ticket.setFirstResponseDueAt(ticketSettingsService.computeFirstResponseDueAt(
+                        ticket.getPriority(), ticket.getCategory(), base));
+            }
         } else if (request != null) {
             nextDueAt = request.getDueAt();
         } else {
             throw new ApiException(ErrorCode.TICKET_DUE_DATE_INVALID);
         }
 
+        Instant previousDueAt = ticket.getDueAt();
         ticket.setDueAt(nextDueAt);
+        if (!isSameInstant(previousDueAt, nextDueAt)) {
+            ticket.setSlaWarnedAt(null);
+        }
         if (nextDueAt == null || nextDueAt.isAfter(Instant.now())) {
             ticket.setEscalatedAt(null);
         }
@@ -1391,12 +1426,60 @@ public class TicketService {
     }
 
     @Transactional
+    public int autoWarnApproachingSla() {
+        if (!ticketSettingsService.getOrCreate().isSlaWarnEnabled()) {
+            return 0;
+        }
+        int warnHours = ticketSettingsService.getOrCreate().getSlaWarnHoursBefore();
+        Instant now = Instant.now();
+        Instant warnUntil = now.plus(Duration.ofHours(warnHours));
+        List<Ticket> eligible = ticketRepository.findEligibleForSlaWarning(now, warnUntil);
+        if (eligible.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        for (Ticket candidate : eligible) {
+            if (candidate.getId() == null) {
+                continue;
+            }
+            Ticket ticket = ticketRepository.findByIdForUpdate(candidate.getId()).orElse(null);
+            if (ticket == null || ticket.getSlaWarnedAt() != null || ticket.isEscalated()) {
+                continue;
+            }
+            if (ticket.getDeletedAt() != null || ticket.getArchivedAt() != null) {
+                continue;
+            }
+            if (ticket.getSlaPausedAt() != null) {
+                continue;
+            }
+            Instant dueAt = ticket.getDueAt();
+            if (dueAt == null || !dueAt.isAfter(now) || dueAt.isAfter(warnUntil)) {
+                continue;
+            }
+            TicketStatus status = ticket.getStatus();
+            if (status != TicketStatus.NEW && status != TicketStatus.OPEN
+                    && status != TicketStatus.ON_HOLD) {
+                continue;
+            }
+            notificationService.onSlaApproaching(ticket);
+            ticket.setSlaWarnedAt(now);
+            ticketRepository.save(ticket);
+            count++;
+        }
+        return count;
+    }
+
+    @Transactional
     public int autoEscalateOverdueTickets() {
+        if (!ticketSettingsService.getOrCreate().isSlaBreachEscalationEnabled()) {
+            return 0;
+        }
         Instant now = Instant.now();
         List<Ticket> eligible = ticketRepository.findEligibleForSlaEscalation(now);
         if (eligible.isEmpty()) {
             return 0;
         }
+        var settings = ticketSettingsService.getOrCreate();
         int count = 0;
         for (Ticket candidate : eligible) {
             if (candidate.getId() == null) {
@@ -1415,11 +1498,19 @@ public class TicketService {
             }
             TicketStatus status = ticket.getStatus();
             if (status != TicketStatus.NEW && status != TicketStatus.OPEN
-                    && status != TicketStatus.PENDING && status != TicketStatus.ON_HOLD) {
+                    && status != TicketStatus.ON_HOLD) {
                 continue;
             }
             EscalateTicketRequest request = new EscalateTicketRequest();
-            request.setBumpPriority(true);
+            request.setBumpPriority(settings.isSlaBreachBumpPriority());
+            if (settings.getSlaBreachAssigneeId() != null) {
+                request.setAssigneeChanged(true);
+                request.setAssigneeId(settings.getSlaBreachAssigneeId());
+            }
+            if (settings.getSlaBreachQueueId() != null) {
+                request.setQueueChanged(true);
+                request.setQueueId(settings.getSlaBreachQueueId());
+            }
             request.setNote(null);
             applyEscalation(ticket, null, request, TicketEscalationTrigger.SLA_BREACH);
             count++;
@@ -1465,6 +1556,29 @@ public class TicketService {
             return;
         }
         ticket.setStatus(nextStatus);
+        boolean wasPending = previous == TicketStatus.PENDING;
+        boolean nowPending = nextStatus == TicketStatus.PENDING;
+        if (nowPending && !wasPending && ticket.getSlaPausedAt() == null) {
+            ticket.setSlaPausedAt(Instant.now());
+        } else if (wasPending && !nowPending) {
+            Instant pausedAt = ticket.getSlaPausedAt();
+            Instant now = Instant.now();
+            if (pausedAt != null) {
+                if (ticket.getDueAt() != null) {
+                    Instant shiftedDue = ticketSettingsService.shiftDueAfterPause(
+                            ticket.getDueAt(), pausedAt, now);
+                    if (!isSameInstant(ticket.getDueAt(), shiftedDue)) {
+                        ticket.setSlaWarnedAt(null);
+                    }
+                    ticket.setDueAt(shiftedDue);
+                }
+                if (ticket.getFirstResponseDueAt() != null && ticket.getFirstRespondedAt() == null) {
+                    ticket.setFirstResponseDueAt(ticketSettingsService.shiftDueAfterPause(
+                            ticket.getFirstResponseDueAt(), pausedAt, now));
+                }
+                ticket.setSlaPausedAt(null);
+            }
+        }
         if (nextStatus == TicketStatus.CLOSED) {
             if (ticket.getClosedAt() == null) {
                 ticket.setClosedAt(Instant.now());
@@ -1712,7 +1826,9 @@ public class TicketService {
         ticket.setChannel(TicketChannel.PORTAL);
         ticket.setRequester(requester);
         ticket.setPublicNumber("TMP-" + System.nanoTime());
-        ticket.setDueAt(ticketSettingsService.computeDueAt(priority, Instant.now()));
+        Instant slaBase = Instant.now();
+        ticket.setDueAt(ticketSettingsService.computeResolveDueAt(priority, category, slaBase));
+        ticket.setFirstResponseDueAt(ticketSettingsService.computeFirstResponseDueAt(priority, category, slaBase));
 
         for (MultipartFile file : files) {
             ticket.addAttachment(toTicketAttachment(file));
@@ -1828,6 +1944,8 @@ public class TicketService {
         detail.setCanSplit(includeWorkflow && !deleted && !archived && !ticket.isMerged() && replyCount > 0);
         detail.setCanLinkRelated(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setCanLinkDomains(includeWorkflow && !deleted && !ticket.isMerged()
+                && ticket.getRequester() != null && ticket.getRequester().getId() != null);
+        detail.setCanLinkSms(includeWorkflow && !deleted && !ticket.isMerged()
                 && ticket.getRequester() != null && ticket.getRequester().getId() != null);
         detail.setCanEditDueDate(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setCanWatch(includeWorkflow && !deleted);
@@ -2355,6 +2473,7 @@ public class TicketService {
                     .map(link -> toRelatedDomainDto(link.getDomain()))
                     .toList();
             dto.setRelatedDomains(relatedDomains);
+            dto.setRelatedSms(ticketSmsLinkService.listRelated(ticket.getId()));
         }
         return dto;
     }
@@ -2401,6 +2520,11 @@ public class TicketService {
         dto.setStatus(ticket.getStatus());
         dto.setChannel(ticket.getChannel());
         dto.setDueAt(ticket.getDueAt());
+        dto.setFirstResponseDueAt(ticket.getFirstResponseDueAt());
+        dto.setFirstRespondedAt(ticket.getFirstRespondedAt());
+        dto.setSlaPausedAt(ticket.getSlaPausedAt());
+        dto.setSlaPaused(ticket.getSlaPausedAt() != null);
+        dto.setSlaWarnedAt(ticket.getSlaWarnedAt());
         dto.setEscalatedAt(ticket.getEscalatedAt());
         dto.setEscalated(ticket.isEscalated());
         dto.setClosedAt(ticket.getClosedAt());
@@ -2408,6 +2532,11 @@ public class TicketService {
         dto.setDeletedAt(ticket.getDeletedAt());
         dto.setArchived(ticket.isArchived());
         dto.setDeleted(ticket.isDeleted());
+        Instant now = Instant.now();
+        dto.setResolveOverdue(AdminTicketService.isResolveOverdue(ticket, now));
+        dto.setFirstResponseOverdue(AdminTicketService.isFirstResponseOverdue(ticket, now));
+        dto.setOverdue(AdminTicketService.isOverdue(ticket, now));
+        dto.setApproachingSla(ticketSettingsService.isApproachingSla(ticket, now));
         if (ticket.getMergedInto() != null) {
             dto.setMergedIntoId(ticket.getMergedInto().getId());
             dto.setMergedIntoPublicNumber(ticket.getMergedInto().getPublicNumber());
@@ -2416,7 +2545,6 @@ public class TicketService {
             dto.setSplitFromId(ticket.getSplitFrom().getId());
             dto.setSplitFromPublicNumber(ticket.getSplitFrom().getPublicNumber());
         }
-        dto.setOverdue(AdminTicketService.isOverdue(ticket, Instant.now()));
         if (ticket.getRequester() != null) {
             dto.setRequesterId(ticket.getRequester().getId());
             dto.setRequesterEmail(ticket.getRequester().getEmail());

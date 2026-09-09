@@ -111,6 +111,7 @@ public class TicketCategoryService {
         category.setSortOrder(request.getSortOrder() == null
                 ? nextSortOrder()
                 : request.getSortOrder());
+        applySlaOverrides(category, request);
         return toDto(ticketCategoryRepository.save(category));
     }
 
@@ -144,6 +145,7 @@ public class TicketCategoryService {
         if (request.getSortOrder() != null) {
             category.setSortOrder(request.getSortOrder());
         }
+        applySlaOverrides(category, request);
         return toDto(ticketCategoryRepository.save(category));
     }
 
@@ -228,6 +230,32 @@ public class TicketCategoryService {
         return normalized;
     }
 
+    private void applySlaOverrides(TicketCategory category, TicketCategoryRequest request) {
+        validateOptionalSlaHours(request.getFirstResponseSlaUrgentHours());
+        validateOptionalSlaHours(request.getFirstResponseSlaHighHours());
+        validateOptionalSlaHours(request.getFirstResponseSlaMediumHours());
+        validateOptionalSlaHours(request.getFirstResponseSlaLowHours());
+        validateOptionalSlaHours(request.getResolveSlaUrgentHours());
+        validateOptionalSlaHours(request.getResolveSlaHighHours());
+        validateOptionalSlaHours(request.getResolveSlaMediumHours());
+        validateOptionalSlaHours(request.getResolveSlaLowHours());
+
+        category.setFirstResponseSlaUrgentHours(request.getFirstResponseSlaUrgentHours());
+        category.setFirstResponseSlaHighHours(request.getFirstResponseSlaHighHours());
+        category.setFirstResponseSlaMediumHours(request.getFirstResponseSlaMediumHours());
+        category.setFirstResponseSlaLowHours(request.getFirstResponseSlaLowHours());
+        category.setResolveSlaUrgentHours(request.getResolveSlaUrgentHours());
+        category.setResolveSlaHighHours(request.getResolveSlaHighHours());
+        category.setResolveSlaMediumHours(request.getResolveSlaMediumHours());
+        category.setResolveSlaLowHours(request.getResolveSlaLowHours());
+    }
+
+    private void validateOptionalSlaHours(Integer hours) {
+        if (hours != null && (hours < 1 || hours > 8760)) {
+            throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+        }
+    }
+
     public TicketCategoryDto toDto(TicketCategory category) {
         TicketCategoryDto dto = new TicketCategoryDto(
                 category.getId(),
@@ -241,6 +269,14 @@ public class TicketCategoryService {
         if (category.getId() != null) {
             dto.setAgentIds(new ArrayList<>(skillRepository.findUserIdsByCategoryId(category.getId())));
         }
+        dto.setFirstResponseSlaUrgentHours(category.getFirstResponseSlaUrgentHours());
+        dto.setFirstResponseSlaHighHours(category.getFirstResponseSlaHighHours());
+        dto.setFirstResponseSlaMediumHours(category.getFirstResponseSlaMediumHours());
+        dto.setFirstResponseSlaLowHours(category.getFirstResponseSlaLowHours());
+        dto.setResolveSlaUrgentHours(category.getResolveSlaUrgentHours());
+        dto.setResolveSlaHighHours(category.getResolveSlaHighHours());
+        dto.setResolveSlaMediumHours(category.getResolveSlaMediumHours());
+        dto.setResolveSlaLowHours(category.getResolveSlaLowHours());
         return dto;
     }
 }

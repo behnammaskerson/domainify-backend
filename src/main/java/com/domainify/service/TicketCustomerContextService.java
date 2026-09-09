@@ -3,10 +3,11 @@ package com.domainify.service;
 import com.domainify.dto.DomainDto;
 import com.domainify.dto.MarketplaceOrderDto;
 import com.domainify.dto.PagedResponse;
+import com.domainify.dto.SmsDeliveryStatusDataDto;
+import com.domainify.dto.SmsLiveSendResultDto;
 import com.domainify.dto.SmsReceivePagedResultDto;
 import com.domainify.dto.SmsReceivedMessageDto;
 import com.domainify.dto.TicketCustomerContextDto;
-import com.domainify.dto.UserDto;
 import com.domainify.dto.WalletDto;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.User;
@@ -27,6 +28,8 @@ import java.util.List;
 public class TicketCustomerContextService {
 
     private static final int DEFAULT_LIMIT = 8;
+    private static final int LAST_SEND_PAGE_SIZE = 50;
+    private static final int LAST_SEND_MAX_PAGES = 3;
 
     private final TicketRepository ticketRepository;
     private final UserService userService;
@@ -65,7 +68,7 @@ public class TicketCustomerContextService {
             throw new ApiException(ErrorCode.USER_NOT_FOUND);
         }
 
-        int size = Math.min(Math.max(limit, 1), 25);
+        int size = Math.min(Math.max(limit <= 0 ? DEFAULT_LIMIT : limit, 1), 25);
         Long userId = requester.getId();
 
         TicketCustomerContextDto dto = new TicketCustomerContextDto();
@@ -95,14 +98,19 @@ public class TicketCustomerContextService {
             dto.setSmsAvailable(false);
             dto.setSmsUnavailableReason("NO_PHONE");
             dto.setRecentSms(List.of());
+            dto.setLastSmsSend(null);
             return;
         }
         if (!StringUtils.hasText(smsConfigService.getApiKey())) {
             dto.setSmsAvailable(false);
             dto.setSmsUnavailableReason("SMS_DISABLED");
             dto.setRecentSms(List.of());
+            dto.setLastSmsSend(null);
             return;
         }
+
+        dto.setLastSmsSend(findLastOutboundSend(mobile));
+
         try {
             SmsReceivePagedResultDto result = smsService.fetchLiveReceived(size, 1, true, mobile);
             if (result == null || !result.isSuccess()) {
@@ -131,6 +139,58 @@ public class TicketCustomerContextService {
             dto.setSmsUnavailableReason("PROVIDER_ERROR");
             dto.setRecentSms(List.of());
         }
+    }
+
+    private TicketCustomerContextDto.SmsSendSnippet findLastOutboundSend(String mobile) {
+        try {
+            for (int page = 1; page <= LAST_SEND_MAX_PAGES; page++) {
+                SmsLiveSendResultDto result = smsService.fetchLiveSends(LAST_SEND_PAGE_SIZE, page);
+                if (result == null || !result.isSuccess() || result.getData() == null) {
+                    return null;
+                }
+                for (SmsDeliveryStatusDataDto row : result.getData()) {
+                    if (row == null || !mobileMatches(mobile, row.getMobile())) {
+                        continue;
+                    }
+                    TicketCustomerContextDto.SmsSendSnippet snip = new TicketCustomerContextDto.SmsSendSnippet();
+                    snip.setMessageId(row.getMessageId());
+                    snip.setMessageText(trimPreview(row.getMessageText()));
+                    snip.setMobile(String.valueOf(row.getMobile()));
+                    snip.setSendDateTime(row.getSendDateTime());
+                    snip.setLineNumber(row.getLineNumber());
+                    snip.setStatusLabel(row.getDeliveryState() != null
+                            ? String.valueOf(row.getDeliveryState())
+                            : null);
+                    return snip;
+                }
+                if (!result.isHasMore()) {
+                    break;
+                }
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
+    }
+
+    private static String trimPreview(String text) {
+        if (!StringUtils.hasText(text)) {
+            return null;
+        }
+        String trimmed = text.trim().replaceAll("\\s+", " ");
+        return trimmed.length() > 240 ? trimmed.substring(0, 240) : trimmed;
+    }
+
+    private static boolean mobileMatches(String expected, Long actual) {
+        if (!StringUtils.hasText(expected) || actual == null) {
+            return false;
+        }
+        String a = expected.replaceAll("\\D", "");
+        String b = String.valueOf(actual).replaceAll("\\D", "");
+        if (!StringUtils.hasText(a) || !StringUtils.hasText(b)) {
+            return false;
+        }
+        return a.equals(b) || a.endsWith(b) || b.endsWith(a);
     }
 
     private TicketCustomerContextDto.WalletSummary toWalletSummary(WalletDto wallet) {

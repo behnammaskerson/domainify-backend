@@ -20,7 +20,10 @@ public class JwtUtil {
     public static final String TOKEN_TYPE_ACCESS = "access";
     public static final String TOKEN_TYPE_PRE_AUTH = "pre_auth";
     public static final String TOKEN_TYPE_EMAIL_VERIFY = "email_verify";
+    public static final String TOKEN_TYPE_IMPERSONATION = "impersonation";
     public static final String CLAIM_VERIFY_EMAIL = "email";
+    public static final String CLAIM_IMPERSONATOR_ID = "impersonator_id";
+    public static final String CLAIM_IMPERSONATION_AUDIT_ID = "impersonation_audit_id";
 
     @Value("${jwt.secret}")
     private String secret;
@@ -36,6 +39,9 @@ public class JwtUtil {
 
     @Value("${jwt.email-verify-expiration:86400000}")
     private Long emailVerifyExpiration;
+
+    @Value("${jwt.impersonation-expiration:3600000}")
+    private Long impersonationExpiration;
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
@@ -55,6 +61,18 @@ public class JwtUtil {
         Map<String, Object> claims = new HashMap<>();
         claims.put(CLAIM_TOKEN_TYPE, TOKEN_TYPE_PRE_AUTH);
         return buildToken(userDetails, claims, preAuthExpiration);
+    }
+
+    public String generateImpersonationToken(UserDetails target, Long impersonatorId, Long auditId) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(CLAIM_TOKEN_TYPE, TOKEN_TYPE_IMPERSONATION);
+        claims.put(CLAIM_IMPERSONATOR_ID, impersonatorId);
+        claims.put(CLAIM_IMPERSONATION_AUDIT_ID, auditId);
+        return buildToken(target, claims, impersonationExpiration);
+    }
+
+    public long getImpersonationExpirationMs() {
+        return impersonationExpiration != null ? impersonationExpiration : 3_600_000L;
     }
 
     public String generateEmailVerificationToken(Long userId, String email) {
@@ -114,6 +132,44 @@ public class JwtUtil {
 
     public boolean isPreAuthToken(String token) {
         return TOKEN_TYPE_PRE_AUTH.equals(extractTokenType(token));
+    }
+
+    public boolean isImpersonationToken(String token) {
+        return TOKEN_TYPE_IMPERSONATION.equals(extractTokenType(token));
+    }
+
+    public Long extractImpersonatorId(String token) {
+        return extractClaim(token, claims -> {
+            Object value = claims.get(CLAIM_IMPERSONATOR_ID);
+            if (value instanceof Number number) {
+                return number.longValue();
+            }
+            if (value instanceof String text && !text.isBlank()) {
+                try {
+                    return Long.parseLong(text.trim());
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+            return null;
+        });
+    }
+
+    public Long extractImpersonationAuditId(String token) {
+        return extractClaim(token, claims -> {
+            Object value = claims.get(CLAIM_IMPERSONATION_AUDIT_ID);
+            if (value instanceof Number number) {
+                return number.longValue();
+            }
+            if (value instanceof String text && !text.isBlank()) {
+                try {
+                    return Long.parseLong(text.trim());
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+            return null;
+        });
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {

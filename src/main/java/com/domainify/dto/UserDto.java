@@ -22,10 +22,12 @@ public class UserDto {
     private boolean emailNotificationsEnabled;
     private boolean smsNotificationsEnabled;
     private boolean paymentNotificationsEnabled;
+    private boolean ticketDigestEmailEnabled;
     private boolean ticketAvailable;
     private String preferredLanguage;
     private Instant createdAt;
     private Instant updatedAt;
+    private Instant lastLoginAt;
     private String creatorUsername;
     private User.CreateMethod createMethod;
 
@@ -91,6 +93,8 @@ public class UserDto {
             user.getCreateMethod()
         );
         dto.setPaymentNotificationsEnabled(user.isPaymentNotificationsEnabled());
+        dto.setTicketDigestEmailEnabled(user.isTicketDigestEmailEnabled());
+        dto.setLastLoginAt(user.getLastLoginAt());
         return dto;
     }
 
@@ -230,6 +234,14 @@ public class UserDto {
         this.paymentNotificationsEnabled = paymentNotificationsEnabled;
     }
 
+    public boolean isTicketDigestEmailEnabled() {
+        return ticketDigestEmailEnabled;
+    }
+
+    public void setTicketDigestEmailEnabled(boolean ticketDigestEmailEnabled) {
+        this.ticketDigestEmailEnabled = ticketDigestEmailEnabled;
+    }
+
     public boolean isTicketAvailable() {
         return ticketAvailable;
     }
@@ -260,6 +272,14 @@ public class UserDto {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Instant getLastLoginAt() {
+        return lastLoginAt;
+    }
+
+    public void setLastLoginAt(Instant lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
     }
 
     public String getCreatorUsername() {

@@ -89,6 +89,9 @@ public class User implements UserDetails {
     /** When the password was last set or changed; used for expiry policy. */
     private Instant passwordChangedAt;
 
+    /** Last successful portal login (password or TOTP completion). */
+    private Instant lastLoginAt;
+
     @ColumnDefault("true")
     @Column(nullable = true)
     private Boolean emailVerified = true;
@@ -115,6 +118,11 @@ public class User implements UserDetails {
     @ColumnDefault("false")
     @Column(nullable = true)
     private Boolean smsNotificationsEnabled = false;
+
+    /** Opt-in for daily agent ticket digest email. Default off. */
+    @ColumnDefault("false")
+    @Column(nullable = true)
+    private Boolean ticketDigestEmailEnabled = false;
 
     /**
      * Agent presence for ticket auto-assign. Default available.
@@ -354,6 +362,14 @@ public class User implements UserDetails {
         this.passwordChangedAt = passwordChangedAt;
     }
 
+    public Instant getLastLoginAt() {
+        return lastLoginAt;
+    }
+
+    public void setLastLoginAt(Instant lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
+    }
+
     public boolean isEmailVerified() {
         return Boolean.TRUE.equals(emailVerified);
     }
@@ -412,6 +428,14 @@ public class User implements UserDetails {
 
     public void setSmsNotificationsEnabled(boolean smsNotificationsEnabled) {
         this.smsNotificationsEnabled = smsNotificationsEnabled;
+    }
+
+    public boolean isTicketDigestEmailEnabled() {
+        return Boolean.TRUE.equals(ticketDigestEmailEnabled);
+    }
+
+    public void setTicketDigestEmailEnabled(boolean ticketDigestEmailEnabled) {
+        this.ticketDigestEmailEnabled = ticketDigestEmailEnabled;
     }
 
     public boolean isTicketAvailable() {

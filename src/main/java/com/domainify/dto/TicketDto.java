@@ -26,7 +26,15 @@ public class TicketDto {
     private String assigneeEmail;
     private String assigneeName;
     private Instant dueAt;
+    private Instant firstResponseDueAt;
+    private Instant firstRespondedAt;
+    private Instant slaPausedAt;
+    private Boolean slaPaused;
     private Boolean overdue;
+    private Boolean firstResponseOverdue;
+    private Boolean resolveOverdue;
+    private Instant slaWarnedAt;
+    private Boolean approachingSla;
     private Instant escalatedAt;
     private Boolean escalated;
     private Instant closedAt;
@@ -42,6 +50,7 @@ public class TicketDto {
     private List<String> splitChildPublicNumbers = new ArrayList<>();
     private List<RelatedTicketDto> relatedTickets = new ArrayList<>();
     private List<RelatedDomainDto> relatedDomains = new ArrayList<>();
+    private List<RelatedSmsDto> relatedSms = new ArrayList<>();
     private List<TicketTagDto> tags = new ArrayList<>();
     private Instant createdAt;
     private Instant updatedAt;
@@ -175,12 +184,76 @@ public class TicketDto {
         this.dueAt = dueAt;
     }
 
+    public Instant getFirstResponseDueAt() {
+        return firstResponseDueAt;
+    }
+
+    public void setFirstResponseDueAt(Instant firstResponseDueAt) {
+        this.firstResponseDueAt = firstResponseDueAt;
+    }
+
+    public Instant getFirstRespondedAt() {
+        return firstRespondedAt;
+    }
+
+    public void setFirstRespondedAt(Instant firstRespondedAt) {
+        this.firstRespondedAt = firstRespondedAt;
+    }
+
+    public Instant getSlaPausedAt() {
+        return slaPausedAt;
+    }
+
+    public void setSlaPausedAt(Instant slaPausedAt) {
+        this.slaPausedAt = slaPausedAt;
+    }
+
+    public Boolean getSlaPaused() {
+        return slaPaused;
+    }
+
+    public void setSlaPaused(Boolean slaPaused) {
+        this.slaPaused = slaPaused;
+    }
+
     public Boolean getOverdue() {
         return overdue;
     }
 
     public void setOverdue(Boolean overdue) {
         this.overdue = overdue;
+    }
+
+    public Boolean getFirstResponseOverdue() {
+        return firstResponseOverdue;
+    }
+
+    public void setFirstResponseOverdue(Boolean firstResponseOverdue) {
+        this.firstResponseOverdue = firstResponseOverdue;
+    }
+
+    public Boolean getResolveOverdue() {
+        return resolveOverdue;
+    }
+
+    public void setResolveOverdue(Boolean resolveOverdue) {
+        this.resolveOverdue = resolveOverdue;
+    }
+
+    public Instant getSlaWarnedAt() {
+        return slaWarnedAt;
+    }
+
+    public void setSlaWarnedAt(Instant slaWarnedAt) {
+        this.slaWarnedAt = slaWarnedAt;
+    }
+
+    public Boolean getApproachingSla() {
+        return approachingSla;
+    }
+
+    public void setApproachingSla(Boolean approachingSla) {
+        this.approachingSla = approachingSla;
     }
 
     public Instant getEscalatedAt() {
@@ -305,6 +378,14 @@ public class TicketDto {
 
     public void setRelatedDomains(List<RelatedDomainDto> relatedDomains) {
         this.relatedDomains = relatedDomains != null ? relatedDomains : new ArrayList<>();
+    }
+
+    public List<RelatedSmsDto> getRelatedSms() {
+        return relatedSms;
+    }
+
+    public void setRelatedSms(List<RelatedSmsDto> relatedSms) {
+        this.relatedSms = relatedSms != null ? relatedSms : new ArrayList<>();
     }
 
     public List<TicketTagDto> getTags() {

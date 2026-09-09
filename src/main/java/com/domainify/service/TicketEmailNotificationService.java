@@ -37,6 +37,7 @@ public class TicketEmailNotificationService {
             NotificationType.TICKET_ASSIGNED,
             NotificationType.TICKET_TRANSFERRED,
             NotificationType.TICKET_ESCALATED,
+            NotificationType.TICKET_SLA_APPROACHING,
             NotificationType.TICKET_STATUS_CHANGED,
             NotificationType.TICKET_CLOSED,
             NotificationType.TICKET_REOPENED
@@ -126,6 +127,7 @@ public class TicketEmailNotificationService {
             case TICKET_CUSTOMER_REPLY, TICKET_STAFF_REPLY -> "notification.email.subject.reply";
             case TICKET_ASSIGNED, TICKET_TRANSFERRED -> "notification.email.subject.assigned";
             case TICKET_ESCALATED -> "notification.email.subject.escalated";
+            case TICKET_SLA_APPROACHING -> "notification.email.subject.approaching";
             case TICKET_STATUS_CHANGED -> "notification.email.subject.status";
             case TICKET_CLOSED -> "notification.email.subject.closed";
             case TICKET_REOPENED -> "notification.email.subject.reopened";
@@ -169,6 +171,9 @@ public class TicketEmailNotificationService {
                             ? "notification.email.event.escalated_auto"
                             : "notification.email.event.escalated",
                     actor == null ? new Object[]{} : new Object[]{actorName},
+                    locale);
+            case TICKET_SLA_APPROACHING -> messageService.get(
+                    "notification.email.event.approaching",
                     locale);
             case TICKET_STATUS_CHANGED -> messageService.get(
                     "notification.email.event.status",

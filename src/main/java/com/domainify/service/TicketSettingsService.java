@@ -1,14 +1,21 @@
 package com.domainify.service;
 
+import com.domainify.dto.BusinessHolidayDto;
+import com.domainify.dto.BusinessHoursWeekDto;
 import com.domainify.dto.TicketAttachmentPolicyDto;
 import com.domainify.dto.TicketSettingsDto;
 import com.domainify.entity.TicketAttachmentKind;
 import com.domainify.entity.TicketAutoAssignMode;
+import com.domainify.entity.Ticket;
+import com.domainify.entity.TicketCategory;
 import com.domainify.entity.TicketPriority;
 import com.domainify.entity.TicketSettings;
+import com.domainify.entity.TicketStatus;
+import com.domainify.entity.User;
 import com.domainify.exception.ApiException;
 import com.domainify.exception.ErrorCode;
 import com.domainify.repository.TicketSettingsRepository;
+import com.domainify.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -20,19 +27,32 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 
 @Service
 public class TicketSettingsService {
 
+    private static final int MAX_BUSINESS_HOLIDAYS = 366;
+
     private final TicketSettingsRepository ticketSettingsRepository;
     private final TicketQueueService ticketQueueService;
+    private final TicketBusinessHoursCalculator businessHoursCalculator;
+    private final UserRepository userRepository;
 
     public TicketSettingsService(
             TicketSettingsRepository ticketSettingsRepository,
-            TicketQueueService ticketQueueService) {
+            TicketQueueService ticketQueueService,
+            TicketBusinessHoursCalculator businessHoursCalculator,
+            UserRepository userRepository) {
         this.ticketSettingsRepository = ticketSettingsRepository;
         this.ticketQueueService = ticketQueueService;
+        this.businessHoursCalculator = businessHoursCalculator;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -78,10 +98,22 @@ public class TicketSettingsService {
                 || request.getSlaHighHours() == null
                 || request.getSlaMediumHours() == null
                 || request.getSlaLowHours() == null
+                || request.getFirstResponseSlaUrgentHours() == null
+                || request.getFirstResponseSlaHighHours() == null
+                || request.getFirstResponseSlaMediumHours() == null
+                || request.getFirstResponseSlaLowHours() == null
                 || request.getAutoAssignMode() == null
                 || request.getAutoAssignFallbackRoundRobin() == null
                 || request.getTicketEmailNotificationsEnabled() == null
-                || request.getTicketSmsNotificationsEnabled() == null) {
+                || request.getTicketSmsNotificationsEnabled() == null
+                || request.getAgentDigestEnabled() == null
+                || request.getAgentDigestSendHour() == null
+                || request.getAgentDigestSendMinute() == null
+                || request.getSlaUseBusinessHours() == null
+                || !StringUtils.hasText(request.getSlaTimezone())
+                || request.getSlaWarnEnabled() == null
+                || request.getSlaBreachEscalationEnabled() == null
+                || request.getSlaBreachBumpPriority() == null) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
@@ -93,10 +125,17 @@ public class TicketSettingsService {
         int slaHigh = request.getSlaHighHours();
         int slaMedium = request.getSlaMediumHours();
         int slaLow = request.getSlaLowHours();
+        int firstResponseSlaUrgent = request.getFirstResponseSlaUrgentHours();
+        int firstResponseSlaHigh = request.getFirstResponseSlaHighHours();
+        int firstResponseSlaMedium = request.getFirstResponseSlaMediumHours();
+        int firstResponseSlaLow = request.getFirstResponseSlaLowHours();
         TicketAutoAssignMode autoAssignMode = request.getAutoAssignMode();
         boolean autoAssignFallback = request.getAutoAssignFallbackRoundRobin();
         boolean ticketEmailNotificationsEnabled = request.getTicketEmailNotificationsEnabled();
         boolean ticketSmsNotificationsEnabled = request.getTicketSmsNotificationsEnabled();
+        boolean agentDigestEnabled = request.getAgentDigestEnabled();
+        int agentDigestSendHour = request.getAgentDigestSendHour();
+        int agentDigestSendMinute = request.getAgentDigestSendMinute();
         if (days < 1 || days > 3650
                 || maxAttachments < 1 || maxAttachments > 20
                 || maxSizeMb < 1 || maxSizeMb > 50
@@ -104,7 +143,13 @@ public class TicketSettingsService {
                 || slaUrgent < 1 || slaUrgent > 8760
                 || slaHigh < 1 || slaHigh > 8760
                 || slaMedium < 1 || slaMedium > 8760
-                || slaLow < 1 || slaLow > 8760) {
+                || slaLow < 1 || slaLow > 8760
+                || firstResponseSlaUrgent < 1 || firstResponseSlaUrgent > 8760
+                || firstResponseSlaHigh < 1 || firstResponseSlaHigh > 8760
+                || firstResponseSlaMedium < 1 || firstResponseSlaMedium > 8760
+                || firstResponseSlaLow < 1 || firstResponseSlaLow > 8760
+                || agentDigestSendHour < 0 || agentDigestSendHour > 23
+                || agentDigestSendMinute < 0 || agentDigestSendMinute > 59) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
@@ -124,6 +169,62 @@ public class TicketSettingsService {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
+        ZoneId slaZone;
+        try {
+            slaZone = ZoneId.of(request.getSlaTimezone().trim());
+        } catch (Exception ex) {
+            throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+        }
+
+        BusinessHoursWeekDto businessHours = request.getBusinessHours() != null
+                ? request.getBusinessHours()
+                : businessHoursCalculator.defaultWeek();
+        if (!businessHoursCalculator.validateWeek(businessHours).isEmpty()) {
+            throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+        }
+
+        List<BusinessHolidayDto> businessHolidays = request.getBusinessHolidays() != null
+                ? request.getBusinessHolidays()
+                : List.of();
+        if (businessHolidays.size() > MAX_BUSINESS_HOLIDAYS) {
+            throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+        }
+        for (BusinessHolidayDto holiday : businessHolidays) {
+            if (holiday == null || !StringUtils.hasText(holiday.getDate())) {
+                throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+            }
+            try {
+                LocalDate.parse(holiday.getDate().trim());
+            } catch (DateTimeParseException ex) {
+                throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+            }
+        }
+
+        boolean slaWarnEnabled = request.getSlaWarnEnabled();
+        Integer slaWarnHoursBefore = request.getSlaWarnHoursBefore();
+        if (slaWarnEnabled) {
+            if (slaWarnHoursBefore == null || slaWarnHoursBefore < 1 || slaWarnHoursBefore > 8760) {
+                throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+            }
+        } else if (slaWarnHoursBefore != null
+                && (slaWarnHoursBefore < 1 || slaWarnHoursBefore > 8760)) {
+            throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+        }
+
+        Long slaBreachAssigneeId = request.getSlaBreachAssigneeId();
+        if (slaBreachAssigneeId != null) {
+            User assignee = userRepository.findById(slaBreachAssigneeId)
+                    .orElseThrow(() -> new ApiException(ErrorCode.TICKET_ASSIGNEE_NOT_FOUND));
+            if (assignee.getRole() != User.Role.ADMIN || !assignee.isEnabled()) {
+                throw new ApiException(ErrorCode.TICKET_ASSIGNEE_INVALID);
+            }
+        }
+
+        Long slaBreachQueueId = request.getSlaBreachQueueId();
+        if (slaBreachQueueId != null) {
+            ticketQueueService.requireActiveQueue(slaBreachQueueId);
+        }
+
         TicketSettings settings = getOrCreate();
         settings.setReopenWindowDays(days);
         settings.setMaxAttachments(maxAttachments);
@@ -133,6 +234,10 @@ public class TicketSettingsService {
         settings.setSlaHighHours(slaHigh);
         settings.setSlaMediumHours(slaMedium);
         settings.setSlaLowHours(slaLow);
+        settings.setFirstResponseSlaUrgentHours(firstResponseSlaUrgent);
+        settings.setFirstResponseSlaHighHours(firstResponseSlaHigh);
+        settings.setFirstResponseSlaMediumHours(firstResponseSlaMedium);
+        settings.setFirstResponseSlaLowHours(firstResponseSlaLow);
         settings.setAutoAssignMode(autoAssignMode);
         settings.setAutoAssignFallbackRoundRobin(autoAssignFallback);
         if (request.getDefaultQueueId() != null) {
@@ -145,9 +250,58 @@ public class TicketSettingsService {
         settings.setTicketSmsNotificationsEnabled(ticketSmsNotificationsEnabled);
         settings.setEmailNotificationPriorities(TicketSettings.toPriorityCsv(emailPriorities));
         settings.setSmsNotificationPriorities(TicketSettings.toPriorityCsv(smsPriorities));
+        settings.setAgentDigestEnabled(agentDigestEnabled);
+        settings.setAgentDigestSendHour(agentDigestSendHour);
+        settings.setAgentDigestSendMinute(agentDigestSendMinute);
         settings.setAllowedAttachmentKinds(TicketAttachmentKind.toCsv(kinds));
+        settings.setSlaUseBusinessHours(request.getSlaUseBusinessHours());
+        settings.setSlaTimezone(slaZone.getId());
+        settings.setBusinessHoursJson(businessHoursCalculator.serializeWeek(businessHours));
+        settings.setBusinessHolidaysJson(businessHoursCalculator.serializeHolidays(businessHolidays));
+        settings.setSlaWarnEnabled(slaWarnEnabled);
+        settings.setSlaWarnHoursBefore(slaWarnHoursBefore != null
+                ? slaWarnHoursBefore
+                : TicketSettings.DEFAULT_SLA_WARN_HOURS_BEFORE);
+        settings.setSlaBreachEscalationEnabled(request.getSlaBreachEscalationEnabled());
+        settings.setSlaBreachBumpPriority(request.getSlaBreachBumpPriority());
+        settings.setSlaBreachAssigneeId(slaBreachAssigneeId);
+        settings.setSlaBreachQueueId(slaBreachQueueId);
         settings.normalize();
         return toDto(ticketSettingsRepository.save(settings));
+    }
+
+    /**
+     * True when agent digest is enabled, current time is at/after the configured send time,
+     * and not already run today.
+     */
+    @Transactional
+    public boolean shouldRunAgentDigestNow() {
+        TicketSettings settings = getOrCreate();
+        if (!settings.isAgentDigestEnabled()) {
+            return false;
+        }
+        LocalDate today = LocalDate.now();
+        if (settings.getAgentDigestLastRunDate() != null && today.equals(settings.getAgentDigestLastRunDate())) {
+            return false;
+        }
+        LocalTime sendAt = LocalTime.of(
+                coerce(settings.getAgentDigestSendHour(), 0, 23, 8),
+                coerce(settings.getAgentDigestSendMinute(), 0, 59, 0));
+        return !LocalTime.now().isBefore(sendAt);
+    }
+
+    @Transactional
+    public void markAgentDigestRanToday() {
+        TicketSettings settings = getOrCreate();
+        settings.setAgentDigestLastRunDate(LocalDate.now());
+        ticketSettingsRepository.save(settings);
+    }
+
+    private static int coerce(int value, int min, int max, int fallback) {
+        if (value < min || value > max) {
+            return fallback;
+        }
+        return value;
     }
 
     public void validateAttachmentBatch(List<MultipartFile> files) {
@@ -173,19 +327,139 @@ public class TicketSettingsService {
         }
     }
 
+    /** Resolve SLA due date using org settings only (no category override). */
     @Transactional(readOnly = true)
-    public Instant computeDueAt(TicketPriority priority, Instant from) {
-        if (priority == null || from == null) {
-            return null;
+    public boolean isApproachingSla(Ticket ticket, Instant now) {
+        if (ticket == null || now == null) {
+            return false;
         }
         TicketSettings settings = getOrCreate();
-        long hours = switch (priority) {
+        if (!settings.isSlaWarnEnabled()) {
+            return false;
+        }
+        if (ticket.getSlaPausedAt() != null) {
+            return false;
+        }
+        Instant dueAt = ticket.getDueAt();
+        if (dueAt == null || !dueAt.isAfter(now)) {
+            return false;
+        }
+        TicketStatus status = ticket.getStatus();
+        if (status != TicketStatus.NEW && status != TicketStatus.OPEN && status != TicketStatus.ON_HOLD) {
+            return false;
+        }
+        Instant warnUntil = now.plus(Duration.ofHours(settings.getSlaWarnHoursBefore()));
+        return !dueAt.isAfter(warnUntil);
+    }
+
+    @Transactional(readOnly = true)
+    public Instant computeDueAt(TicketPriority priority, Instant from) {
+        return computeResolveDueAt(priority, null, from);
+    }
+
+    @Transactional(readOnly = true)
+    public int resolveHours(TicketPriority priority, TicketCategory category) {
+        if (priority == null) {
+            throw new IllegalArgumentException("priority is required");
+        }
+        if (category != null) {
+            Integer override = category.resolveSlaHoursFor(priority);
+            if (override != null) {
+                return override;
+            }
+        }
+        TicketSettings settings = getOrCreate();
+        return switch (priority) {
             case URGENT -> settings.getSlaUrgentHours();
             case HIGH -> settings.getSlaHighHours();
             case MEDIUM -> settings.getSlaMediumHours();
             case LOW -> settings.getSlaLowHours();
         };
-        return from.plusSeconds(hours * 3600L);
+    }
+
+    @Transactional(readOnly = true)
+    public int firstResponseHours(TicketPriority priority, TicketCategory category) {
+        if (priority == null) {
+            throw new IllegalArgumentException("priority is required");
+        }
+        if (category != null) {
+            Integer override = category.firstResponseSlaHoursFor(priority);
+            if (override != null) {
+                return override;
+            }
+        }
+        TicketSettings settings = getOrCreate();
+        return switch (priority) {
+            case URGENT -> settings.getFirstResponseSlaUrgentHours();
+            case HIGH -> settings.getFirstResponseSlaHighHours();
+            case MEDIUM -> settings.getFirstResponseSlaMediumHours();
+            case LOW -> settings.getFirstResponseSlaLowHours();
+        };
+    }
+
+    @Transactional(readOnly = true)
+    public Instant computeResolveDueAt(TicketPriority priority, TicketCategory category, Instant from) {
+        if (priority == null || from == null) {
+            return null;
+        }
+        long hours = resolveHours(priority, category);
+        return computeSlaDueAt(from, hours);
+    }
+
+    @Transactional(readOnly = true)
+    public Instant computeFirstResponseDueAt(TicketPriority priority, TicketCategory category, Instant from) {
+        if (priority == null || from == null) {
+            return null;
+        }
+        long hours = firstResponseHours(priority, category);
+        return computeSlaDueAt(from, hours);
+    }
+
+    private Instant computeSlaDueAt(Instant from, long hours) {
+        TicketSettings settings = getOrCreate();
+        if (!settings.isSlaUseBusinessHours()) {
+            return from.plusSeconds(hours * 3600L);
+        }
+        return businessHoursCalculator.addBusinessHours(
+                from, hours, getSlaZone(settings), getBusinessHoursWeek(settings), getBusinessHolidays(settings));
+    }
+
+    @Transactional(readOnly = true)
+    public Instant shiftDueAfterPause(Instant dueAt, Instant pausedAt, Instant resumedAt) {
+        if (dueAt == null || pausedAt == null || resumedAt == null) {
+            return dueAt;
+        }
+        TicketSettings settings = getOrCreate();
+        long remainingMinutes;
+        if (settings.isSlaUseBusinessHours()) {
+            remainingMinutes = businessHoursCalculator.businessMinutesBetween(
+                    pausedAt, dueAt, getSlaZone(settings), getBusinessHoursWeek(settings), getBusinessHolidays(settings));
+        } else {
+            remainingMinutes = java.time.Duration.between(pausedAt, dueAt).toMinutes();
+        }
+        remainingMinutes = Math.max(0, remainingMinutes);
+        if (remainingMinutes == 0) {
+            return resumedAt;
+        }
+        if (settings.isSlaUseBusinessHours()) {
+            return businessHoursCalculator.addBusinessMinutes(
+                    resumedAt, remainingMinutes, getSlaZone(settings), getBusinessHoursWeek(settings),
+                    getBusinessHolidays(settings));
+        }
+        return resumedAt.plusSeconds(remainingMinutes * 60L);
+    }
+
+    private ZoneId getSlaZone(TicketSettings settings) {
+        return ZoneId.of(settings.getSlaTimezone());
+    }
+
+    private BusinessHoursWeekDto getBusinessHoursWeek(TicketSettings settings) {
+        return businessHoursCalculator.parseWeek(settings.getBusinessHoursJson());
+    }
+
+    private Set<LocalDate> getBusinessHolidays(TicketSettings settings) {
+        return businessHoursCalculator.toHolidayDates(
+                businessHoursCalculator.parseHolidays(settings.getBusinessHolidaysJson()));
     }
 
     public boolean isAllowedFile(MultipartFile file, Set<TicketAttachmentKind> kinds) {
@@ -255,14 +529,31 @@ public class TicketSettingsService {
                 settings.getSlaHighHours(),
                 settings.getSlaMediumHours(),
                 settings.getSlaLowHours(),
+                settings.getFirstResponseSlaUrgentHours(),
+                settings.getFirstResponseSlaHighHours(),
+                settings.getFirstResponseSlaMediumHours(),
+                settings.getFirstResponseSlaLowHours(),
                 settings.getAutoAssignMode() != null ? settings.getAutoAssignMode() : TicketAutoAssignMode.OFF,
                 settings.isAutoAssignFallbackRoundRobin(),
                 settings.isTicketEmailNotificationsEnabled(),
                 settings.isTicketSmsNotificationsEnabled(),
                 emailPriorities,
-                smsPriorities
+                smsPriorities,
+                settings.isAgentDigestEnabled(),
+                settings.getAgentDigestSendHour(),
+                settings.getAgentDigestSendMinute()
         );
         dto.setDefaultQueueId(settings.getDefaultQueueId());
+        dto.setSlaUseBusinessHours(settings.isSlaUseBusinessHours());
+        dto.setSlaTimezone(settings.getSlaTimezone());
+        dto.setBusinessHours(businessHoursCalculator.parseWeek(settings.getBusinessHoursJson()));
+        dto.setBusinessHolidays(businessHoursCalculator.parseHolidays(settings.getBusinessHolidaysJson()));
+        dto.setSlaWarnEnabled(settings.isSlaWarnEnabled());
+        dto.setSlaWarnHoursBefore(settings.getSlaWarnHoursBefore());
+        dto.setSlaBreachEscalationEnabled(settings.isSlaBreachEscalationEnabled());
+        dto.setSlaBreachBumpPriority(settings.isSlaBreachBumpPriority());
+        dto.setSlaBreachAssigneeId(settings.getSlaBreachAssigneeId());
+        dto.setSlaBreachQueueId(settings.getSlaBreachQueueId());
         return dto;
     }
 

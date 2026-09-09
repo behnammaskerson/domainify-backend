@@ -81,6 +81,22 @@ public class Ticket {
     @Column(name = "due_at")
     private Instant dueAt;
 
+    /** Deadline for first public staff reply. */
+    @Column(name = "first_response_due_at")
+    private Instant firstResponseDueAt;
+
+    /** When the first public staff reply was posted. */
+    @Column(name = "first_responded_at")
+    private Instant firstRespondedAt;
+
+    /** When SLA clocks were paused (e.g. status PENDING waiting on customer). */
+    @Column(name = "sla_paused_at")
+    private Instant slaPausedAt;
+
+    /** When an approaching-SLA warning notification was sent (cleared when due shifts). */
+    @Column(name = "sla_warned_at")
+    private Instant slaWarnedAt;
+
     @Column(name = "escalated_at")
     private Instant escalatedAt;
 
@@ -236,6 +252,38 @@ public class Ticket {
 
     public void setDueAt(Instant dueAt) {
         this.dueAt = dueAt;
+    }
+
+    public Instant getFirstResponseDueAt() {
+        return firstResponseDueAt;
+    }
+
+    public void setFirstResponseDueAt(Instant firstResponseDueAt) {
+        this.firstResponseDueAt = firstResponseDueAt;
+    }
+
+    public Instant getFirstRespondedAt() {
+        return firstRespondedAt;
+    }
+
+    public void setFirstRespondedAt(Instant firstRespondedAt) {
+        this.firstRespondedAt = firstRespondedAt;
+    }
+
+    public Instant getSlaPausedAt() {
+        return slaPausedAt;
+    }
+
+    public void setSlaPausedAt(Instant slaPausedAt) {
+        this.slaPausedAt = slaPausedAt;
+    }
+
+    public Instant getSlaWarnedAt() {
+        return slaWarnedAt;
+    }
+
+    public void setSlaWarnedAt(Instant slaWarnedAt) {
+        this.slaWarnedAt = slaWarnedAt;
     }
 
     public Instant getEscalatedAt() {

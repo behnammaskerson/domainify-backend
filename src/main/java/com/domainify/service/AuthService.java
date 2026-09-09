@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.HashMap;
 
 @Service
@@ -195,6 +196,7 @@ public class AuthService {
 
     private AuthResponse issueTokens(User user) {
         assertEmailVerifiedForLogin(user);
+        user.setLastLoginAt(Instant.now());
         return buildTokenResponse(user);
     }
 
