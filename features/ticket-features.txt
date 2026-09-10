@@ -1,127 +1,485 @@
-Ticket System — Complete Feature Catalog
+Ticket System — Master Feature Catalog (complete)
 
-Assumption: tickets are for Domainify customers (users) talking to support agents/admins, with Persian/English/Arabic/Turkish UI like the rest of the app. Features below are organized so you can pick an MVP first, then expand.
+This is the definitive Domainify ticket / helpdesk product catalog.
+Update status in place only (done / partial / blank). Do not split into parallel lists.
+KB product details live in kb-features.txt; this file lists ticket-KB touchpoints only.
+
+Product assumption: authenticated Domainify customers talk to support staff; UI locales en / fa / ar / tr (RTL where needed); Domainify context (domains, marketplace, SMS.ir, wallet) is a first-class differentiator.
 
 
-1. Core ticket lifecycle
+------------------------------------------------------------------------------
+A. TICKET MODEL AND LIFECYCLE
+------------------------------------------------------------------------------
+
+1. Identity and create
 done - Create ticket (subject, description, category, priority, attachments)
-done - Auto-generate unique ticket ID (e.g. TCK-2026-000142)
-done - Priority levels: Low / Medium / High / Urgent
-done - Categories / types: Billing, Technical, Domains, SMS, Account, Other (admin-configurable)
-done - Status workflow: New → Open → Pending → On Hold → Resolved → Closed (customizable statuses)
-done - Tags / labels (multi-select, free-form or predefined)
-done - Reopen closed tickets (within a time window)
+done - Auto-generate unique public ticket ID (e.g. TCK-2026-000142)
+done - Channel stamp at create (portal today; email / SMS / chat / social later)
+done - Link ticket to authenticated user account
+Guest / unauthenticated ticket create (optional; email verification required)
+Proactive / outbound ticket opened by agent on behalf of customer
+Import tickets from CSV / other helpdesk (migration)
+Clone / duplicate ticket as new
+
+2. Classification
+done - Priority levels: Low / Medium / High / Urgent (admin-configurable labels)
+done - Categories / types (admin-configurable; e.g. Billing, Technical, Domains, SMS, Account, Other)
+done - Tags / labels (multi-select; predefined + free-form)
+Priority matrix (impact x urgency -> computed priority)
+Severity / urgency as separate fields (incident-style)
+Service / product area taxonomy (Domains, Marketplace, SMS, Wallet, Account)
+Source / intake type (bug, question, request, complaint, abuse)
+
+3. Status and workflow
+done - Status set: New -> Open -> Pending -> On Hold -> Resolved -> Closed
+done - Configurable status labels, sort order, and allowed transitions (fixed status codes)
+done - Reopen closed tickets (within configurable time window)
+Custom status codes beyond the fixed enum (full status designer) — later / optional
+Spam / junk status or dedicated junk queue with bulk discard
+Awaiting third-party status (registrar, payment gateway, SMS provider)
+
+4. Structure and relations
 done - Soft-delete / archive old tickets
 done - Merge duplicate tickets
 done - Split one ticket into multiple
 done - Link related tickets
-done - Due date / SLA deadline on ticket
-done - Internal notes vs public replies (customer never sees internal notes)
+Parent / child hierarchy (incident / problem -> many customer tickets)
+Tasks / checklist items on a ticket
+Follow-up / reminder date separate from SLA due
+Snooze (hide from inbox until datetime; auto-return)
+Bookmark / star for agent personal list
 
-2. Conversation & messaging
-done - Threaded replies (chronological conversation)
-done - Rich text / Markdown replies
-done - Attachments (images, PDF, logs) with size/type limits in setting
-done - Edit / delete own replies (with audit trail)
-done - Canned responses / reply templates (with variables: name, ticket ID, domain)
-done - Mentions (@agent) in internal notes
-done - Read receipts / “seen by customer/agent”
+5. Closure quality
+done - Internal notes vs public replies (customers never see internal notes)
+Resolution / close reason codes (required on resolve/close; admin-configurable)
+Resolution summary field (customer-visible or internal)
+First-contact resolution flag (auto or manual)
+Prevent close without public reply / resolution code (policy)
+
+
+------------------------------------------------------------------------------
+B. CONVERSATION AND COLLABORATION
+------------------------------------------------------------------------------
+
+6. Messaging core
+done - Threaded chronological conversation
+done - Markdown compose + render
+done - Attachments (images, PDF, logs) with size/type limits in settings
+done - Edit / delete own replies (with revision / audit trail)
 done - Draft replies (auto-save)
-done - Email-in / email-out (create & reply by email)
-done - SMS notification of ticket updates (fits your SMS.ir stack)
+done - Read receipts / seen-by customer or agent
+Pin important messages in thread
+Redact message content (GDPR / accidental PII)
+Quote / reply-to specific message
+Forward ticket transcript by email
+Rich text / WYSIWYG editor (in addition to Markdown)
 
-3. Assignment & team workflow
-done - Assign to agent / unassign
-done - Auto-assign round-robin or by category skill
+7. Productivity for agents
+done - Canned responses / reply templates (variables: name, ticket ID, domain, ...)
+done - @mentions in internal notes
+Macros (one click: template + status + tags + assignee + priority)
+Shared team drafts
+Schedule send (deliver reply at datetime / next business hour)
+Insert KB article into reply (search picker)
+Snippet library (shorter than full templates)
+Collision detection (Agent X is viewing / typing on this ticket)
+Agent scripting / guided responses for new hires
+
+8. External collaboration
+Customer CC / collaborators (extra emails on the ticket)
+Side conversations (email registrar / SMS.ir / payment vendor; hidden from customer)
+Invite external expert (time-boxed access link)
+Public share link for transcript (expiring, optional password)
+
+
+------------------------------------------------------------------------------
+C. ROUTING, QUEUES AND WORKFORCE
+------------------------------------------------------------------------------
+
+9. Assignment
+done - Assign / unassign agent
 done - Assignment queues / departments
+done - Auto-assign round-robin
+done - Skill / category-based routing
+done - Transfer between agents / departments
+done - Escalation (manual + automatic on SLA breach)
 done - Watchers / followers (notify without being assignee)
-done - Transfer ticket between agents/departments
-done - Escalation (manual + automatic by SLA breach)
-done - Agent presence / availability (optional)
+Load-balanced assign by open-ticket count
+Agent capacity / max concurrent open tickets
+Sticky assignment (return replies to last agent)
+Overflow routing when queue capacity exceeded
+Secondary assignee / working-with
+Round-robin within skill group only
+
+10. Presence and schedule
+done - Agent availability / away toggle
 done - Workload view (open tickets per agent)
+Out-of-office / shift schedule (skip unavailable agents)
+Business hours per queue (not only org-wide)
+Holiday calendars (including Iranian / regional presets)
+Workforce forecasting (volume -> staffing) — later
+Agent occupancy / utilization metrics — later
 
-4. Customer (user) portal
-done - “My tickets” list with status filters & search
+11. Roles (staff)
+Roles today: USER (customer), SELLER, ADMIN — ticket console is ADMIN-scoped
+Support Agent role (queue-scoped; not full platform admin)
+Senior Agent / Team Lead (escalate, merge, limited settings)
+Light / contribute-only agent (reply; no assign / close)
+Queue membership management UI
+Permission matrix: view all / own queue / own tickets only
+
+
+------------------------------------------------------------------------------
+D. CUSTOMER EXPERIENCE
+------------------------------------------------------------------------------
+
+12. Customer portal
+done - My tickets list (filters + search)
 done - Create ticket from portal
-done - Reply / add attachments
-done - Rate satisfaction after resolve (CSAT 1–5 + comment)
-done - Multi-language ticket UI (reuse your i18n: en/fa/ar/tr)
-done - Knowledge-base suggestions while creating (“Did you mean…?”)
+done - Reply + add attachments
+done - Multi-language ticket UI (en / fa / ar / tr)
+done - CSAT after resolve (1-5 + comment)
+done - KB suggestions on ticket create (Did you mean...?)
+CSAT after Closed + reminder email / in-app nudge
+CES / NPS surveys (optional, beyond CSAT)
+Suggested articles on ticket detail (mid-thread)
+Article solved it -> close / cancel draft
+Satisfaction comment required below score threshold
+Customer can reopen from portal (policy-controlled)
+Customer portal branding (logo, colors) — later / white-label
+Download / print own transcript from portal
 
-5. Agent / admin console
+13. Intake surfaces
+done - In-app portal create
+Public contact form on landing -> ticket (not email-only)
+In-app messenger / live chat -> ticket handoff
+Help widget embed on product pages
+Status-page / incident subscribe -> optional ticket link
+
+
+------------------------------------------------------------------------------
+E. AGENT / ADMIN CONSOLE
+------------------------------------------------------------------------------
+
+14. Inbox and search
 done - Inbox views: All, Unassigned, Mine, Mentions, Overdue
-done - Advanced filters: status, priority, category, assignee, date range, tag, customer
-done - Full-text search (subject, body, ticket ID, customer email)
-done - Bulk actions: assign, change status, add tag, close
-done - Ticket detail side panel (customer profile, domains, recent SMS, order history)
-done - Keyboard shortcuts for power users
+done - Advanced filters: status, priority, category, assignee, dates, tag, customer, queue
+done - Full-text search (subject, body, ID, customer email)
+done - Bulk actions: assign, status, tag, close
 done - Saved views / custom filters
+done - Keyboard shortcuts
+Real-time inbox (SSE / WebSocket)
+Desktop / sound alerts for new assignments
+Density modes (comfortable / compact)
+Multi-select across pages with select-all matching filter
+Recent tickets / continue where you left off
 
-6. Customer context (Domainify-specific — high value)
-done - Link ticket to user account
-done - Link to domain(s) owned by user
-done - Link to SMS pack / send / scheduled SMS (for SMS support cases)
-done - Show recent activity: last login, credit balance, last SMS send
-done - Impersonation / “view as customer” (admin-only, audited)
+15. Ticket detail
+done - Detail page with conversation + actions
+done - Customer context side panel (profile, domains, SMS, orders, wallet signals)
+Unified activity timeline (status, assignee, priority, merges, links, SLA events)
+Print / PDF / export transcript
+Mute notifications on this ticket
+Approval request panel (refund / credit — see Domainify actions)
+Collision banner + soft claim lock
 
-7. SLA & automation
-done - SLA policies by priority/category (first response time, resolve time)
+16. Settings and admin
+done - Ticket settings (SLA, automations, CSAT, auto-close, ...)
+done - Categories / queues / tags / reply templates / status workflow / business rules pages
+Feature flags / module toggles for ticket subsystems
+Sandbox / staging ticket data separate from production — later
+Seed / demo tickets for new environments
+
+
+------------------------------------------------------------------------------
+F. DOMAINIFY CONTEXT (PRODUCT DIFFERENTIATOR)
+------------------------------------------------------------------------------
+
+17. Entity links
+done - Link ticket <-> user account
+done - Link ticket <-> domain(s)
+done - Link ticket <-> SMS pack / send / scheduled SMS
+done - Side panel: last login, credit balance, last SMS activity
+done - Impersonate customer from support (admin-only, audited)
+Link ticket <-> marketplace order / offer / listing
+Link ticket <-> wallet ledger entry / payment attempt
+Link ticket <-> invoice / top-up request
+Multi-link (several domains / orders on one ticket)
+
+18. In-console actions (audited)
+One-click domain diagnostics (DNS / WHOIS / RDAP expiry snapshot)
+SMS delivery deep-dive for linked send/pack
+Audited wallet credit / debit / adjust from ticket (permission-gated)
+Resend verification email / SMS from ticket context
+Extend domain renewal grace / note registrar case ID
+Freeze / unfreeze listing or SMS line (policy + audit) — careful / later
+
+19. Domainify intake helpers
+Create-form fields: domain name, pack ID, order ID, tracking code (via custom fields)
+Auto-detect mentioned domain / order ID in description -> suggest link
+Abuse / phishing report flow (domains) with evidence attachments
+
+
+------------------------------------------------------------------------------
+G. SLA, AUTOMATION AND RULES
+------------------------------------------------------------------------------
+
+20. SLA
+done - Policies by priority (+ category overrides)
+done - First-response and resolve targets
 done - Business hours calendar (timezone-aware)
-done - Pause SLA when status = Pending (waiting on customer)
-done - Breach warnings & escalation rules
-done - Automations / triggers:
-done - On create → set priority, assign queue, send ack
-done - on no reply X hours → remind customer or escalate
-done - On resolve → ask CSAT
-done - Auto-close if customer silent for N days after resolve
-done - Business rules engine (if/then) — later phase
+done - Pause SLA while Pending (waiting on customer)
+done - Breach warnings + escalation rules
+done - Due / SLA deadline visible on ticket
+Configurable pause statuses (Pending and/or On Hold)
+Per-queue business hours and holidays
+Customer-tier SLA (VIP / plan-based targets)
+Operational vs contractual SLA reporting
+SLA clocks: calendar vs business minutes clearly labeled
 
-8. Notifications
-done - In-app notifications (bell)
-done - Email notifications (new reply, assignment, status change)
-done - SMS notifications (urgent / opt-in)
-done - Per-user notification preferences (global / user / category email gates)
-done - Digest / daily summary for agents
+21. Built-in automations
+done - On create -> priority / queue / ack
+done - No-reply after X hours -> remind or escalate
+done - On resolve -> ask CSAT
+done - Auto-close after resolve if customer silent N days
+Auto-ack localized by customer preferred language
+Low-CSAT recovery (score <= 2 -> escalate / reopen / lead notify)
+Inactivity nudge to assignee
+Auto-tag from keywords / category
 
-9. Knowledge base & self-service
-done - Public FAQ / articles (categories, search)
-Article feedback (helpful / not helpful)
+22. Business rules engine
+partial - If/then rules UI + engine (core path live)
+Finish action stubs: add tags, internal note, notify, escalate, ...
+Wire ON_SCHEDULE / time-based rules
+Rule simulation / dry-run on sample ticket
+Rule execution log and metrics
+Priority / stop-on-match ordering documentation in UI
+Import / export rule definitions
+
+
+------------------------------------------------------------------------------
+H. NOTIFICATIONS
+------------------------------------------------------------------------------
+
+23. Channels and preferences
+done - In-app notification bell
+done - Email notifications (reply, assignment, status, ...)
+done - SMS notifications (urgent / opt-in; SMS.ir)
+done - Per-user notification preferences (global / user / category gates)
+done - Agent digest / daily summary
+Queue-lead digest (unassigned + overdue only)
+Per-ticket mute / override
+Locale-correct notification templates (en / fa / ar / tr)
+Digest frequency options (daily / twice daily / weekly)
+Push notifications (PWA / mobile) — later
+Mention email push even if digest-only
+
+
+------------------------------------------------------------------------------
+I. KNOWLEDGE BASE TOUCHPOINTS
+------------------------------------------------------------------------------
+
+24. Ticket <-> KB
+(Full KB catalog: kb-features.txt)
+done - Public FAQ / articles with categories and search
 done - Suggest articles on ticket create
-Internal-only articles for agents
-Versioning of articles
+Suggest articles on ticket detail
+Insert article into agent reply
+Deflection metrics (KB view -> no ticket)
+Internal articles visible to agents only
+Macro + KB article bundles
 
-10. Reporting & analytics
-Ticket volume over time
-Average first response / resolve time
-Open vs closed backlog
-Tickets by category, priority, channel
-Agent performance (handled, CSAT, response time)
-SLA compliance %
-CSAT trends
-Export CSV / Excel
+
+------------------------------------------------------------------------------
+J. REPORTING AND ANALYTICS
+------------------------------------------------------------------------------
+
+25. Operational reports
+Ticket volume over time (hour / day / week)
+Open vs closed backlog + aging buckets
+Tickets by category, priority, queue, channel, tag
+Average / median first-response time
+Average / median resolve time
+Histograms for first-response / resolve time
+SLA compliance percent (met / warn / breach)
+Reopen rate
+Merge / split counts
+Channel mix report
+
+26. People and quality
+Agent performance (handled, replies, first-response, resolve, CSAT)
+Workload / occupancy trends
+CSAT trends overall
+CSAT by category / queue / agent / locale
+Resolution-reason breakdown
+Macro / template usage stats
+Collision / double-reply incidents (if instrumented)
+
+27. Delivery of insights
 Dashboard widgets on admin home
+Saved report definitions
+Scheduled email reports to leads
+Export CSV / Excel (current filter / full report)
+API access to aggregate metrics
+Real-time wallboard / TV mode — later
 
-11. Security, roles & audit
-Roles: Customer, Agent, Senior Agent, Admin
-Permissions: view all vs own queue vs own tickets only
-Field-level visibility (hide internal notes from customers)
-Full audit log (who changed status/assignee/priority)
-PII redaction in exports
-Rate limits on ticket create (anti-spam)
-Attachment malware scanning (optional)
 
-12. Channels & integrations (later)
-Web portal (primary for Domainify)
-Email channel
-SMS channel (via SMS.ir)
-WhatsApp / Telegram (optional)
-Webhooks (ticket created/updated)
-Slack / Teams agent alerts
-Zapier / n8n style hooks
+------------------------------------------------------------------------------
+K. CHANNELS AND INTEGRATIONS
+------------------------------------------------------------------------------
 
-13. Forms & customization
-Custom fields per category (dropdown, text, number, date)
-Dynamic forms (show field if category = Domains)
-Required fields by status transition
-Brandable ticket emails
-Configurable status / priority / category lists
+28. Support channels
+done - Web portal (primary)
+Email inbound create + reply threading (TicketChannel.EMAIL)
+done - Email outbound notifications
+done - SMS notify via SMS.ir
+SMS as bidirectional ticket channel (optional)
+In-app live chat / messenger -> ticket
+WhatsApp Business (MENA-strong)
+Telegram bot channel
+Phone / call log attached to ticket (optional; no full PBX required)
+Social (Instagram / X / Facebook) -> ticket — later
+Omnichannel identity merge (same customer across channels)
+
+29. Integrations and extensibility
+REST API for tickets / messages / queues (public for automation)
+Webhooks: created, updated, replied, resolved, closed, CSAT
+Slack / Teams agent alerts + optional reply-from-chat
+Zapier / n8n / Make connectors
+Outbound sync to CRM / accounting — later
+Status page provider hooks (incidents)
+
+
+------------------------------------------------------------------------------
+L. FORMS, FIELDS AND BRANDING
+------------------------------------------------------------------------------
+
+30. Forms and fields
+done - Configurable categories, priorities, tags
+done - Configurable status labels / transitions (fixed codes)
+Custom fields (text, number, date, dropdown, multi-select, boolean, URL)
+Custom fields per category / queue
+Conditional / dynamic forms (show if category = Domains)
+Required fields by create and by status transition
+Ticket create templates / request types by category
+Field-level help text and placeholders (i18n)
+Validation regex / min-max for custom fields
+
+31. Branding and content
+Brandable notification email HTML themes
+Per-locale email templates
+Portal empty-states and microcopy admin-editable — later
+Multi-brand / white-label portals (if Domainify hosts resellers) — later
+
+
+------------------------------------------------------------------------------
+M. AI AND ASSIST
+------------------------------------------------------------------------------
+
+32. Agent assist
+Suggested reply grounded on ticket + domains / SMS / orders / wallet
+Summarize long threads
+Expand / tone-adjust reply (formal / friendly; locale-aware)
+Detect duplicate / similar open tickets
+Auto-categorize / auto-tag / suggest queue on create
+Sentiment and urgency score for inbox sorting
+KB article recommendation (stronger than keyword suggest)
+Quality coaching hints after low CSAT — later
+
+33. Customer-facing AI (optional / careful)
+Help widget answering from KB before ticket create
+Auto-resolve simple FAQs with agent handoff
+Always show talk-to-human escape hatch
+
+
+------------------------------------------------------------------------------
+N. SECURITY, AUDIT, COMPLIANCE
+------------------------------------------------------------------------------
+
+34. Access and abuse
+done - Customer cannot see internal notes
+Staff permission matrix (when Agent role exists)
+SSO for staff (OIDC / SAML) — platform-level
+2FA for staff (platform-level; reuse existing)
+IP allowlist for admin console — optional
+Rate limit ticket create (per user / IP)
+Attachment allow-list + malware scanning
+CAPTCHA on public contact form
+Blocklist customers / emails (abuse)
+
+35. Audit and privacy
+partial - Audited events (revisions, transfers, escalations, impersonation)
+Full field-level ticket audit log UI (who changed what / when)
+Export audit for a ticket
+PII redaction in exports and transcripts
+Customer data export / anonymize (DSR)
+Message content redact tool
+Attachment retention separate from ticket retention
+
+36. Retention and legal
+Soft-delete / archive policies (already partially present)
+Hard-delete after N days (configurable)
+Legal hold / do-not-purge flag
+Immutable close snapshot for disputes — optional
+Data residency notes (document only if multi-region later)
+
+
+------------------------------------------------------------------------------
+O. QUALITY, TRAINING AND OPERATIONS
+------------------------------------------------------------------------------
+
+37. Quality assurance
+QA scorecards (sample tickets rated by lead)
+Calibration session notes — later
+Mandatory internal note on escalate
+Playbooks / runbooks linked from category
+Shadow mode (trainee watches; cannot send) — later
+
+38. Time and billing (optional B2B)
+Time tracking / billable minutes on ticket
+Cost center / bill-to account field
+Export time for invoicing
+
+
+------------------------------------------------------------------------------
+P. PLATFORM, UX AND NON-FUNCTIONALS
+------------------------------------------------------------------------------
+
+39. UX and accessibility
+done - RTL + en/fa/ar/tr ticket UI
+done - Responsive layouts for portal and console
+Keyboard-first agent workflows (expand shortcuts)
+Screen-reader labels on core ticket actions
+Prefer reduced-motion mode for inbox animations
+
+40. Reliability and scale
+Idempotent email-inbound processing
+Attachment storage quotas and cleanup jobs
+Search index health / rebuild
+Backpressure on notification fan-out
+Horizontal-safe schedulers for SLA / automations
+
+41. Developer experience
+Versioned public Ticket API
+OpenAPI docs for ticket endpoints
+Webhook signing secrets + retry policy
+Idempotency keys for create-message API
+Postman / example collection
+
+
+------------------------------------------------------------------------------
+STATUS LEGEND
+------------------------------------------------------------------------------
+done     = shipped in Domainify in a usable form
+partial  = UI and/or backend started; finish before calling done
+(blank)  = not started; part of this permanent backlog
+
+
+------------------------------------------------------------------------------
+HOW TO USE THIS FILE (permanent rules)
+------------------------------------------------------------------------------
+1. Implement -> set the line to done (or partial while in flight).
+2. Never delete a line to simplify; if replaced, keep it and note superseded by X.
+3. KB-only work belongs in kb-features.txt; keep only ticket touchpoints here.
+4. Domainify-specific differentiators stay under section F even if generic helpdesks lack them.
+5. This file is the once-and-for-all ticket feature list — extend only by adding lines, never by forking new catalogs.

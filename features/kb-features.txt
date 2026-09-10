@@ -1,192 +1,489 @@
-Knowledge Base — Complete Feature Catalog
+Knowledge Base — Master Feature Catalog (complete)
 
-Assumption: Domainify Knowledge Base is a first-class self-service product (not ticket-only), used for Help Center, ticket deflection, and agent reference. Multi-language UI/content like the rest of the app (en / fa / ar / tr). Features below are organized so you can lock an MVP, then expand into a full KB business.
+This is the definitive Domainify Knowledge Base / Help Center product catalog.
+Update status in place only (done / partial / blank). Do not split into parallel lists.
+Ticket product details live in ticket-features.txt; this file owns KB depth and lists ticket touchpoints briefly.
+
+Product assumption: KB is a first-class self-service product (not ticket-only) for Help Center, ticket deflection, agent reference, and in-product contextual help. UI and content locales: en / fa / ar / tr (RTL where needed). Domainify product areas (Domains, Marketplace, SMS, Wallet, Tickets, Account) are first-class content dimensions.
 
 
-1. Categories & taxonomy
+------------------------------------------------------------------------------
+A. CATEGORIES AND TAXONOMY
+------------------------------------------------------------------------------
+
+1. Category model
 done - Category CRUD (code, name, description, active, sort order)
-done - Hierarchical categories (parent / child tree, unlimited depth with cycle guards)
-done - Soft deactivate category (active flag) without deleting content
-done - Prevent delete when category has children or articles
-done - Flat + tree admin views (indented list with depth)
-done - Public category list (active categories with published content)
-Category icons / cover images
-Category translations (per-locale name & description)
-Pinned / featured categories on Help Center home
-Reorder via drag-and-drop
-Category path breadcrumbs (Home → Billing → Invoices)
-Archive / merge categories (move articles to another category)
+done - Hierarchical categories (parent / child tree; cycle and self-parent guards)
+done - Soft deactivate (active flag) without deleting content
+done - Block delete when category has children
+done - Block delete when category has articles
+done - Flat indented admin list with depth
+done - Public list of active categories that have publishable content
+Category slug / external code stable for deep links
+Category icons / emoji / cover images
+Category short blurb vs long description
+Max depth policy (soft limit in UI)
+Orphan detection / repair tooling
 
-2. Articles — core content
+2. Category operations
+Pinned / featured categories on Help home
+Reorder siblings via drag-and-drop
+Archive category (hide; keep articles)
+Merge categories (move all articles then delete/archive source)
+Move subtree under a new parent (with cycle checks)
+Bulk activate / deactivate
+Category path breadcrumbs (Home -> Billing -> Invoices)
+Clone category subtree structure (without articles)
+
+3. Category localisation
+Category name / description translations per locale
+Fallback to default locale when translation missing
+RTL-safe category labels in filters and chips
+
+
+------------------------------------------------------------------------------
+B. ARTICLES — CONTENT MODEL
+------------------------------------------------------------------------------
+
+4. Core article fields
 done - Article CRUD (title, slug, summary, body, category, locale, published, sort order)
-done - Unique URL slug (auto from title, editable)
+done - Unique URL slug (auto from title; editable; uniqueness enforced)
 done - Draft vs published
-done - Markdown body rendering (Help Center + ticket links)
+done - Markdown body stored and rendered
 done - Locale: en / fa / ar / tr / all
-done - Separate admin pages: categories vs articles
-done - Full-page create / edit article (not dialog)
-done - Admin list filters: search, category, locale, published + pagination
-Scheduled publish / unpublish
-Expiry date (auto-unpublish)
-Article attachments (images, PDF) with size/type limits
-Cover / hero image per article
-Rich text editor (WYSIWYG) in addition to Markdown
-Table of contents from headings
+done - publishedAt when published; cleared when unpublished
+Subtitle / eyebrow field
+Canonical external URL override
+Keywords / meta keywords field
+Custom code key for in-app tips (stable machine id separate from slug)
+
+5. Body and media
+done - Markdown rendering on Help article page and ticket suggestion links
+Rich text / WYSIWYG editor (in addition to or instead of raw Markdown)
+Sanitized HTML subset (XSS-safe)
+Embedded images with CDN / object storage
+Article attachments (PDF, images, logs) with size/type limits
+Cover / hero image
+Video embed (YouTube / Aparat / self-hosted) allow-list
+Callout / admonition blocks (note, warning, tip)
+Code blocks with copy button
+Tables, lists, anchors from headings
+Table of contents auto-generated from headings
 Estimated read time
+Print-friendly stylesheet
+
+6. Authorship and ownership
 Author / last editor attribution
-Internal notes on article (admin-only, not public)
+Content owner (user or team) assignment
+Reviewer assignment
+Internal notes on article (staff-only; never public)
+Change request comment on submit-for-review
 
-3. Visibility & audience
-done - Public published articles (permitAll public API)
-Internal-only articles (agents / admins only)
-Role-gated articles (e.g. billing staff)
-Customer-segment targeting (plan, country, language)
-“Coming soon” / teaser for unpublished (admin preview link)
+
+------------------------------------------------------------------------------
+C. PUBLISHING AND LIFECYCLE
+------------------------------------------------------------------------------
+
+7. Publish states
+done - Draft / published boolean
+Editorial workflow: Draft -> In review -> Approved -> Published -> Archived
+Scheduled publish (go live at datetime)
+Scheduled unpublish / expiry date
+Embargo until datetime
+Preview token URL for unpublished articles
+Coming soon teaser page for unpublished (optional)
+Soft-delete with restore window
+Hard-delete after retention period
+Archive (hidden from Help; keep for agents)
+
+8. Versioning and history
+Version snapshot on each publish
+Restore previous version
+Diff view between versions (text / side-by-side)
+Draft vs live divergence indicator
+Publish changelog / Whats new note (optional customer-visible)
+Audit log: create / edit / publish / unpublish / delete / restore
+Compare locale versions within a translation group
+
+
+------------------------------------------------------------------------------
+D. VISIBILITY AND AUDIENCE
+------------------------------------------------------------------------------
+
+9. Visibility scopes
+done - Public published articles (GET /public/kb/** permitAll)
+Internal-only articles (agents / admins)
+Role-gated articles (e.g. billing staff only)
+Authenticated-customers-only (hide from anonymous Help)
+Customer-segment targeting (plan, country, language, seller vs buyer)
 Password- or token-protected private articles (rare / B2B)
+IP / org allowlist articles — later / enterprise
 
-4. Localisation & i18n
-done - Article locale field + Help Center locale from UI language
-done - Admin / Help UI strings in en / fa / ar / tr
-Linked translation groups (same article across locales)
-Fallback locale chain (e.g. fa → en)
-RTL-aware article layout (already inherits app RTL)
-Locale-specific slugs (optional)
-Bulk “translate missing” workflow / AI assist (later)
+10. Preview and staging
+Preview as anonymous customer
+Preview as authenticated customer locale
+Preview as agent (includes internal)
+Staging Help environment separate from production — later
 
-5. Public Help Center (customer)
-done - Help Center browse page (/help)
-done - Search articles (debounced)
-done - Filter by category (tree-aware chips / tabs)
-done - Article detail by slug (/help/:slug)
-done - Contact support CTA from Help / article
+
+------------------------------------------------------------------------------
+E. LOCALISATION AND I18N
+------------------------------------------------------------------------------
+
+11. Content locales
+done - Article locale field
+done - Help Center follows UI language (TranslationService)
+done - Admin and Help UI strings in en / fa / ar / tr
+Linked translation groups (one logical article across locales)
+Fallback locale chain (e.g. fa -> en; ar -> en)
+Locale-specific slugs
+Bulk missing translation report
+Bulk translate workflow / AI assist (see AI section)
+Mark translation outdated when source locale changes
+RTL-aware article typography (inherits app RTL; verify markdown edge cases)
+
+
+------------------------------------------------------------------------------
+F. PUBLIC HELP CENTER (CUSTOMER)
+------------------------------------------------------------------------------
+
+12. Browse and navigation
+done - Help Center page (/help)
+done - Category filter tabs / chips (tree-aware depth)
+done - Article cards / listing grid
+done - Empty states when no matches
 done - Multi-language Help UI
-Featured / popular articles
-Recently updated articles
-Related articles (same category or manual links)
-Print / share / copy link
-Breadcrumbs on article
-Empty-state guidance when no matches
-Help Center on marketing landing site (domainify-landing consuming public API)
+done - Contact support CTA on Help and article pages
+Featured / popular articles section
+Recently updated articles section
+Home layout: search hero + categories + featured
+Breadcrumbs on article (Help -> Category path -> Title)
+Category landing page (articles in category + children option)
+Sitemap page of all categories
+Print / share / copy link on article
+Open Graph preview when sharing
+Related articles (same category and/or manual links)
+Prev / next article in category
+Was this helpful widget (see Feedback)
+Still need help ticket CTA (done pattern on article page)
 
-6. Ticket & support integration
-done - Suggest articles while creating a ticket (“Did you mean…?”)
-Suggest articles on ticket detail (agent + customer)
-“This resolved my issue” → close / cancel ticket draft
-Insert KB article link into agent reply (canned + picker)
-Auto-attach suggested articles to ticket create email ack
-Deflection metrics: tickets avoided after KB view
-Deep link from ticket category → default KB category
+13. Search UX
+done - Debounced search on Help
+done - Hero search field
+Autocomplete suggestions
+Highlight query matches in results
+Recent searches (local)
+Zero-result guidance + contact CTA
+Search scoped to category when a category is selected
 
-7. Agent / admin console
-done - Knowledge Base Admin under Support → Knowledge Base
-done - Category tree management UI
-done - Article list + full-width editor page
+14. Marketing / external Help
+Help Center on domainify-landing consuming public API
+Custom Help subdomain (help.domainify…)
+Embeddable Help browse iframe (CSP-aware) — later
+
+
+------------------------------------------------------------------------------
+G. TICKET AND SUPPORT INTEGRATION
+------------------------------------------------------------------------------
+
+15. Ticket touchpoints
+(Full ticket catalog: ticket-features.txt)
+done - Suggest articles on ticket create (Did you mean…?)
+Suggest articles on ticket detail (customer + agent)
+Article solved it -> close / cancel ticket draft
+Insert KB article into agent reply (picker)
+Canned reply variable for article URL
+Auto-attach suggested articles on ticket create ack email
+Map ticket category -> default KB category
+Internal articles in agent compose only
+Deflection metrics: KB view / suggest click -> no ticket
+Macro bundles that include KB links
+
+
+------------------------------------------------------------------------------
+H. ADMIN CONSOLE
+------------------------------------------------------------------------------
+
+16. Navigation and IA
+done - Support -> Knowledge Base subgroup in sidebar
+done - Separate Article categories admin page
+done - Separate Articles list admin page
+done - Full-width article create / edit page (/kb/admin/articles/new|:id/edit)
+done - /kb/admin redirects to articles list
+KB settings page (search, feedback, SEO defaults)
+Content calendar / scheduled publishes view
+
+17. Category admin UX
+done - Create / edit composer with parent picker
+done - Tree list with depth, parent chip, article count, active toggle
+done - Empty state + hero CTA
+Drag-and-drop reorder
+Inline add child
+Merge / move tools
+
+18. Article admin UX
+done - List filters: search, category, locale, published + pagination
+done - Status pills (published / draft)
+done - Full-page editor (title, slug, category, locale, summary, body, sort, published)
 Bulk publish / unpublish
 Bulk move category
+Bulk change locale / visibility
 Duplicate article
-Preview as customer (locale + published state)
-Admin quick search (command palette)
-Saved article filters / views
+Preview as customer from editor
+Autosave draft in editor
+Saved list filters / views
+Admin command palette quick-open article
+Split preview pane (markdown live preview)
 
-8. Search & discovery
-done - Basic full-text search (title / summary / body — admin & public)
-done - Public suggest endpoint (ticket create)
-Typo tolerance / fuzzy search
-Search synonyms & stop words (per locale)
-Highlight matches in results
-Search analytics (top queries, zero-result queries)
-Autocomplete in Help Center hero
-Filter search by locale + category + tag
 
-9. Tags & organization
-Article tags (multi-select)
-Tag cloud / filter on Help Center
-Collections / playbooks (ordered article sets)
-Pinned articles within a category
-Custom sort within category (manual order)
+------------------------------------------------------------------------------
+I. SEARCH AND DISCOVERY (PLATFORM)
+------------------------------------------------------------------------------
 
-10. Feedback & quality
-Article feedback (helpful / not helpful)
-Optional feedback comment + reason codes
+19. Search engine
+done - Basic full-text search (title / summary / body) admin + public
+done - Public suggest endpoint (limit, locale)
+Fuzzy / typo-tolerant search
+Stemming / locale analyzers (fa / ar aware where possible)
+Synonyms and stop-word lists per locale
+Boost title > summary > body
+Filter by locale, category, tag, visibility
+Reindex job / search health
+Highlight snippets in API response
+
+20. Search analytics
+Top queries
+Zero-result queries
+Click-through rate from search
+Suggest acceptance rate (ticket create)
+Query spelling correction suggestions
+
+
+------------------------------------------------------------------------------
+J. TAGS, COLLECTIONS AND ORGANIZATION
+------------------------------------------------------------------------------
+
+21. Tags
+Article tags (multi-select; admin-managed)
+Tag filter on Help and admin list
+Tag cloud / popular tags
+Auto-tag suggestions (see AI)
+
+22. Collections and playbooks
+Ordered collections (onboarding, DNS checklist, SMS setup)
+Collection landing pages
+Pin articles within a category
+Manual sort order within category (beyond global sortOrder)
+Featured article flag
+Required reading sets for agents
+
+
+------------------------------------------------------------------------------
+K. FEEDBACK AND CONTENT QUALITY
+------------------------------------------------------------------------------
+
+23. Reader feedback
+Helpful / not helpful votes
+Optional comment + reason codes (outdated, unclear, wrong, other)
+CSAT-style 1-5 on article (optional)
+Was this outdated? one-click flag
+Feedback throttle (one vote per user / fingerprint / day)
+Hide feedback on internal articles
+
+24. Feedback operations
 Feedback inbox for content owners
-CSAT-style rating on article
-“Was this outdated?” flag
-Content owners / reviewers assignment
-Editorial workflow: Draft → In review → Approved → Published
-Review due date / stale content alerts (not updated in N months)
+Filter feedback by article / category / locale / reason
+Notify owner on repeated not-helpful
+Close / resolve feedback items
+Export feedback CSV
 
-11. Versioning & history
-Article version history
-Restore previous version
-Diff view between versions
-Publish changelog / “What’s new” note
-Soft-delete articles with restore window
-Audit log (who edited / published / deleted)
+25. Editorial quality
+Stale content alerts (not updated in N months)
+Review due date per article
+Broken link checker (internal + external)
+Orphan articles (no category / empty category)
+Duplicate / near-duplicate detector
+Style guide lint (heading levels, empty summary)
+Readability score (optional)
 
-12. SEO & sharing (public)
-Meta title / description per article
-Open Graph / social preview image
+
+------------------------------------------------------------------------------
+L. SEO AND SHARING
+------------------------------------------------------------------------------
+
+26. SEO
+Meta title / description per article (fallback to title / summary)
+Open Graph / Twitter card image
 Canonical URL
-Sitemap of published articles
-Structured data (FAQ / HowTo schema)
-Custom canonical host for Help (help.domainify.…)
+hreflang tags for translation group
+XML sitemap of published articles
+robots meta for internal / noindex
+Structured data: FAQPage / Article / HowTo
+Custom Help host / path prefix
+Pretty locale paths (/fa/help/...) — optional
 
-13. Analytics & reporting
+
+------------------------------------------------------------------------------
+M. ANALYTICS AND REPORTING
+------------------------------------------------------------------------------
+
+27. Content analytics
 Article views over time
+Unique viewers (approx)
 Top articles / bottom articles
-Search → click → feedback funnel
+Views by locale / category
+Scroll depth / finish rate — later
+Referrer / entry source (Help search vs ticket suggest vs deep link)
+
+28. Funnel and business impact
+Search -> result click -> feedback funnel
 Ticket deflection rate attributed to KB
-Feedback helpful % by article / category / locale
-Export CSV of articles / feedback
-Dashboard widgets (KB health on admin home)
+Suggest -> open article -> create ticket anyway rate
+Feedback helpful percent by article / category / locale
+Content freshness report (age distribution)
 
-14. Automation & AI (later)
-Auto-suggest category from title/body
-AI draft from ticket thread
-AI translate article to other locales
-Detect duplicate / near-duplicate articles
+29. Delivery
+KB health widgets on admin home
+Saved analytics views
+Scheduled email digest to content owners
+Export articles CSV / feedback CSV
+Public anonymized stats API — optional
+
+
+------------------------------------------------------------------------------
+N. AUTOMATION AND AI
+------------------------------------------------------------------------------
+
+30. Automation
+Auto-suggest category from title / body
+Notify owners on stale / not-helpful threshold
+Auto-unpublish on expiry
+Webhook on publish / update / unpublish / feedback
+Sync article to external static site on publish
+
+31. AI assist (later / careful)
+AI draft article from ticket thread
+AI translate into other locales (human review required)
+AI rewrite for clarity / tone / locale
 Auto-tag from content
-Notify owners when article gets repeated “not helpful”
+Detect duplicates
+Answer widget grounded only on published KB (cite sources)
+Always offer talk-to-human / create ticket escape hatch
 
-15. Security, roles & audit
-done - Admin-only category/article management (AdminGuard + ROLE_ADMIN API)
+
+------------------------------------------------------------------------------
+O. SECURITY, ROLES AND COMPLIANCE
+------------------------------------------------------------------------------
+
+32. Access control
+done - Admin-only manage APIs (ROLE_ADMIN) + AdminGuard on admin routes
 done - Public read for published content
-Agent role: read internal articles + suggest; no publish
-Content editor role (publish without full admin)
-Rate limits on public search / suggest (anti-abuse)
-Audit trail for publish / delete
+Support Agent: read internal + use suggest; no publish
+Content Editor: create / edit / publish; no platform admin
+Content Admin: categories + publish + feedback + analytics
+Preview token secrets rotation
+Rate limits on public search / suggest / feedback
+CAPTCHA on anonymous feedback — optional
+
+33. Safety and audit
 Sanitize Markdown / HTML (XSS)
+Attachment malware scanning (if attachments exist)
+Audit trail for publish / delete / visibility changes
+PII scan before publish (warn on emails / phones in body)
+Legal hold on article versions — rare
+Retention: hard-delete drafts older than N days
 
-16. Channels & distribution (later)
-Embeddable Help widget (in-app)
-Share article via email / SMS template
+
+------------------------------------------------------------------------------
+P. CHANNELS AND DISTRIBUTION
+------------------------------------------------------------------------------
+
+34. Distribution
+Embeddable Help widget (in-app launcher)
+Share article via email / SMS template variables
 WhatsApp / Telegram FAQ bots consuming public API
-Webhooks (article published / updated)
-Export to PDF / static site
-Zapier / n8n hooks
+Export article to PDF
+Export Help as static site / Markdown zip
+Zapier / n8n hooks on publish
+RSS / Atom feed of recently published
+Partner / reseller branded Help skin — later
 
-17. Forms & customization
-Custom fields on articles (e.g. product area, severity)
+
+------------------------------------------------------------------------------
+Q. FORMS, SETTINGS AND BRANDING
+------------------------------------------------------------------------------
+
+35. Customization
+Custom fields on articles (product area, severity, audience, ...)
 Per-category required fields
-Brandable Help Center (logo, accent — later white-label)
-Configurable homepage sections (featured, categories, search-only)
-
-18. Domainify-specific content hooks
-Articles linked to product areas: Domains, Marketplace, SMS, Wallet, Tickets
-“Context help” deep links from product pages (?kb=slug)
-Show domain/SMS-related tips based on user’s active products
-In-app tips panel that pulls from KB by code key
+Configurable Help homepage sections (order: search, featured, categories)
+Brandable Help Center (logo, accent, favicon)
+Custom CSS for Help — later / careful
+Default locale and fallback policy settings
+Suggest threshold / limit settings
+Feedback enabled global toggle
 
 
-Suggested MVP (already largely shipped)
-done - Tree categories + article CRUD + publish + locales
-done - Public Help Center (search, categories, article page)
-done - Ticket-create article suggestions
-done - Admin split: categories vs articles; full-page editor
+------------------------------------------------------------------------------
+R. DOMAINIFY-SPECIFIC CONTENT HOOKS
+------------------------------------------------------------------------------
 
-Next high-value slice
-- Article feedback (helpful / not)
-- Internal-only articles for agents
-- Related articles + Help featured section
-- Version history
-- Search / deflection analytics
+36. Product-area content
+Articles tagged / linked to: Domains, Marketplace, SMS, Wallet, Tickets, Account
+Context help deep links from product pages (?kb=slug or /help/:slug)
+In-app tips panel keyed by stable article code
+Show tips based on user active products (has domains / SMS / listings)
+Domain expiry / DNS how-tos linked from domain detail
+SMS.ir delivery troubleshooting playbooks
+Marketplace order dispute guides
+Wallet top-up / payment failure guides
+Ticket portal before-you-write KB strip (beyond create suggest)
+
+
+------------------------------------------------------------------------------
+S. PLATFORM, API AND NON-FUNCTIONALS
+------------------------------------------------------------------------------
+
+37. API
+done - Admin REST: categories + articles CRUD / search
+done - Public REST: categories, articles search, by-slug, suggest
+Public API versioning
+OpenAPI docs for /public/kb and /admin/kb
+ETag / cache headers for published articles
+Idempotent publish webhooks
+Bulk import articles Markdown / CSV
+Bulk export
+
+38. Performance and reliability
+CDN cache for public article HTML/JSON
+Cache invalidation on publish
+Search index rebuild job
+Attachment storage quotas
+Horizontal-safe schedulers for publish-at / expire-at
+Health checks for KB schema / search
+
+39. UX and accessibility
+done - RTL + locale UI for Help and admin
+done - Responsive Help cards and admin forms
+Keyboard access for category filters and article reader
+Screen-reader structure (headings, landmarks)
+Reduced-motion friendly transitions
+Locale digits in read-time / counts where applicable
+
+
+------------------------------------------------------------------------------
+STATUS LEGEND
+------------------------------------------------------------------------------
+done     = shipped in Domainify in a usable form
+partial  = UI and/or backend started; finish before calling done
+(blank)  = not started; part of this permanent backlog
+
+
+------------------------------------------------------------------------------
+HOW TO USE THIS FILE (permanent rules)
+------------------------------------------------------------------------------
+1. Implement -> set the line to done (or partial while in flight).
+2. Never delete a line to simplify; if replaced, keep it and note superseded by X.
+3. Ticket-only work belongs in ticket-features.txt; keep only KB<->ticket touchpoints in section G.
+4. Domainify-specific hooks stay under section R even if generic KB products lack them.
+5. This file is the once-and-for-all KB feature list — extend only by adding lines, never by forking new catalogs.

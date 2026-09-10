@@ -1,273 +1,484 @@
-FRONTEND FEATURES (Angular 18)
+Domainify — Master Business Feature Catalog (complete)
 
-Core UI/UX
-Responsive Dashboard - Real-time stats cards with trend indicators
-Animated Transitions - Fade-in, stagger children animations
-Skeleton Loading States - For all async content areas
-Toast Notifications - Success, error, info messages
-Error Boundaries - Graceful error handling per component
-Offline Support - Service worker with cached assets
-PWA Installation - Install as desktop/mobile app
+This is the definitive Domainify product / business catalog for the whole platform.
+Update status in place only (done / partial / blank). Do not fork parallel wishlist files.
+Deep catalogs (do not duplicate line-by-line here):
+  - ticket-features.txt     — helpdesk / tickets (master)
+  - kb-features.txt         — knowledge base / Help Center (master)
+  - landing-features.txt    — marketing / landing site (master)
+  - dns-server-features.md  — Technitium DNS product plan
 
-Domain Management
-done - Domain Inventory Grid - Sort, filter, paginate domains
-done - Domain Categories - Tag domains by niche (Tech, Crypto, SaaS, etc.)
-done - Domain Ownership Verification - Prove control via DNS TXT or HTTP file
-done - WHOIS Lookup Integration - Show domain registration details
-done - Domain Registrar Expiry Lookup - Fetch expiry via RDAP; still editable manually
-done - Domain Renewal Reminders - Email/SMS alerts before expiry
+Product assumption: Domainify is a multi-locale (en / fa / ar / tr, RTL) domain portfolio + marketplace + SMS ops + wallet + support platform for customers and admins.
+
+
+------------------------------------------------------------------------------
+A. PLATFORM FOUNDATION
+------------------------------------------------------------------------------
+
+1. Application shell
+done - Angular authenticated app (dashboard layout, sidebar, page heroes)
+done - Multi-language UI (en / fa / ar / tr) + RTL
+done - Theme / appearance (light-dark patterns in app)
+done - Toast / snackbar errors and success
+Responsive polish across all major flows
+PWA install + offline service worker
+Skeleton loaders consistently on all list pages
+Global command palette (go to domain / ticket / article)
+
+2. API and architecture
+done - Spring Boot REST API under /api context-path
+done - JWT auth + refresh tokens
+done - PostgreSQL primary store
+done - Schema repair / ddl patterns for evolving modules
+OpenAPI / Swagger published for public + admin APIs
+API versioning (v1 / v2)
+Rate limiting (auth, public, write endpoints)
+Structured request logging with correlation IDs
+WebSocket / SSE for real-time inbox and notifications
+Feature flags service (server-driven module toggles)
+
+
+------------------------------------------------------------------------------
+B. IDENTITY, USERS AND ACCESS
+------------------------------------------------------------------------------
+
+3. Authentication
+done - Register / login / logout
+done - Refresh token rotation
+done - Forgot / reset password
+done - Email verification + resend
+done - Phone verification via SMS
+done - TOTP 2FA (setup, enable, disable, backup codes, login challenge)
+done - Password policy (admin-configurable; client validation)
+OAuth / social login (Google, GitHub, Microsoft, ...)
+Passkeys / WebAuthn — later
+Session list + remote logout
+Device trust / remember this device
+CAPTCHA on register / login / public forms
+
+4. Users and profiles
+done - User profile (name, avatar, phone, language, notification prefs)
+done - Admin user list / create / edit / enable-disable / set password / role
+done - Impersonation (admin -> customer) with audit + end session
+Preferred currency on profile
+Account delete / anonymize (DSR)
+Login activity history for user
+
+5. Roles and permissions
+done - Roles: USER, SELLER, ADMIN (ticket console admin-scoped today)
+Support Agent role (queue-scoped) — see ticket-features.txt
+Seller vs buyer capability matrix (marketplace)
+Content Editor role (KB publish) — see kb-features.txt
+Fine-grained permission matrix UI
+IP allowlist for admin console
+
+
+------------------------------------------------------------------------------
+C. DOMAIN PORTFOLIO
+------------------------------------------------------------------------------
+
+6. Inventory
+done - Domain CRUD for user portfolio
+done - Search / filter / paginate domains
+done - Domain status tracking (active, pending, sold, expired, ...)
+done - Hierarchical domain categories (admin tree)
+done - Ownership verification (DNS TXT / HTTP file)
+done - WHOIS lookup
+done - Registrar expiry via RDAP (manual edit still allowed)
+Bulk import domains (CSV)
+Bulk status / category / delete actions
+Domain notes / internal labels
+Domain valuation history (price over time)
+Favorites / watchlist inside portfolio
+Portfolio tags
+
+7. Renewal and lifecycle
+done - Global domain renewal reminder settings
 done - Per-domain custom renewal windows
+done - Email / SMS renewal alerts
 done - Admin send test renewal
+Auto-renewal billing from wallet (opt-in)
+Renewal calendar view
+Expiry risk dashboard (30/60/90 day buckets)
+Transfer IN / OUT tracking workflow
+Registrar account linking (multi-registrar)
 
-Bulk Operations - Select multiple domains for batch actions
-done - Domain Search - Real-time search with debouncing
-done - Domain Status Tracking - Active, pending, sold, expired
+8. DNS and hosting (product)
+(Detail: dns-server-features.md — Technitium)
+Authoritative DNS zones linked to portfolio domains
+Common record CRUD (A, AAAA, CNAME, MX, TXT, NS, SRV, CAA)
+Auto-create ownership verification TXT via hosted DNS
+DNSSEC management
+Secondary DNS / transfers
+DNS query analytics
+Nameserver onboarding wizard for customers
 
 
-Domain Valuation History - Track price changes over time
-Domain Transfer Management - Track IN/OUT transfers
+------------------------------------------------------------------------------
+D. DOMAIN ANALYZER AND DISCOVERY
+------------------------------------------------------------------------------
 
-DNS Management - View/edit DNS records per domain
+9. Analyzer
+partial - Analyzer UI page exists (scores currently mock / static)
+SEO / authority style scores (real data providers)
+Brandability score (length, pronounceability, keywords)
+Market value estimation (TLD, length, comps)
+Keyword extraction from domain name
+TLD comparison (.com / .io / .ai / .net / ...)
+Historical ownership / sales comps
+Backlink / traffic estimates (vendor APIs)
+Social handle availability check
+Saved analyzer reports per domain
 
-Domain Analyzer
-SEO Score Analysis - Domain authority, page authority metrics
-Brandability Score - Memorability, pronunciation analysis
-Market Value Estimation - AI-powered valuation based on TLD, length, keywords
-Competitor Analysis - Show similar domains for comparison
-Keyword Analysis - Identify valuable keywords in domain name
-TLD Comparison - Value comparison across .com, .io, .ai, .net, etc.
-Domain History - Previous ownership, sale history
-Backlink Analysis - SEO backlink profile visualization
-Traffic Estimates - Estimated organic traffic potential
-Social Media Handles - Check availability of @username on platforms
+10. Discovery and tools
+Advanced marketplace search (TLD, price, category, length)
+Domain name generator
+Live availability check
+Similar / typo domain suggestions
+Trending / recently listed rails
+Brandable / investment curated lists
+Free public tools on landing (generator, valuation teaser)
 
-Marketplace
-done - Domain Listings - Create/Edit/Deactivate listings
-done - Price Negotiation - Make/accept/reject offers
-Buy It Now - Immediate purchase option
-Auction System - Time-based domain auctions
-Featured Listings - Paid promotion for premium domains
-Domain Bundles - Sell multiple domains as a package
-Wishlist - Save domains for later
-Price Alerts - Get notified when desired domain price drops
-Domain Comparison - Side-by-side feature comparison
-Seller Profiles - Reputation, ratings, transaction history
 
-Analytics & Reports
-Revenue Dashboard - Total revenue, pending sales, commissions
-Domain Performance Charts - Views, offers, inquiries over time
-Sales Funnel Analysis - View → Inquiry → Offer → Sale
-Customer Demographics - Geographic, industry breakdown
-Top Performing TLDs - Which extensions generate most revenue
-Pricing Analytics - Optimal pricing recommendations
-Seasonal Trends - Domain sales patterns by month/quarter
-Export Reports - PDF, CSV, Excel downloads
-Custom Date Ranges - Flexible reporting periods
-Real-time Analytics - Live sales and traffic updates
+------------------------------------------------------------------------------
+E. MARKETPLACE
+------------------------------------------------------------------------------
 
-User Management
-Role-Based Access - Admin, Agent, Customer, Viewer roles
-Two-Factor Authentication - 2FA via SMS
-Password policy UI — min length, complexity, expiry, history
-SSO Integration - Google, GitHub, Microsoft login
-Activity Log - Track all user actions
-Notification Preferences - Choose notification channels
-API Key Management - Generate/revoke API keys
-Session Management - View active sessions, remote logout
+11. Listings
+done - Create / edit / deactivate domain listings
+done - Public marketplace browse
+done - Listing tied to verified ownership gate
+Buy It Now purchase path
+Featured / promoted listings (paid)
+Auction listings (time-boxed)
+Domain bundles (multi-domain package)
+Listing analytics (views, watchers, offers)
+Listing templates / suggested pricing
+Make-an-offer only vs fixed price modes
 
-Search & Discovery
-Advanced Search - Filter by TLD, price, category, length
-Domain Name Generator - AI-powered domain suggestions
-Domain Availability Check - Real-time whois lookup
-Similar Domain Search - Find variations of a domain
-Trending Domains - Most viewed/interested domains
-Recently Listed - Newest domain additions
-Price Drop Alerts - Domains that reduced price
-Category Browsing - Browse by industry niche
-Brandable Domains - Curated premium list
-Investment Domains - High-potential domain picks
+12. Offers and negotiation
+done - Make / accept / reject / withdraw offers
+done - Counter-offer flow
+done - Email / SMS notifications on offer events
+Offer expiry timers
+Best-offer display rules
+Offer history audit on listing
 
-BACKEND FEATURES (Spring Boot)
-API & Architecture
-RESTful API - Standard CRUD operations for all entities
-GraphQL Support - Flexible queries for complex data
-WebSocket Integration - Real-time notifications, chat
-GraphQL Subscriptions - Live data streaming
-API Versioning - v1, v2 endpoint support
-Rate Limiting - Prevent API abuse
-CORS Configuration - Cross-origin security
-Request Logging - Structured logging with correlation IDs
-API Documentation - Swagger/OpenAPI auto-generated
-API Gateway - Centralized routing, auth, rate limiting
+13. Orders and fulfillment
+done - Order create from buy-now / accepted offer
+done - Pay with wallet
+done - Pay with ZarinPal
+done - Order statuses including PENDING_PAYMENT, PAID_HELD, RELEASED, ...
+partial - Escrow hold on payment (PAID_HELD); release / refund phases incomplete
+Auto-release escrow after transfer confirmation / timer
+Manual admin release escrow
+Seller transfer checklist (auth code, unlock, push)
+Buyer confirmation of receipt
+Dispute open / evidence / admin decision
+Order messaging thread (or link to ticket)
 
-Database & Storage
-PostgreSQL - Primary relational database
-Redis Cache - Session storage, caching, rate limiting
-Elasticsearch - Domain search, full-text indexing
-MongoDB - Store unstructured analytics data
-File Storage - AWS S3/Cloudinary for images
-Database Migrations - Liquibase/Flyway versioning
-Connection Pooling - HikariCP optimization
-Read/Write Splitting - Database replication
-Data Archival - Automatic old data cleanup
-Backup/Restore - Automated database backups
+14. Social commerce
+Wishlist / save listing
+Price drop alerts
+Seller public profiles + ratings
+Buyer / seller reviews after release
+Domain comparison table
+Follow seller
 
-Security
-JWT Authentication - Stateless token-based auth
-OAuth 2.0 - Social login integration
-RBAC Authorization - Fine-grained permission control
-Data Encryption - At rest (AES) and in transit (TLS)
-SQL Injection Prevention - Parameterized queries
-XSS Protection - Input sanitization
-CSRF Tokens - Cross-site request forgery protection
-Password Hashing - bcrypt/argon2 with salt
-Audit Logging - Track all sensitive operations
-IP Whitelisting - Restrict admin access by IP
 
-Business Logic
-Domain Valuation Engine - Algorithm-based pricing
-Commission Calculation - Multi-tier commission structure
-Escrow Service - Secure payment handling for sales
-Invoice Generation - Automated billing
-Tax Calculation - Multi-region tax support
-Currency Conversion - Multi-currency pricing
-Subscription Management - Recurring revenue plans
-Discount/Coupon System - Promotional pricing
-Referral Program - Affiliate commissions
-Bundle Pricing - Multi-domain discounts
+------------------------------------------------------------------------------
+F. WALLET, PAYMENTS AND MONETIZATION
+------------------------------------------------------------------------------
 
-Integrations
-done - WHOIS API - Domain availability/registration data
-Payment Gateways - Stripe, PayPal, Razorpay
-done - Wallet top-up (Phase 1) - payment_settings, wallets/ledger, request/verify
-Email Service - SendGrid/AWS SES for notifications
-SMS Service - Twilio for alerts
-Analytics API - Google Analytics integration
-Social Media APIs - Twitter, LinkedIn, Facebook
-Domain Registrar APIs - GoDaddy, Namecheap, Cloudflare
-Shipping API - For physical domain certificates
-CRM Integration - Salesforce, HubSpot sync
-Accounting Software - QuickBooks, Xero sync
+15. Wallet
+done - Per-user wallet (available + held balances)
+done - Ledger entries
+done - Top-up via ZarinPal (request / verify / cancel + return page)
+done - Admin wallet adjust + notify
+done - Pay marketplace orders from wallet
+Idempotent payment verify (100/101 style hardening)
+Unpaid order expiry job
+Wallet statements / CSV export
+Multi-currency wallets
+Payout requests (seller -> bank / Sheba)
+Admin payout fulfillment queue
 
-Performance & Scaling
-Load Balancing - Nginx/HAProxy distribution
-Horizontal Scaling - Stateless service architecture
-CDN Integration - CloudFlare/AWS CloudFront
-Database Indexing - Query optimization
-Query Caching - Spring Cache abstraction
-Async Processing - RabbitMQ/Kafka for heavy tasks
-Batch Processing - Scheduled data jobs
-Connection Pooling - Optimized DB connections
-Compression - Gzip/Brotli response compression
-Image Optimization - Automatic resizing/compression
+16. Payment platform
+done - Payment settings (merchant, sandbox, min top-up, ...)
+done - ZarinPal integration package
+Additional gateways (Stripe, PayPal, local PSPs)
+Refund via gateway API
+Reconcile report (gateway vs ledger)
+Payment webhook hardening + replay protection
+Invoice PDF for top-ups and orders
+Tax / VAT lines (multi-region)
 
-BUSINESS FEATURES
-Monetization
-Commission Model - 10-20% per sale
-Subscription Plans - Premium seller features
-Featured Listings - Paid promotion slots
-Domain Brokerage - Facilitate private sales
-Domain Flipping - Buy low, sell high marketplace
-Domain Leasing - Rent domains monthly
-Domain Parking - Monetize parked domains with ads
-Advertising Revenue - Display ads on parked domains
-Premium Tier - Exclusive domain access for subscribers
-Enterprise Plans - Custom pricing for bulk buyers
+17. Currency
+done - Currency rate service / codes in UI
+Display currency switcher (toolbar)
+Locked FX rate at checkout
+Admin rate source configuration
 
-Customer Acquisition
-Referral Program - Earn credits for referrals
-Affiliate Marketing - Partner commission structure
-SEO Content - Domain naming guides, tutorials
-Blog Integration - Industry news, tips
-Email Campaigns - Weekly digest, offers
-Social Media - Automated posting, engagement
-Webinars - Domain investment education
-Free Tools - Domain name generator, valuation tool
-Community Forum - Buyer/seller community
-Testimonials - Success stories showcase
+18. Business monetization
+Commission on marketplace sale (percent / tiers)
+Subscription plans (premium seller tools)
+Featured listing fees (wallet debit)
+Domain brokerage concierge fee
+Domain leasing (monthly rent)
+Domain parking revenue share — later
+Discount codes / coupons
+Referral credits
+Affiliate partner program
+Enterprise / bulk buyer contracts
 
-Operations
-Domain Acquisition - Bulk domain purchasing
-Inventory Management - Track domain portfolio
-Renewal Management - Auto-renewal system
-done - Expiry Tracking - 90/60/30 day alerts
-Transfer Management - IN/OUT domain transfers
-Registrar Management - Multi-registrar integration
-DNS Management - Centralized DNS control
-SSL Certificates - Free SSL for domains
-Domain Privacy - WHOIS privacy protection
-Domain Parking - Monetize unlisted domains
 
-Analytics & Intelligence
-Market Trends - Domain industry insights
-Pricing Intelligence - Competitor price monitoring
-Demand Forecasting - Predict domain values
-Keyword Trends - Popular naming patterns
-TLD Analysis - Which extensions are trending
-Geographic Demand - Regional domain preferences
-Industry Analysis - Sector-specific domain demand
-Investment Scores - ROI potential ratings
-Liquidation Analysis - How quickly domains sell
-Portfolio Optimization - Suggest which domains to keep/sell
+------------------------------------------------------------------------------
+G. SMS OPERATIONS
+------------------------------------------------------------------------------
 
-Support & Trust
-Live Chat - Real-time customer support
-Ticket Management System
-FAQ Knowledge Base - See kb-features.txt (done: Public FAQ/articles with tree categories & search; admin categories/articles; help at /help; ticket create suggestions)
-Video Tutorials - How-to guides
-Trust Badges - Secure transaction indicators
-Escrow Service - Safe payment handling
-Dispute Resolution - Conflict mediation
-Money-Back Guarantee - Purchase protection
-Seller Verification - Identity verification badges
-Rating System - Buyer/seller feedback
+19. Sending
+done - Admin SMS.ir integration (credentials, lines, credit)
+done - Single send
+done - Bulk send
+done - Bulk send from file (UI)
+done - Scheduled SMS + cancel
+done - Send reports (live / archive)
+done - Daily packs + pack detail
+done - Receive reports (live / archive)
+SMS templates library with variables
+Customer self-serve SMS packs (productized, not admin-only)
+Delivery webhooks -> ticket / notification
+Opt-out / blacklist management
+Per-campaign analytics
 
-TECHNICAL/DEVOPS
-Development
-CI/CD Pipeline - GitHub Actions/GitLab CI
-Docker Containers - Containerized deployment
-Kubernetes Orchestration - Container management
-Environment Management - Dev, Staging, Prod
-Feature Flags - Rollout control
-A/B Testing - Experiment framework
-Code Coverage - Test coverage monitoring
-Static Analysis - SonarQube integration
-Dependency Scanning - Security vulnerability checks
-Performance Testing - Load testing automation
+20. SMS commerce (optional product line)
+Sell SMS credit packs in marketplace / wallet
+Usage quotas per user plan
+Reseller SMS brand for Domainify alerts only vs customer traffic
 
-Monitoring & Observability
-Application Monitoring - Spring Boot Actuator
-APM - New Relic/Datadog integration
-Error Tracking - Sentry integration
-Log Aggregation - ELK Stack (Elasticsearch, Logstash, Kibana)
-Metrics Dashboard - Grafana visualization
-Alerting System - PagerDuty/Opsgenie integration
-Uptime Monitoring - Synthetic transaction testing
-Slow Query Detection - Database performance tracking
-API Health Checks - Endpoint availability
-Business Metrics - Revenue, sales, user KPIs
 
-Infrastructure
-Cloud Deployment - AWS/Azure/GCP support
-Auto-Scaling - Dynamic resource allocation
-Database Replication - High availability
-Disaster Recovery - Backup/restore procedures
-Multi-Region Support - Global deployment
-SSL Management - Certificate automation
-DNS Management - Route53/Cloudflare integration
-Load Testing - k6/JMeter integration
-Security Scanning - OWASP ZAP integration
-Compliance Monitoring - GDPR, PCI-DSS compliance
-This covers 208 features across frontend, backend, business, and technical domains. Would you like me to prioritize which features to implement first, or dive deeper into any specific category?
+------------------------------------------------------------------------------
+H. NOTIFICATIONS AND COMMUNICATION
+------------------------------------------------------------------------------
 
-Phase 3 — Escrow release + featured
+21. In-app and channels
+done - Notification list, unread count, mark read / read-all
+done - Ticket, renewal, offer, payment notification types
+done - Email notification services for key events
+done - SMS notification for key / urgent events
+done - User channel preferences (email / SMS / payment)
+WebSocket / push delivery
+Per-event preference matrix
+Digest emails beyond ticket-agent digest
+Notification center filters and deep links
+Admin broadcast announcement
 
-Auto-release scheduler, manual release, paid featured listing.
 
-Phase 4 — Refunds + payouts
+------------------------------------------------------------------------------
+I. SUPPORT AND TRUST
+------------------------------------------------------------------------------
 
-Refund requests, admin approve → wallet credit and/or ZarinPal refund GraphQL, seller payout requests + admin fulfillment.
+22. Tickets / helpdesk
+(Master detail: ticket-features.txt)
+done - Core ticket lifecycle, inbox, SLA, CSAT, queues, rules, Domainify context links
+See ticket-features.txt for full permanent backlog (channels, agent roles, analytics, ...)
 
-Phase 5 — Hardening
+23. Knowledge base / Help Center
+(Master detail: kb-features.txt)
+done - Tree categories, articles, locales, public Help, ticket-create suggestions
+See kb-features.txt for full permanent backlog (feedback, SEO, versioning, ...)
 
-Idempotent verify (100/101), unpaid-order expiry job, reconcile report, audit logs, feature flags in features.txt.
+24. Trust and safety
+Seller verification badges
+Buyer protection / money-back policy pages
+Dispute mediation workflows (marketplace)
+Abuse / phishing report intake (domains)
+Trust badges on checkout
+Fraud signals on offers / top-ups
+Blocklist users / domains
+
+
+------------------------------------------------------------------------------
+J. SETTINGS AND ADMIN OPERATIONS
+------------------------------------------------------------------------------
+
+25. Customer settings
+done - Profile, password, appearance, language
+done - Notification preferences
+done - Security (2FA)
+
+26. Admin settings
+done - Password policy
+done - Email server config + test send
+done - SMS.ir config
+done - Domain renewal settings
+done - Payment settings
+Organization profile / branding
+Feature flags admin UI
+Maintenance mode banner
+Audit log explorer (cross-module)
+Data retention policies UI
+
+
+------------------------------------------------------------------------------
+K. ANALYTICS, DASHBOARD AND REPORTS
+------------------------------------------------------------------------------
+
+27. Dashboards
+partial - Dashboard / analytics / reports routes exist (UI largely mock data)
+Live KPIs: users, domains, GMV, wallet top-ups, open tickets, SMS volume
+Seller dashboard (views, offers, conversion)
+Admin ops dashboard (SLA, disputes, payouts queue)
+Customizable widget layout
+
+28. Reports
+Revenue / commission reports
+Marketplace funnel (view -> offer -> pay -> release)
+Domain portfolio expiry and renewal funnel
+SMS cost / delivery reports
+Ticket and KB widgets (cross-link catalogs)
+Export PDF / CSV / Excel
+Scheduled report emails
+Custom date ranges everywhere
+
+
+------------------------------------------------------------------------------
+L. MARKETING SITE AND GROWTH
+------------------------------------------------------------------------------
+
+29. Landing (domainify-landing)
+(Notes: landing-features.txt)
+done - Marketing home, contact, privacy/terms stubs, i18n shell
+CMS / blog
+Real legal copy review
+SEO landing pages per TLD / niche
+Embed or deep-link into app tools
+Live social proof / stats
+
+30. Growth loops
+Referral program (credits)
+Affiliate tracking
+Email campaigns / digests
+Webinars / education content
+Community / forum — later
+Public success stories / testimonials
+
+
+------------------------------------------------------------------------------
+M. SEARCH, SEO AND CONTENT PLATFORM
+------------------------------------------------------------------------------
+
+31. Cross-product search
+Global search (domains, listings, tickets, articles, users) for admin
+Marketplace faceted search performance (Elasticsearch optional)
+Public SEO for listings and Help articles
+Sitemap index (marketplace + help + landing)
+
+
+------------------------------------------------------------------------------
+N. AI AND AUTOMATION (CROSS-PRODUCT)
+------------------------------------------------------------------------------
+
+32. AI assists
+Domain valuation / naming assist (analyzer)
+Listing title / description generator
+Ticket reply / triage assist — see ticket-features.txt
+KB draft / translate assist — see kb-features.txt
+Fraud / anomaly detection on payments and offers
+Smart renewal risk scoring
+
+
+------------------------------------------------------------------------------
+O. INTEGRATIONS
+------------------------------------------------------------------------------
+
+33. External systems
+done - WHOIS / RDAP
+done - ZarinPal payments
+done - SMS.ir
+done - SMTP email
+Registrar APIs (GoDaddy, Namecheap, Cloudflare, Iranian registrars, ...)
+Accounting export (QuickBooks / Xero / local)
+CRM sync (HubSpot / Salesforce) — later
+Slack / Teams ops alerts
+Webhooks platform (signed, retry, event catalog)
+Zapier / n8n connectors
+
+
+------------------------------------------------------------------------------
+P. SECURITY, COMPLIANCE AND AUDIT
+------------------------------------------------------------------------------
+
+34. Application security
+done - JWT auth, password hashing, parameterized queries
+done - Impersonation audited
+XSS sanitization for Markdown / user HTML
+CSRF strategy for cookie flows (if any)
+Attachment malware scanning
+Secrets management / vault
+Dependency + container scanning in CI
+Penetration test cadence (process)
+
+35. Privacy and compliance
+GDPR / local privacy: export and delete account
+PII redaction in logs and exports
+Consent management for marketing SMS/email
+PCI scope minimization (redirect / hosted checkout)
+Data retention jobs
+Audit log retention
+
+
+------------------------------------------------------------------------------
+Q. DEVOPS AND QUALITY
+------------------------------------------------------------------------------
+
+36. Delivery
+CI/CD pipeline (build, test, deploy)
+Dockerized backend / frontend / landing
+Environment separation (dev / staging / prod)
+Database backup / restore runbooks
+Migrations strategy (beyond ad-hoc schema repair)
+Feature flag rollout / kill switches
+Load testing for marketplace checkout and SMS bulk
+Uptime monitoring and alerting
+Error tracking (Sentry-class)
+APM / slow query detection
+
+
+------------------------------------------------------------------------------
+R. NON-FUNCTIONAL PRODUCT QUALITY
+------------------------------------------------------------------------------
+
+37. UX quality bar
+done - Shared design language (heroes, panels, filter tabs, empty states)
+Accessibility (WCAG-oriented labels, keyboard, contrast)
+Performance budgets (LCP for Help / marketplace)
+Empty / error / loading states on every primary page
+Mobile-first critical flows (login, buy, ticket reply, top-up)
+
+
+------------------------------------------------------------------------------
+STATUS LEGEND
+------------------------------------------------------------------------------
+done     = shipped in a usable form in Domainify
+partial  = started (UI and/or backend) but not business-complete
+(blank)  = not started; permanent backlog item
+
+
+------------------------------------------------------------------------------
+HOW TO USE THIS FILE (permanent rules)
+------------------------------------------------------------------------------
+1. This file is the once-and-for-all Domainify business feature list.
+2. Implement -> mark done (or partial while in flight). Never delete lines to simplify.
+3. For Tickets / KB / Landing / DNS depth, edit the dedicated catalog; keep only summary + pointer here.
+4. Add new business capabilities as new lines under the right section — do not create features-v2.txt.
+5. Domainify differentiators (portfolio + marketplace escrow + SMS.ir + wallet + support) stay first-class even when generic SaaS checklists omit them.
+
+
+------------------------------------------------------------------------------
+SPECIALIZED CATALOGS
+------------------------------------------------------------------------------
+ticket-features.txt      Helpdesk / ticket business (complete master)
+kb-features.txt          Knowledge Base / Help Center (complete master)
+landing-features.txt     Marketing / landing site (complete master)
+dns-server-features.md   Technitium-backed DNS product plan

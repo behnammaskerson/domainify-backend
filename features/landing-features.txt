@@ -1,0 +1,352 @@
+Landing Site — Master Feature Catalog (complete)
+
+This is the definitive Domainify marketing / landing site catalog (domainify-landing).
+Update status in place only (done / partial / blank). Do not fork parallel lists.
+Platform / app product depth lives in features.txt; tickets in ticket-features.txt; KB in kb-features.txt; DNS in dns-server-features.md.
+
+Product assumption: public multilingual marketing site that explains Domainify (portfolio, marketplace, analyzer, wallet, SMS, support), drives register/login, captures leads via contact, and meets basic legal/SEO/trust needs for launch in en / fa / ar / tr (RTL).
+
+
+------------------------------------------------------------------------------
+A. SITE FOUNDATION
+------------------------------------------------------------------------------
+
+1. Application shell
+done - Angular standalone SPA (domainify-landing)
+done - Site header + footer layout
+done - Router outlet for pages
+done - Light / dark theme toggle (persisted)
+done - Language switcher in header
+Responsive mobile nav (drawer / collapse polish)
+Skip-to-content link
+Sticky header with shrink on scroll
+Announcement / promo banner (dismissible)
+Maintenance / launch countdown mode
+
+2. Design system
+done - CSS tokens (gold accent, surfaces, radii, spacing)
+done - Material M3 theme integration
+done - Display + UI fonts (Syne, Manrope)
+done - Vazirmatn for fa / ar
+done - Shared button / section / container styles
+done - Hero atmosphere (gradient / motion orb)
+Illustration / icon set consistency audit
+Motion reduced-preference support
+Brand asset kit (logo SVG light/dark, favicon, og defaults)
+Component library doc page (internal) — optional
+
+
+------------------------------------------------------------------------------
+B. INTERNATIONALIZATION
+------------------------------------------------------------------------------
+
+3. Locales
+done - Locales: en, fa, ar, tr
+done - ngx-translate + HTTP JSON loader
+done - Persist language preference (localStorage)
+done - Detect browser language on first visit
+done - document lang / dir / lang-* class
+done - RTL for fa / ar
+Locale-prefixed routes (/fa, /ar, ...) — optional SEO
+hreflang link tags per page
+Translated title and meta description per locale
+Fix i18n key collisions (e.g. home.features.support string vs object)
+Missing-key CI check across en/fa/ar/tr
+Number / date locale formatting on marketing stats
+
+
+------------------------------------------------------------------------------
+C. INFORMATION ARCHITECTURE AND ROUTING
+------------------------------------------------------------------------------
+
+4. Core routes
+done - Home /
+done - Pricing route scrolls home pricing (#pricing)
+done - Contact /contact
+done - Terms /terms
+done - Privacy /privacy
+done - Unknown paths redirect home
+About / company
+Features index + feature detail pages
+Pricing dedicated page (if split from home)
+FAQ / Help teaser (link to app /help)
+Blog / resources index + article
+Docs / developers
+Status / uptime
+Careers
+Press / brand kit
+Security / trust center
+Changelog / product updates
+Cookie policy
+Acceptable use / refund / DPA (as needed)
+Partners / affiliates
+Marketplace public teaser (read-only sample listings)
+
+5. Navigation
+done - Header links: product anchors, pricing, contact, login, register
+done - Footer links: legal, contact, register
+Secondary footer columns (product, company, resources, legal)
+CTA hierarchy rules (primary register vs secondary login)
+Breadcrumbs on interior pages
+Sitemap HTML page
+
+
+------------------------------------------------------------------------------
+D. HOME / PRODUCT STORY
+------------------------------------------------------------------------------
+
+6. Hero
+done - Brand-forward hero (name as primary signal)
+done - Headline + supporting line + CTA group
+done - Register + login CTAs
+done - Hero visual / motion (not flat single color)
+A/B testable headline variants
+Locale-specific hero imagery
+Social proof strip under hero (logos / counts)
+Watch demo / video modal
+
+7. Features narrative
+done - Features section with product pillars (portfolio, marketplace, analyzer, wallet, support, SMS)
+done - How-it-works section (list -> offer -> settle)
+done - Region / local-stack section (languages, ZarinPal, SMS.ir)
+Feature deep-dive cards linking to detail pages
+Interactive product screenshots / UI mock carousel
+Escrow / trust callout block
+Domain analyzer teaser with sample score
+SMS ops teaser for admin buyers
+Support + Help Center teaser linking to app /help or public KB API
+
+8. Pricing narrative
+done - Pricing section with narrative cards (portfolio free, sales commission, featured boost)
+Numeric plans / commission table (when business locks numbers)
+Per-plan CTA to register with plan query param
+Currency display (IRT / USD) for marketing prices
+FAQ accordion under pricing
+Enterprise contact sales CTA
+
+9. Conversion blocks
+done - Contact teaser -> /contact
+done - Final CTA (register + open app)
+Exit-intent modal (careful / optional)
+Sticky mobile CTA bar
+Newsletter signup
+
+
+------------------------------------------------------------------------------
+E. CONTACT AND LEAD CAPTURE
+------------------------------------------------------------------------------
+
+10. Contact page
+done - Contact form (name, email, company, subject, message)
+done - Validation + success / error states
+done - POST to backend /public/contact
+done - Mailto fallback
+done - contactEmail in environment / footer
+Topic dropdown (sales, support, press, partnership)
+Phone / WhatsApp field (optional, locale-aware)
+Attachment upload (limits) — optional
+CAPTCHA / Turnstile / hCaptcha
+Rate limit messaging UX
+Office / company address block (if applicable)
+Map embed — optional
+CRM webhook / email ticket creation from contact
+Prefill subject from query (?topic=sales)
+
+
+------------------------------------------------------------------------------
+F. LEGAL, PRIVACY AND COMPLIANCE
+------------------------------------------------------------------------------
+
+11. Legal pages
+done - Terms page structure (i18n sections)
+done - Privacy page structure (i18n sections)
+partial - Copy marked draft; replace with counsel-reviewed text before launch
+Cookie policy page
+Cookie consent banner / preference center
+Refund / cancellation policy (marketplace)
+Acceptable use policy
+Data processing addendum (B2B)
+Imprint / company registration details (jurisdiction-specific)
+Last-updated date driven from content (not hard-coded only)
+Locale-accurate legal (not English-only machine stubs)
+
+
+------------------------------------------------------------------------------
+G. TRUST, SOCIAL PROOF AND BRAND
+------------------------------------------------------------------------------
+
+12. Trust
+Customer logos / testimonials
+Case studies
+Security badges (2FA, escrow, verified ownership)
+Press mentions
+Live or audited stats (domains listed, GMV — careful with claims)
+Team / about story
+Compliance statements (GDPR-oriented, local privacy)
+
+13. Brand
+Consistent Domainify naming and tagline across locales
+OG image set per locale / page
+Social profile links in footer
+Brand guidelines download
+
+
+------------------------------------------------------------------------------
+H. CONTENT MARKETING AND SEO
+------------------------------------------------------------------------------
+
+14. SEO basics
+partial - Static index title / description only today
+Per-route title + meta description (i18n)
+Canonical URLs
+Open Graph + Twitter cards
+robots.txt
+XML sitemap (static or prerendered routes)
+JSON-LD Organization / SoftwareApplication / FAQPage
+hreflang alternates
+Clean URLs without hash routing issues for SEO
+Prerender / SSR for public pages
+Core Web Vitals budgets for landing
+
+15. Content programs
+Blog / resources CMS or MD pipeline
+Domain naming guides and SEO content
+TLD / niche landing pages (buy .ai, sell .ir, ...)
+Glossary
+Video tutorials / YouTube embeds
+Changelog / product updates feed
+Public Help highlights (consume KB public API cards)
+
+
+------------------------------------------------------------------------------
+I. PRODUCT PREVIEWS AND INTEGRATIONS
+------------------------------------------------------------------------------
+
+16. Live / semi-live previews
+Sample marketplace listings carousel (public API or curated JSON)
+Featured domains rail
+Public domain analyzer widget (limited freemium)
+Embed Help search box (public KB suggest/search)
+Status widget (operational)
+
+17. App handoff
+done - Environment URLs: loginUrl, registerUrl, appUrl, apiBaseUrl, contactEmail
+Production URL configuration (replace *.domainify.example)
+UTM preservation onto register links
+Deep links: register?plan= / login?returnUrl=
+Locale passthrough to app (?lang=fa)
+Single sign-on handoff — later / shared cookie domain
+
+
+------------------------------------------------------------------------------
+J. ANALYTICS AND GROWTH INSTRUMENTATION
+------------------------------------------------------------------------------
+
+18. Analytics
+Page view analytics (privacy-aware)
+Event tracking (CTA click, pricing view, contact submit, lang switch, theme switch)
+Funnel: land -> pricing -> register click
+UTM campaign reports
+Heatmaps — optional
+Major consent-gated tags (Ads / Analytics)
+
+19. Growth
+Newsletter list integration
+Referral landing variant
+Affiliate query param capture
+A/B testing framework for hero / pricing
+Localized ads landing variants
+
+
+------------------------------------------------------------------------------
+K. PERFORMANCE, QUALITY AND A11Y
+------------------------------------------------------------------------------
+
+20. Performance
+Route-level code splitting (already standalone pages)
+Image optimization / modern formats
+Font loading strategy (display swap already)
+Lazy below-fold media
+Lighthouse CI for landing
+
+21. Accessibility
+done - Some a11y i18n strings
+Focus states on all CTAs
+Keyboard mobile nav
+Color contrast audit (gold on dark/light)
+Form error announcements
+Reduced motion for hero orb / reveals
+
+22. Quality
+E2E smoke (home, contact submit mock, lang switch, theme)
+Visual regression on hero / pricing
+Broken-link check for header/footer
+i18n parity test
+
+
+------------------------------------------------------------------------------
+L. SECURITY AND ABUSE
+------------------------------------------------------------------------------
+
+23. Public surface hardening
+HTTPS only in production
+CAPTCHA on contact
+Honeypot field
+Backend rate limits on /public/contact (document + verify)
+CSP headers for landing host
+Secure external link rel (noopener)
+No secrets in frontend env
+
+
+------------------------------------------------------------------------------
+M. OPS AND RELEASE
+------------------------------------------------------------------------------
+
+24. Environments
+done - environment.ts / environment.prod.ts split
+Staging landing with staging API
+Preview deployments per PR
+Release checklist (legal, URLs, analytics, sitemap)
+Uptime monitor for landing + contact API
+Error tracking (client)
+
+
+------------------------------------------------------------------------------
+N. OPTIONAL EXPANSION SURFACES
+------------------------------------------------------------------------------
+
+25. Extra marketing surfaces
+Webinar / events pages
+Partner application form
+Investor / press kit page
+Multi-brand white-label marketing — later
+App store / PWA install pitch section
+Community / Discord / Telegram links (locale-relevant)
+WhatsApp click-to-chat for sales (MENA)
+
+
+------------------------------------------------------------------------------
+STATUS LEGEND
+------------------------------------------------------------------------------
+done     = shipped in domainify-landing in a usable form
+partial  = started but not launch-complete
+(blank)  = not started; permanent backlog item
+
+
+------------------------------------------------------------------------------
+HOW TO USE THIS FILE (permanent rules)
+------------------------------------------------------------------------------
+1. This file is the once-and-for-all landing / marketing site feature list.
+2. Implement -> mark done (or partial while in flight). Never delete lines to simplify.
+3. Do not move app product depth here; link to features.txt / ticket-features.txt / kb-features.txt.
+4. Extend only by adding lines under the right section — never create landing-features-v2.txt.
+5. Before production launch, clear all partial legal/SEO/URL items marked draft or example hosts.
+
+
+------------------------------------------------------------------------------
+RELATED CATALOGS
+------------------------------------------------------------------------------
+features.txt             Domainify business master
+ticket-features.txt      Helpdesk (app)
+kb-features.txt          Knowledge Base / Help Center (app + public API)
+dns-server-features.md   DNS product (app)
