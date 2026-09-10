@@ -103,6 +103,10 @@ public class Ticket {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    /** When the ticket most recently entered RESOLVED (auto-close silence clock). */
+    @Column(name = "resolved_at")
+    private Instant resolvedAt;
+
     @Column(name = "archived_at")
     private Instant archivedAt;
 
@@ -316,6 +320,14 @@ public class Ticket {
 
     public void setClosedAt(Instant closedAt) {
         this.closedAt = closedAt;
+    }
+
+    public Instant getResolvedAt() {
+        return resolvedAt;
+    }
+
+    public void setResolvedAt(Instant resolvedAt) {
+        this.resolvedAt = resolvedAt;
     }
 
     public Instant getArchivedAt() {

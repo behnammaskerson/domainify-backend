@@ -162,6 +162,14 @@ public class TicketSettingsDto {
     @NotNull
     private Boolean automationCsatInviteEnabled = true;
 
+    @NotNull
+    private Boolean automationAutoCloseEnabled = false;
+
+    @NotNull
+    @Min(1)
+    @Max(3650)
+    private Integer automationAutoCloseDays = 7;
+
     public TicketSettingsDto() {
     }
 
@@ -526,5 +534,21 @@ public class TicketSettingsDto {
 
     public void setAutomationCsatInviteEnabled(Boolean automationCsatInviteEnabled) {
         this.automationCsatInviteEnabled = automationCsatInviteEnabled;
+    }
+
+    public Boolean getAutomationAutoCloseEnabled() {
+        return automationAutoCloseEnabled;
+    }
+
+    public void setAutomationAutoCloseEnabled(Boolean automationAutoCloseEnabled) {
+        this.automationAutoCloseEnabled = automationAutoCloseEnabled;
+    }
+
+    public Integer getAutomationAutoCloseDays() {
+        return automationAutoCloseDays;
+    }
+
+    public void setAutomationAutoCloseDays(Integer automationAutoCloseDays) {
+        this.automationAutoCloseDays = automationAutoCloseDays;
     }
 }

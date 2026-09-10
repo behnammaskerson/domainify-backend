@@ -1585,6 +1585,50 @@ public class TicketService {
         return count;
     }
 
+    @Transactional
+    public int processAutoCloseAfterResolve() {
+        TicketSettings settings = ticketSettingsService.getOrCreate();
+        if (!settings.isAutomationAutoCloseEnabled()) {
+            return 0;
+        }
+        int days = settings.getAutomationAutoCloseDays();
+        Instant cutoff = Instant.now().minus(Duration.ofDays(days));
+        List<Ticket> candidates = ticketRepository.findEligibleForAutoCloseAfterResolve(cutoff);
+        if (candidates.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        for (Ticket candidate : candidates) {
+            if (candidate.getId() == null) {
+                continue;
+            }
+            Ticket ticket = ticketRepository.findByIdForUpdate(candidate.getId()).orElse(null);
+            if (ticket == null || !isAutoCloseAfterResolveEligible(ticket, cutoff)) {
+                continue;
+            }
+            applyStatus(ticket, TicketStatus.CLOSED);
+            ticketRepository.save(ticket);
+            notificationService.onClosed(ticket, null, true);
+            count++;
+        }
+        return count;
+    }
+
+    private boolean isAutoCloseAfterResolveEligible(Ticket ticket, Instant cutoff) {
+        if (ticket.getDeletedAt() != null || ticket.getArchivedAt() != null) {
+            return false;
+        }
+        if (ticket.getStatus() != TicketStatus.RESOLVED) {
+            return false;
+        }
+        Instant resolvedAt = ticket.getResolvedAt();
+        if (resolvedAt == null || !resolvedAt.isBefore(cutoff)) {
+            return false;
+        }
+        Instant lastCustomer = ticket.getLastCustomerPublicReplyAt();
+        return lastCustomer == null || !lastCustomer.isAfter(resolvedAt);
+    }
+
     private boolean isNoReplyEligible(Ticket ticket, Instant cutoff) {
         if (ticket.getDeletedAt() != null || ticket.getArchivedAt() != null) {
             return false;
@@ -1684,6 +1728,11 @@ public class TicketService {
             }
         } else if (previous == TicketStatus.CLOSED) {
             ticket.setClosedAt(null);
+        }
+        if (nextStatus == TicketStatus.RESOLVED) {
+            ticket.setResolvedAt(Instant.now());
+        } else if (nextStatus != TicketStatus.CLOSED) {
+            ticket.setResolvedAt(null);
         }
         // Clear CSAT when ticket leaves resolved/closed so a later resolve can be rated again.
         if (isActiveOpenStatus(nextStatus) && ticket.getId() != null

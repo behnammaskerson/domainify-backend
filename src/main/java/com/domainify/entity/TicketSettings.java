@@ -44,6 +44,7 @@ public class TicketSettings {
     public static final String DEFAULT_BUSINESS_HOLIDAYS_JSON = "[]";
     public static final int DEFAULT_SLA_WARN_HOURS_BEFORE = 2;
     public static final int DEFAULT_AUTOMATION_NO_REPLY_HOURS = 48;
+    public static final int DEFAULT_AUTOMATION_AUTO_CLOSE_DAYS = 7;
 
     @Id
     private Long id = SINGLETON_ID;
@@ -231,6 +232,16 @@ public class TicketSettings {
     @Column(name = "automation_csat_invite_enabled", nullable = true)
     private Boolean automationCsatInviteEnabled = true;
 
+    /** Auto-close RESOLVED tickets when the customer stays silent for N days. */
+    @ColumnDefault("false")
+    @Column(name = "automation_auto_close_enabled", nullable = true)
+    private Boolean automationAutoCloseEnabled = false;
+
+    /** Days after resolve with no customer reply before auto-close. */
+    @ColumnDefault("7")
+    @Column(name = "automation_auto_close_days", nullable = true)
+    private Integer automationAutoCloseDays = DEFAULT_AUTOMATION_AUTO_CLOSE_DAYS;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -336,6 +347,12 @@ public class TicketSettings {
         if (automationCsatInviteEnabled == null) {
             automationCsatInviteEnabled = true;
         }
+        if (automationAutoCloseEnabled == null) {
+            automationAutoCloseEnabled = false;
+        }
+        if (automationAutoCloseDays == null || automationAutoCloseDays < 1 || automationAutoCloseDays > 3650) {
+            automationAutoCloseDays = DEFAULT_AUTOMATION_AUTO_CLOSE_DAYS;
+        }
     }
 
     public static TicketSettings defaults() {
@@ -376,6 +393,8 @@ public class TicketSettings {
         settings.setAutomationNoReplyHours(DEFAULT_AUTOMATION_NO_REPLY_HOURS);
         settings.setAutomationNoReplyAction(TicketNoReplyAction.REMIND);
         settings.setAutomationCsatInviteEnabled(true);
+        settings.setAutomationAutoCloseEnabled(false);
+        settings.setAutomationAutoCloseDays(DEFAULT_AUTOMATION_AUTO_CLOSE_DAYS);
         settings.normalize();
         return settings;
     }
@@ -799,6 +818,22 @@ public class TicketSettings {
 
     public void setAutomationCsatInviteEnabled(Boolean automationCsatInviteEnabled) {
         this.automationCsatInviteEnabled = automationCsatInviteEnabled;
+    }
+
+    public boolean isAutomationAutoCloseEnabled() {
+        return Boolean.TRUE.equals(automationAutoCloseEnabled);
+    }
+
+    public void setAutomationAutoCloseEnabled(Boolean automationAutoCloseEnabled) {
+        this.automationAutoCloseEnabled = automationAutoCloseEnabled;
+    }
+
+    public int getAutomationAutoCloseDays() {
+        return automationAutoCloseDays != null ? automationAutoCloseDays : DEFAULT_AUTOMATION_AUTO_CLOSE_DAYS;
+    }
+
+    public void setAutomationAutoCloseDays(Integer automationAutoCloseDays) {
+        this.automationAutoCloseDays = automationAutoCloseDays;
     }
 
     public Instant getUpdatedAt() {

@@ -119,7 +119,9 @@ public class TicketSettingsService {
                 || request.getAutomationNoReplyEnabled() == null
                 || request.getAutomationNoReplyHours() == null
                 || request.getAutomationNoReplyAction() == null
-                || request.getAutomationCsatInviteEnabled() == null) {
+                || request.getAutomationCsatInviteEnabled() == null
+                || request.getAutomationAutoCloseEnabled() == null
+                || request.getAutomationAutoCloseDays() == null) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
 
@@ -239,6 +241,10 @@ public class TicketSettingsService {
         if (automationNoReplyAction == null) {
             throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
         }
+        int automationAutoCloseDays = request.getAutomationAutoCloseDays();
+        if (automationAutoCloseDays < 1 || automationAutoCloseDays > 3650) {
+            throw new ApiException(ErrorCode.TICKET_SETTINGS_INVALID);
+        }
 
         TicketSettings settings = getOrCreate();
         settings.setReopenWindowDays(days);
@@ -287,6 +293,8 @@ public class TicketSettingsService {
         settings.setAutomationNoReplyHours(automationNoReplyHours);
         settings.setAutomationNoReplyAction(automationNoReplyAction);
         settings.setAutomationCsatInviteEnabled(request.getAutomationCsatInviteEnabled());
+        settings.setAutomationAutoCloseEnabled(request.getAutomationAutoCloseEnabled());
+        settings.setAutomationAutoCloseDays(automationAutoCloseDays);
         settings.normalize();
         return toDto(ticketSettingsRepository.save(settings));
     }
@@ -586,6 +594,8 @@ public class TicketSettingsService {
         dto.setAutomationNoReplyHours(settings.getAutomationNoReplyHours());
         dto.setAutomationNoReplyAction(settings.getAutomationNoReplyAction());
         dto.setAutomationCsatInviteEnabled(settings.isAutomationCsatInviteEnabled());
+        dto.setAutomationAutoCloseEnabled(settings.isAutomationAutoCloseEnabled());
+        dto.setAutomationAutoCloseDays(settings.getAutomationAutoCloseDays());
         return dto;
     }
 

@@ -99,6 +99,18 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
     List<Ticket> findEligibleForNoReplyAutomation(@Param("cutoff") Instant cutoff);
 
     @Query("""
+            select t from Ticket t
+            where t.deletedAt is null
+              and t.archivedAt is null
+              and t.status = com.domainify.entity.TicketStatus.RESOLVED
+              and t.resolvedAt is not null
+              and t.resolvedAt < :cutoff
+              and (t.lastCustomerPublicReplyAt is null
+                   or t.lastCustomerPublicReplyAt <= t.resolvedAt)
+            """)
+    List<Ticket> findEligibleForAutoCloseAfterResolve(@Param("cutoff") Instant cutoff);
+
+    @Query("""
             select t.assignee.id, count(t)
             from Ticket t
             where t.deletedAt is null

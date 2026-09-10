@@ -82,6 +82,27 @@ public class TicketAutomationsSchemaRepair implements ApplicationRunner {
                     """);
 
             jdbcTemplate.execute("""
+                    ALTER TABLE ticket_settings
+                      ADD COLUMN IF NOT EXISTS automation_auto_close_enabled BOOLEAN DEFAULT false
+                    """);
+            jdbcTemplate.update("""
+                    UPDATE ticket_settings
+                       SET automation_auto_close_enabled = false
+                     WHERE automation_auto_close_enabled IS NULL
+                    """);
+
+            jdbcTemplate.execute("""
+                    ALTER TABLE ticket_settings
+                      ADD COLUMN IF NOT EXISTS automation_auto_close_days INTEGER DEFAULT 7
+                    """);
+            jdbcTemplate.update("""
+                    UPDATE ticket_settings
+                       SET automation_auto_close_days = 7
+                     WHERE automation_auto_close_days IS NULL
+                        OR automation_auto_close_days < 1
+                    """);
+
+            jdbcTemplate.execute("""
                     ALTER TABLE tickets
                       ADD COLUMN IF NOT EXISTS last_staff_public_reply_at TIMESTAMPTZ
                     """);
@@ -92,6 +113,16 @@ public class TicketAutomationsSchemaRepair implements ApplicationRunner {
             jdbcTemplate.execute("""
                     ALTER TABLE tickets
                       ADD COLUMN IF NOT EXISTS no_reply_reminded_at TIMESTAMPTZ
+                    """);
+            jdbcTemplate.execute("""
+                    ALTER TABLE tickets
+                      ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ
+                    """);
+            jdbcTemplate.update("""
+                    UPDATE tickets
+                       SET resolved_at = COALESCE(updated_at, created_at)
+                     WHERE status = 'RESOLVED'
+                       AND resolved_at IS NULL
                     """);
 
             log.info("Ticket automations schema repair applied");
