@@ -48,6 +48,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/public/contact").permitAll()
+                .requestMatchers(HttpMethod.GET, "/public/kb/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.GET, "/files/avatars/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()

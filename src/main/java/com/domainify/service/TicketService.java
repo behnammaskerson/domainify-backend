@@ -28,7 +28,10 @@ import com.domainify.dto.TransferTicketRequest;
 import com.domainify.dto.UpdateTicketDueDateRequest;
 import com.domainify.dto.UpdateTicketMessageRequest;
 import com.domainify.dto.UpdateTicketTagsRequest;
+import com.domainify.entity.BusinessRuleTrigger;
 import com.domainify.entity.Domain;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.domainify.entity.DomainOwnershipStatus;
 import com.domainify.entity.Ticket;
 import com.domainify.entity.TicketAttachment;
@@ -106,6 +109,7 @@ import java.util.Set;
 @Service
 public class TicketService {
 
+    private static final Logger log = LoggerFactory.getLogger(TicketService.class);
     private static final int SUBJECT_MAX = 200;
     private static final int DESCRIPTION_MAX = 10000;
     private static final int REPLY_MAX = 10000;
@@ -139,6 +143,7 @@ public class TicketService {
     private final DomainService domainService;
     private final TicketAutoAssignService ticketAutoAssignService;
     private final TicketSmsLinkService ticketSmsLinkService;
+    private final BusinessRuleEngineService businessRuleEngineService;
 
     public TicketService(
             TicketRepository ticketRepository,
@@ -166,7 +171,8 @@ public class TicketService {
             DomainRepository domainRepository,
             DomainService domainService,
             TicketAutoAssignService ticketAutoAssignService,
-            @Lazy TicketSmsLinkService ticketSmsLinkService) {
+            @Lazy TicketSmsLinkService ticketSmsLinkService,
+            @Lazy BusinessRuleEngineService businessRuleEngineService) {
         this.ticketRepository = ticketRepository;
         this.ticketMessageRepository = ticketMessageRepository;
         this.ticketMessageRevisionRepository = ticketMessageRevisionRepository;
@@ -193,6 +199,7 @@ public class TicketService {
         this.domainService = domainService;
         this.ticketAutoAssignService = ticketAutoAssignService;
         this.ticketSmsLinkService = ticketSmsLinkService;
+        this.businessRuleEngineService = businessRuleEngineService;
     }
 
     @Transactional(readOnly = true)
@@ -317,6 +324,13 @@ public class TicketService {
         }
         ticketRepository.save(ticket);
         clearReplyDraft(ticket, author);
+        
+        // Process business rules for ticket reply
+        try {
+            businessRuleEngineService.processRules(ticket, BusinessRuleTrigger.ON_REPLY);
+        } catch (Exception ex) {
+            log.warn("Failed to process business rules for ticket reply {}: {}", ticket.getId(), ex.getMessage());
+        }
 
         if (asStaff && !internalNote) {
             notificationService.onStaffPublicReply(ticket, author);
@@ -450,6 +464,13 @@ public class TicketService {
 
         ticket.setAssignee(nextAssignee);
         ticketRepository.save(ticket);
+        
+        // Process business rules for assignee change
+        try {
+            businessRuleEngineService.processRules(ticket, BusinessRuleTrigger.ON_UPDATE);
+        } catch (Exception ex) {
+            log.warn("Failed to process business rules for assignee change {}: {}", ticket.getId(), ex.getMessage());
+        }
 
         if (previousAssignee != null
                 && previousAssignee.getId() != null
@@ -803,6 +824,14 @@ public class TicketService {
         }
         ticketRepository.save(ticket);
         notificationService.onStatusChanged(ticket, agent, previous, nextStatus, true);
+        
+        // Process business rules for ticket update
+        try {
+            businessRuleEngineService.processRules(ticket, BusinessRuleTrigger.ON_UPDATE);
+        } catch (Exception ex) {
+            log.warn("Failed to process business rules for ticket update {}: {}", ticket.getId(), ex.getMessage());
+        }
+        
         return toDetailDto(ticket, agent, true);
     }
 
@@ -2000,6 +2029,15 @@ public class TicketService {
         if (settings.isAutomationCustomerAckEnabled()) {
             notificationService.onTicketCreatedAck(saved, requester);
         }
+        
+        // Process business rules for ticket creation
+        try {
+            businessRuleEngineService.processRules(saved, BusinessRuleTrigger.ON_CREATE);
+        } catch (Exception ex) {
+            // Log error but don't fail ticket creation
+            log.warn("Failed to process business rules for new ticket {}: {}", saved.getId(), ex.getMessage());
+        }
+        
         return toDto(saved);
     }
 

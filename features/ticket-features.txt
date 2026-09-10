@@ -46,7 +46,7 @@ done - Create ticket from portal
 done - Reply / add attachments
 done - Rate satisfaction after resolve (CSAT 1–5 + comment)
 done - Multi-language ticket UI (reuse your i18n: en/fa/ar/tr)
-Knowledge-base suggestions while creating (“Did you mean…?”)
+done - Knowledge-base suggestions while creating (“Did you mean…?”)
 
 5. Agent / admin console
 done - Inbox views: All, Unassigned, Mine, Mentions, Overdue
@@ -74,7 +74,7 @@ done - On create → set priority, assign queue, send ack
 done - on no reply X hours → remind customer or escalate
 done - On resolve → ask CSAT
 done - Auto-close if customer silent for N days after resolve
-Business rules engine (if/then) — later phase
+done - Business rules engine (if/then) — later phase
 
 8. Notifications
 done - In-app notifications (bell)
@@ -83,11 +83,10 @@ done - SMS notifications (urgent / opt-in)
 done - Per-user notification preferences (global / user / category email gates)
 done - Digest / daily summary for agents
 
-
 9. Knowledge base & self-service
-Public FAQ / articles (categories, search)
+done - Public FAQ / articles (categories, search)
 Article feedback (helpful / not helpful)
-Suggest articles on ticket create
+done - Suggest articles on ticket create
 Internal-only articles for agents
 Versioning of articles
 

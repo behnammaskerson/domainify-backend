@@ -1,0 +1,192 @@
+Knowledge Base — Complete Feature Catalog
+
+Assumption: Domainify Knowledge Base is a first-class self-service product (not ticket-only), used for Help Center, ticket deflection, and agent reference. Multi-language UI/content like the rest of the app (en / fa / ar / tr). Features below are organized so you can lock an MVP, then expand into a full KB business.
+
+
+1. Categories & taxonomy
+done - Category CRUD (code, name, description, active, sort order)
+done - Hierarchical categories (parent / child tree, unlimited depth with cycle guards)
+done - Soft deactivate category (active flag) without deleting content
+done - Prevent delete when category has children or articles
+done - Flat + tree admin views (indented list with depth)
+done - Public category list (active categories with published content)
+Category icons / cover images
+Category translations (per-locale name & description)
+Pinned / featured categories on Help Center home
+Reorder via drag-and-drop
+Category path breadcrumbs (Home → Billing → Invoices)
+Archive / merge categories (move articles to another category)
+
+2. Articles — core content
+done - Article CRUD (title, slug, summary, body, category, locale, published, sort order)
+done - Unique URL slug (auto from title, editable)
+done - Draft vs published
+done - Markdown body rendering (Help Center + ticket links)
+done - Locale: en / fa / ar / tr / all
+done - Separate admin pages: categories vs articles
+done - Full-page create / edit article (not dialog)
+done - Admin list filters: search, category, locale, published + pagination
+Scheduled publish / unpublish
+Expiry date (auto-unpublish)
+Article attachments (images, PDF) with size/type limits
+Cover / hero image per article
+Rich text editor (WYSIWYG) in addition to Markdown
+Table of contents from headings
+Estimated read time
+Author / last editor attribution
+Internal notes on article (admin-only, not public)
+
+3. Visibility & audience
+done - Public published articles (permitAll public API)
+Internal-only articles (agents / admins only)
+Role-gated articles (e.g. billing staff)
+Customer-segment targeting (plan, country, language)
+“Coming soon” / teaser for unpublished (admin preview link)
+Password- or token-protected private articles (rare / B2B)
+
+4. Localisation & i18n
+done - Article locale field + Help Center locale from UI language
+done - Admin / Help UI strings in en / fa / ar / tr
+Linked translation groups (same article across locales)
+Fallback locale chain (e.g. fa → en)
+RTL-aware article layout (already inherits app RTL)
+Locale-specific slugs (optional)
+Bulk “translate missing” workflow / AI assist (later)
+
+5. Public Help Center (customer)
+done - Help Center browse page (/help)
+done - Search articles (debounced)
+done - Filter by category (tree-aware chips / tabs)
+done - Article detail by slug (/help/:slug)
+done - Contact support CTA from Help / article
+done - Multi-language Help UI
+Featured / popular articles
+Recently updated articles
+Related articles (same category or manual links)
+Print / share / copy link
+Breadcrumbs on article
+Empty-state guidance when no matches
+Help Center on marketing landing site (domainify-landing consuming public API)
+
+6. Ticket & support integration
+done - Suggest articles while creating a ticket (“Did you mean…?”)
+Suggest articles on ticket detail (agent + customer)
+“This resolved my issue” → close / cancel ticket draft
+Insert KB article link into agent reply (canned + picker)
+Auto-attach suggested articles to ticket create email ack
+Deflection metrics: tickets avoided after KB view
+Deep link from ticket category → default KB category
+
+7. Agent / admin console
+done - Knowledge Base Admin under Support → Knowledge Base
+done - Category tree management UI
+done - Article list + full-width editor page
+Bulk publish / unpublish
+Bulk move category
+Duplicate article
+Preview as customer (locale + published state)
+Admin quick search (command palette)
+Saved article filters / views
+
+8. Search & discovery
+done - Basic full-text search (title / summary / body — admin & public)
+done - Public suggest endpoint (ticket create)
+Typo tolerance / fuzzy search
+Search synonyms & stop words (per locale)
+Highlight matches in results
+Search analytics (top queries, zero-result queries)
+Autocomplete in Help Center hero
+Filter search by locale + category + tag
+
+9. Tags & organization
+Article tags (multi-select)
+Tag cloud / filter on Help Center
+Collections / playbooks (ordered article sets)
+Pinned articles within a category
+Custom sort within category (manual order)
+
+10. Feedback & quality
+Article feedback (helpful / not helpful)
+Optional feedback comment + reason codes
+Feedback inbox for content owners
+CSAT-style rating on article
+“Was this outdated?” flag
+Content owners / reviewers assignment
+Editorial workflow: Draft → In review → Approved → Published
+Review due date / stale content alerts (not updated in N months)
+
+11. Versioning & history
+Article version history
+Restore previous version
+Diff view between versions
+Publish changelog / “What’s new” note
+Soft-delete articles with restore window
+Audit log (who edited / published / deleted)
+
+12. SEO & sharing (public)
+Meta title / description per article
+Open Graph / social preview image
+Canonical URL
+Sitemap of published articles
+Structured data (FAQ / HowTo schema)
+Custom canonical host for Help (help.domainify.…)
+
+13. Analytics & reporting
+Article views over time
+Top articles / bottom articles
+Search → click → feedback funnel
+Ticket deflection rate attributed to KB
+Feedback helpful % by article / category / locale
+Export CSV of articles / feedback
+Dashboard widgets (KB health on admin home)
+
+14. Automation & AI (later)
+Auto-suggest category from title/body
+AI draft from ticket thread
+AI translate article to other locales
+Detect duplicate / near-duplicate articles
+Auto-tag from content
+Notify owners when article gets repeated “not helpful”
+
+15. Security, roles & audit
+done - Admin-only category/article management (AdminGuard + ROLE_ADMIN API)
+done - Public read for published content
+Agent role: read internal articles + suggest; no publish
+Content editor role (publish without full admin)
+Rate limits on public search / suggest (anti-abuse)
+Audit trail for publish / delete
+Sanitize Markdown / HTML (XSS)
+
+16. Channels & distribution (later)
+Embeddable Help widget (in-app)
+Share article via email / SMS template
+WhatsApp / Telegram FAQ bots consuming public API
+Webhooks (article published / updated)
+Export to PDF / static site
+Zapier / n8n hooks
+
+17. Forms & customization
+Custom fields on articles (e.g. product area, severity)
+Per-category required fields
+Brandable Help Center (logo, accent — later white-label)
+Configurable homepage sections (featured, categories, search-only)
+
+18. Domainify-specific content hooks
+Articles linked to product areas: Domains, Marketplace, SMS, Wallet, Tickets
+“Context help” deep links from product pages (?kb=slug)
+Show domain/SMS-related tips based on user’s active products
+In-app tips panel that pulls from KB by code key
+
+
+Suggested MVP (already largely shipped)
+done - Tree categories + article CRUD + publish + locales
+done - Public Help Center (search, categories, article page)
+done - Ticket-create article suggestions
+done - Admin split: categories vs articles; full-page editor
+
+Next high-value slice
+- Article feedback (helpful / not)
+- Internal-only articles for agents
+- Related articles + Help featured section
+- Version history
+- Search / deflection analytics

@@ -213,7 +213,7 @@ Portfolio Optimization - Suggest which domains to keep/sell
 Support & Trust
 Live Chat - Real-time customer support
 Ticket Management System
-FAQ Knowledge Base - Common questions
+FAQ Knowledge Base - See kb-features.txt (done: Public FAQ/articles with tree categories & search; admin categories/articles; help at /help; ticket create suggestions)
 Video Tutorials - How-to guides
 Trust Badges - Secure transaction indicators
 Escrow Service - Safe payment handling
