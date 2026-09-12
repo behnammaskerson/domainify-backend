@@ -42,6 +42,7 @@ public class TicketEmailNotificationService {
             NotificationType.TICKET_CLOSED,
             NotificationType.TICKET_REOPENED,
             NotificationType.TICKET_ACK,
+            NotificationType.TICKET_OUTBOUND_OPENED,
             NotificationType.TICKET_NO_REPLY_REMIND
     );
 
@@ -140,6 +141,7 @@ public class TicketEmailNotificationService {
             case TICKET_CLOSED -> "notification.email.subject.closed";
             case TICKET_REOPENED -> "notification.email.subject.reopened";
             case TICKET_ACK -> "notification.email.subject.ack";
+            case TICKET_OUTBOUND_OPENED -> "notification.email.subject.outbound";
             case TICKET_NO_REPLY_REMIND -> "notification.email.subject.no_reply_remind";
             default -> "notification.email.subject.update";
         };
@@ -198,6 +200,10 @@ public class TicketEmailNotificationService {
                     new Object[]{actorName},
                     locale);
             case TICKET_ACK -> messageService.get("notification.email.event.ack", locale);
+            case TICKET_OUTBOUND_OPENED -> messageService.get(
+                    "notification.email.event.outbound",
+                    new Object[]{actorName},
+                    locale);
             case TICKET_NO_REPLY_REMIND -> messageService.get(
                     "notification.email.event.no_reply_remind",
                     locale);

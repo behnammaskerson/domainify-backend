@@ -88,6 +88,8 @@ public class TicketSettingsDto {
 
     private Long defaultQueueId;
 
+    private Long contactDefaultCategoryId;
+
     @NotNull
     private Boolean ticketEmailNotificationsEnabled = true;
 
@@ -169,6 +171,14 @@ public class TicketSettingsDto {
     @Min(1)
     @Max(3650)
     private Integer automationAutoCloseDays = 7;
+
+    @NotNull
+    private Boolean guestTicketCreateEnabled = true;
+
+    @NotNull
+    private Boolean guestTicketAttachmentsEnabled = true;
+
+    private String captchaSettingsJson;
 
     public TicketSettingsDto() {
     }
@@ -346,6 +356,14 @@ public class TicketSettingsDto {
 
     public void setDefaultQueueId(Long defaultQueueId) {
         this.defaultQueueId = defaultQueueId;
+    }
+
+    public Long getContactDefaultCategoryId() {
+        return contactDefaultCategoryId;
+    }
+
+    public void setContactDefaultCategoryId(Long contactDefaultCategoryId) {
+        this.contactDefaultCategoryId = contactDefaultCategoryId;
     }
 
     public Boolean getTicketEmailNotificationsEnabled() {
@@ -550,5 +568,29 @@ public class TicketSettingsDto {
 
     public void setAutomationAutoCloseDays(Integer automationAutoCloseDays) {
         this.automationAutoCloseDays = automationAutoCloseDays;
+    }
+
+    public Boolean getGuestTicketCreateEnabled() {
+        return guestTicketCreateEnabled;
+    }
+
+    public void setGuestTicketCreateEnabled(Boolean guestTicketCreateEnabled) {
+        this.guestTicketCreateEnabled = guestTicketCreateEnabled;
+    }
+
+    public Boolean getGuestTicketAttachmentsEnabled() {
+        return guestTicketAttachmentsEnabled;
+    }
+
+    public void setGuestTicketAttachmentsEnabled(Boolean guestTicketAttachmentsEnabled) {
+        this.guestTicketAttachmentsEnabled = guestTicketAttachmentsEnabled;
+    }
+
+    public String getCaptchaSettingsJson() {
+        return captchaSettingsJson;
+    }
+
+    public void setCaptchaSettingsJson(String captchaSettingsJson) {
+        this.captchaSettingsJson = captchaSettingsJson;
     }
 }

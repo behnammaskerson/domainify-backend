@@ -83,6 +83,13 @@
             <artifactId>totp</artifactId>
             <version>1.7.1</version>
         </dependency>
+
+        <!-- CSV import / migration -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>1.10.0</version>
+        </dependency>
         
         <!-- Test -->
         <dependency>

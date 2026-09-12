@@ -29,6 +29,7 @@ import java.util.Set;
 @Table(name = "tickets", indexes = {
         @Index(name = "idx_tickets_public_number", columnList = "public_number", unique = true),
         @Index(name = "idx_tickets_requester", columnList = "requester_id"),
+        @Index(name = "idx_tickets_guest_email", columnList = "guest_email"),
         @Index(name = "idx_tickets_status", columnList = "status"),
         @Index(name = "idx_tickets_assignee", columnList = "assignee_id"),
         @Index(name = "idx_tickets_queue", columnList = "queue_id"),
@@ -70,9 +71,28 @@ public class Ticket {
     @Column(nullable = false, length = 16)
     private TicketChannel channel = TicketChannel.PORTAL;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "requester_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "requester_id")
     private User requester;
+
+    /** Display name for unauthenticated submitters (when {@link #requester} is null). */
+    @Column(name = "guest_name", length = 120)
+    private String guestName;
+
+    /** Normalized email for unauthenticated submitters. */
+    @Column(name = "guest_email", length = 255)
+    private String guestEmail;
+
+    /** False until guest confirms email via magic link; unverified guests are hidden from inbox. */
+    @Column(name = "guest_email_verified")
+    private Boolean guestEmailVerified;
+
+    /** SHA-256 hex of opaque access token (magic link). */
+    @Column(name = "guest_access_token_hash", length = 64, unique = true)
+    private String guestAccessTokenHash;
+
+    @Column(name = "guest_access_token_expires_at")
+    private Instant guestAccessTokenExpiresAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
@@ -159,8 +179,12 @@ public class Ticket {
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();
-        createdAt = now;
-        updatedAt = now;
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
         if (status == null) {
             status = TicketStatus.NEW;
         }
@@ -252,6 +276,57 @@ public class Ticket {
 
     public void setRequester(User requester) {
         this.requester = requester;
+    }
+
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public void setGuestName(String guestName) {
+        this.guestName = guestName;
+    }
+
+    public String getGuestEmail() {
+        return guestEmail;
+    }
+
+    public void setGuestEmail(String guestEmail) {
+        this.guestEmail = guestEmail;
+    }
+
+    public boolean isGuestEmailVerified() {
+        if (guestEmail == null || guestEmail.isBlank()) {
+            return true;
+        }
+        return Boolean.TRUE.equals(guestEmailVerified);
+    }
+
+    public Boolean getGuestEmailVerified() {
+        return guestEmailVerified;
+    }
+
+    public void setGuestEmailVerified(Boolean guestEmailVerified) {
+        this.guestEmailVerified = guestEmailVerified;
+    }
+
+    public String getGuestAccessTokenHash() {
+        return guestAccessTokenHash;
+    }
+
+    public void setGuestAccessTokenHash(String guestAccessTokenHash) {
+        this.guestAccessTokenHash = guestAccessTokenHash;
+    }
+
+    public Instant getGuestAccessTokenExpiresAt() {
+        return guestAccessTokenExpiresAt;
+    }
+
+    public void setGuestAccessTokenExpiresAt(Instant guestAccessTokenExpiresAt) {
+        this.guestAccessTokenExpiresAt = guestAccessTokenExpiresAt;
+    }
+
+    public boolean isGuestTicket() {
+        return guestEmail != null && !guestEmail.isBlank();
     }
 
     public User getAssignee() {

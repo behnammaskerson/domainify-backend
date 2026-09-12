@@ -1,5 +1,7 @@
 package com.domainify.service;
 
+import com.domainify.dto.CloneTicketRequest;
+import com.domainify.dto.CloneTicketResultDto;
 import com.domainify.dto.DomainDto;
 import com.domainify.dto.LinkTicketDomainsRequest;
 import com.domainify.dto.LinkTicketRequesterRequest;
@@ -100,6 +102,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.Year;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -323,7 +326,9 @@ public class TicketService {
             ticket.setNoReplyRemindedAt(null);
         }
         ticketRepository.save(ticket);
-        clearReplyDraft(ticket, author);
+        if (author != null) {
+            clearReplyDraft(ticket, author);
+        }
         
         // Process business rules for ticket reply
         try {
@@ -341,7 +346,8 @@ public class TicketService {
             notificationService.onCustomerReply(ticket, author);
         }
 
-        return toDetailDto(ticket, author, isStaffUser(author));
+        boolean guestViewer = author == null && ticket.isGuestTicket();
+        return toDetailDto(ticket, author, isStaffUser(author), guestViewer);
     }
 
     @Transactional
@@ -1172,6 +1178,124 @@ public class TicketService {
     }
 
     @Transactional
+    public CloneTicketResultDto cloneAsStaff(User agent, Long sourceTicketId, CloneTicketRequest request) {
+        requireAgent(agent);
+
+        Ticket source = requireStaffTicket(sourceTicketId, false);
+        if (source.isMerged()) {
+            throw new ApiException(ErrorCode.TICKET_CLONE_INVALID);
+        }
+
+        String subject;
+        if (request != null && StringUtils.hasText(request.getSubject())) {
+            subject = request.getSubject().trim();
+        } else {
+            String base = source.getSubject() != null ? source.getSubject().trim() : "";
+            String suffix = " (copy)";
+            if (base.length() + suffix.length() > SUBJECT_MAX) {
+                base = base.substring(0, Math.max(0, SUBJECT_MAX - suffix.length()));
+            }
+            subject = base + suffix;
+        }
+        if (!StringUtils.hasText(subject)) {
+            subject = "Copy of " + source.getPublicNumber();
+        }
+        if (subject.length() > SUBJECT_MAX) {
+            throw new ApiException(ErrorCode.TICKET_SUBJECT_TOO_LONG);
+        }
+
+        String description = source.getDescription();
+        if (description != null && description.length() > DESCRIPTION_MAX) {
+            description = description.substring(0, DESCRIPTION_MAX);
+        }
+        if (!StringUtils.hasText(description)) {
+            description = "Cloned from ticket " + source.getPublicNumber();
+        }
+
+        Ticket clone = new Ticket();
+        clone.setSubject(subject);
+        clone.setDescription(description);
+        clone.setCategory(source.getCategory());
+        clone.setQueue(source.getQueue());
+        clone.setPriority(source.getPriority());
+        clone.setStatus(TicketStatus.NEW);
+        clone.setChannel(source.getChannel());
+        clone.setRequester(source.getRequester());
+        clone.setGuestName(source.getGuestName());
+        clone.setGuestEmail(source.getGuestEmail());
+        clone.setGuestEmailVerified(source.getGuestEmailVerified());
+        clone.setPublicNumber("TMP-" + System.nanoTime());
+        Instant slaBase = Instant.now();
+        clone.setDueAt(ticketSettingsService.computeResolveDueAt(
+                source.getPriority(), source.getCategory(), slaBase));
+        clone.setFirstResponseDueAt(ticketSettingsService.computeFirstResponseDueAt(
+                source.getPriority(), source.getCategory(), slaBase));
+
+        if (source.getTags() != null && !source.getTags().isEmpty()) {
+            clone.getTags().addAll(source.getTags());
+        }
+
+        for (TicketAttachment attachment : source.getAttachments()) {
+            TicketAttachment copy = new TicketAttachment();
+            copy.setFileName(attachment.getFileName());
+            copy.setContentType(attachment.getContentType());
+            copy.setSizeBytes(attachment.getSizeBytes());
+            byte[] data = attachment.getData();
+            if (data != null) {
+                copy.setData(Arrays.copyOf(data, data.length));
+            }
+            clone.addAttachment(copy);
+        }
+
+        Ticket savedClone = ticketRepository.saveAndFlush(clone);
+        savedClone.setPublicNumber(buildPublicNumber(savedClone.getId()));
+        User autoAssignee = ticketAutoAssignService.assignIfConfigured(savedClone);
+        savedClone = ticketRepository.save(savedClone);
+
+        TicketRelatedLink forward = new TicketRelatedLink();
+        forward.setTicket(source);
+        forward.setRelatedTicket(savedClone);
+        ticketRelatedLinkRepository.save(forward);
+
+        TicketRelatedLink reverse = new TicketRelatedLink();
+        reverse.setTicket(savedClone);
+        reverse.setRelatedTicket(source);
+        ticketRelatedLinkRepository.save(reverse);
+
+        TicketMessage sourceNotice = new TicketMessage();
+        sourceNotice.setTicket(source);
+        sourceNotice.setAuthor(agent);
+        sourceNotice.setBody("Cloned as ticket " + savedClone.getPublicNumber()
+                + " (\"" + savedClone.getSubject() + "\").");
+        sourceNotice.setInternalNote(false);
+        ticketMessageRepository.save(sourceNotice);
+
+        TicketMessage cloneNotice = new TicketMessage();
+        cloneNotice.setTicket(savedClone);
+        cloneNotice.setAuthor(agent);
+        cloneNotice.setBody("Cloned from ticket " + source.getPublicNumber()
+                + " (\"" + source.getSubject() + "\").");
+        cloneNotice.setInternalNote(false);
+        ticketMessageRepository.save(cloneNotice);
+
+        ticketRepository.save(source);
+
+        if (autoAssignee != null) {
+            notificationService.onAssigned(savedClone, autoAssignee, agent);
+        }
+
+        try {
+            businessRuleEngineService.processRules(savedClone, BusinessRuleTrigger.ON_CREATE);
+        } catch (Exception ex) {
+            log.warn("Failed to process business rules for cloned ticket {}: {}", savedClone.getId(), ex.getMessage());
+        }
+
+        return new CloneTicketResultDto(
+                toDetailDto(source, agent, true),
+                toDto(savedClone));
+    }
+
+    @Transactional
     public TicketDetailDto linkRelatedAsStaff(User agent, Long ticketId, LinkTicketsRequest request) {
         requireAgent(agent);
         if (request == null || request.getRelatedTicketIds() == null || request.getRelatedTicketIds().isEmpty()) {
@@ -1901,6 +2025,9 @@ public class TicketService {
         if (!allowDeleted) {
             assertNotDeleted(ticket);
         }
+        if (ticket.isGuestTicket() && !ticket.isGuestEmailVerified()) {
+            throw new ApiException(ErrorCode.TICKET_NOT_FOUND);
+        }
         return ticket;
     }
 
@@ -2041,6 +2168,359 @@ public class TicketService {
         return toDto(saved);
     }
 
+    /**
+     * Agent opens a ticket on behalf of an existing customer (proactive / outbound).
+     * Conversation starts with a public staff message; synthetic "customer initial" is skipped.
+     */
+    @Transactional
+    public TicketDto createAsStaff(
+            User agent,
+            Long requesterUserId,
+            String subject,
+            String description,
+            Long categoryId,
+            TicketPriority priority,
+            Long queueId,
+            Long assigneeId,
+            Boolean notifyCustomer,
+            Boolean notifySms,
+            MultipartFile[] attachments) {
+        requireAgent(agent);
+        if (requesterUserId == null) {
+            throw new ApiException(ErrorCode.TICKET_REQUESTER_REQUIRED);
+        }
+
+        User requester = userRepository.findById(requesterUserId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_REQUESTER_NOT_FOUND));
+        if (!requester.isEnabled() || requester.getRole() == User.Role.ADMIN) {
+            throw new ApiException(ErrorCode.TICKET_REQUESTER_INVALID);
+        }
+
+        String trimmedSubject = subject == null ? "" : subject.trim();
+        String trimmedDescription = description == null ? "" : description.trim();
+
+        if (!StringUtils.hasText(trimmedSubject)) {
+            throw new ApiException(ErrorCode.TICKET_SUBJECT_REQUIRED);
+        }
+        if (trimmedSubject.length() > SUBJECT_MAX) {
+            throw new ApiException(ErrorCode.TICKET_SUBJECT_TOO_LONG);
+        }
+        if (!StringUtils.hasText(trimmedDescription)) {
+            throw new ApiException(ErrorCode.TICKET_DESCRIPTION_REQUIRED);
+        }
+        if (trimmedDescription.length() > DESCRIPTION_MAX) {
+            throw new ApiException(ErrorCode.TICKET_DESCRIPTION_TOO_LONG);
+        }
+        if (priority == null) {
+            throw new ApiException(ErrorCode.TICKET_PRIORITY_REQUIRED);
+        }
+
+        TicketCategory category = ticketCategoryService.requireActiveCategory(categoryId);
+        TicketSettings settings = ticketSettingsService.getOrCreate();
+
+        List<MultipartFile> files = normalizeFiles(attachments);
+        ticketSettingsService.validateAttachmentBatch(files);
+
+        Ticket ticket = new Ticket();
+        ticket.setSubject(trimmedSubject);
+        ticket.setDescription(trimmedDescription);
+        ticket.setCategory(category);
+        if (queueId != null) {
+            ticket.setQueue(ticketQueueService.requireActiveQueue(queueId));
+        } else {
+            Long defaultQueueId = settings.getDefaultQueueId();
+            if (defaultQueueId != null) {
+                try {
+                    ticket.setQueue(ticketQueueService.requireActiveQueue(defaultQueueId));
+                } catch (ApiException ignored) {
+                    // Invalid/inactive default queue — leave unset.
+                }
+            }
+        }
+        ticket.setPriority(priority);
+        ticket.setStatus(TicketStatus.NEW);
+        ticket.setChannel(TicketChannel.OUTBOUND);
+        ticket.setRequester(requester);
+        ticket.setPublicNumber("TMP-" + System.nanoTime());
+        Instant slaBase = Instant.now();
+        ticket.setDueAt(ticketSettingsService.computeResolveDueAt(priority, category, slaBase));
+        ticket.setFirstResponseDueAt(ticketSettingsService.computeFirstResponseDueAt(
+                priority, category, slaBase));
+
+        if (assigneeId != null) {
+            User assignee = userRepository.findById(assigneeId)
+                    .orElseThrow(() -> new ApiException(ErrorCode.TICKET_ASSIGNEE_NOT_FOUND));
+            if (assignee.getRole() != User.Role.ADMIN || !assignee.isEnabled()) {
+                throw new ApiException(ErrorCode.TICKET_ASSIGNEE_INVALID);
+            }
+            ticket.setAssignee(assignee);
+        }
+
+        Ticket saved = ticketRepository.saveAndFlush(ticket);
+        saved.setPublicNumber(buildPublicNumber(saved.getId()));
+
+        TicketMessage opening = new TicketMessage();
+        opening.setTicket(saved);
+        opening.setAuthor(agent);
+        opening.setBody(trimmedDescription);
+        opening.setInternalNote(false);
+        for (MultipartFile file : files) {
+            opening.addAttachment(toMessageAttachment(file));
+        }
+        ticketMessageRepository.save(opening);
+
+        saved.setFirstRespondedAt(Instant.now());
+        if (saved.getStatus() == TicketStatus.NEW || saved.getStatus() == TicketStatus.OPEN) {
+            maybeAutoTransition(saved, TicketStatus.PENDING);
+        }
+
+        User assigned = saved.getAssignee();
+        if (assigned == null) {
+            assigned = ticketAutoAssignService.assignIfConfigured(saved);
+        }
+        saved = ticketRepository.save(saved);
+
+        TicketMessage notice = new TicketMessage();
+        notice.setTicket(saved);
+        notice.setAuthor(agent);
+        notice.setBody("Outbound ticket opened by "
+                + displayName(agent)
+                + " on behalf of "
+                + displayName(requester)
+                + ".");
+        notice.setInternalNote(true);
+        ticketMessageRepository.save(notice);
+
+        boolean shouldNotifyEmail = notifyCustomer == null || notifyCustomer;
+        boolean shouldNotifySms = notifySms == null || notifySms;
+        if (shouldNotifyEmail || shouldNotifySms) {
+            notificationService.onOutboundTicketOpened(saved, agent, requester, shouldNotifyEmail, shouldNotifySms);
+        }
+        if (assigned != null) {
+            notificationService.onAssigned(saved, assigned, agent);
+        } else {
+            notificationService.onTicketCreated(saved, agent);
+        }
+
+        try {
+            businessRuleEngineService.processRules(saved, BusinessRuleTrigger.ON_CREATE);
+        } catch (Exception ex) {
+            log.warn("Failed to process business rules for outbound ticket {}: {}", saved.getId(), ex.getMessage());
+        }
+
+        return toDto(saved);
+    }
+
+    public record GuestTicketCreateResult(Long ticketId, String publicNumber, String rawAccessToken) {}
+
+    /**
+     * Creates an unverified guest ticket. Caller must email the raw access token;
+     * agent notifications run only after {@link #activateGuestTicket(Ticket)}.
+     */
+    @Transactional
+    public GuestTicketCreateResult createGuest(
+            String guestName,
+            String guestEmail,
+            String subject,
+            String description,
+            Long categoryId,
+            TicketPriority priority,
+            TicketChannel channel,
+            MultipartFile[] attachments) {
+        String trimmedName = guestName == null ? "" : guestName.trim();
+        String normalizedEmail = guestEmail == null ? "" : guestEmail.trim().toLowerCase(Locale.ROOT);
+        String trimmedSubject = subject == null ? "" : subject.trim();
+        String trimmedDescription = description == null ? "" : description.trim();
+
+        if (!StringUtils.hasText(trimmedName)) {
+            throw new ApiException(ErrorCode.TICKET_GUEST_NAME_REQUIRED);
+        }
+        if (trimmedName.length() > 120) {
+            trimmedName = trimmedName.substring(0, 120);
+        }
+        if (!StringUtils.hasText(normalizedEmail)) {
+            throw new ApiException(ErrorCode.TICKET_GUEST_EMAIL_REQUIRED);
+        }
+        if (!normalizedEmail.contains("@") || normalizedEmail.length() > 255) {
+            throw new ApiException(ErrorCode.TICKET_GUEST_EMAIL_INVALID);
+        }
+        if (!StringUtils.hasText(trimmedSubject)) {
+            throw new ApiException(ErrorCode.TICKET_SUBJECT_REQUIRED);
+        }
+        if (trimmedSubject.length() > SUBJECT_MAX) {
+            throw new ApiException(ErrorCode.TICKET_SUBJECT_TOO_LONG);
+        }
+        if (!StringUtils.hasText(trimmedDescription)) {
+            throw new ApiException(ErrorCode.TICKET_DESCRIPTION_REQUIRED);
+        }
+        if (trimmedDescription.length() > DESCRIPTION_MAX) {
+            throw new ApiException(ErrorCode.TICKET_DESCRIPTION_TOO_LONG);
+        }
+        if (priority == null) {
+            throw new ApiException(ErrorCode.TICKET_PRIORITY_REQUIRED);
+        }
+        if (channel != TicketChannel.WEB && channel != TicketChannel.CONTACT) {
+            channel = TicketChannel.WEB;
+        }
+
+        TicketCategory category = ticketCategoryService.requireActiveCategory(categoryId);
+        TicketSettings settings = ticketSettingsService.getOrCreate();
+
+        List<MultipartFile> files = normalizeFiles(attachments);
+        ticketSettingsService.validateAttachmentBatch(files);
+
+        TicketPriority effectivePriority = settings.getAutomationDefaultPriority() != null
+                ? settings.getAutomationDefaultPriority()
+                : priority;
+
+        String rawToken = generateGuestAccessToken();
+        Instant expiresAt = Instant.now().plus(Duration.ofDays(30));
+
+        Ticket ticket = new Ticket();
+        ticket.setSubject(trimmedSubject);
+        ticket.setDescription(trimmedDescription);
+        ticket.setCategory(category);
+        Long defaultQueueId = settings.getDefaultQueueId();
+        if (defaultQueueId != null) {
+            try {
+                ticket.setQueue(ticketQueueService.requireActiveQueue(defaultQueueId));
+            } catch (ApiException ignored) {
+                // Invalid/inactive default queue — leave unset.
+            }
+        }
+        ticket.setPriority(effectivePriority);
+        ticket.setStatus(TicketStatus.NEW);
+        ticket.setChannel(channel);
+        ticket.setRequester(null);
+        ticket.setGuestName(trimmedName);
+        ticket.setGuestEmail(normalizedEmail);
+        ticket.setGuestEmailVerified(false);
+        ticket.setGuestAccessTokenHash(hashGuestAccessToken(rawToken));
+        ticket.setGuestAccessTokenExpiresAt(expiresAt);
+        ticket.setPublicNumber("TMP-" + System.nanoTime());
+        Instant slaBase = Instant.now();
+        ticket.setDueAt(ticketSettingsService.computeResolveDueAt(effectivePriority, category, slaBase));
+        ticket.setFirstResponseDueAt(ticketSettingsService.computeFirstResponseDueAt(
+                effectivePriority, category, slaBase));
+
+        for (MultipartFile file : files) {
+            ticket.addAttachment(toTicketAttachment(file));
+        }
+
+        Ticket saved = ticketRepository.saveAndFlush(ticket);
+        saved.setPublicNumber(buildPublicNumber(saved.getId()));
+        saved = ticketRepository.save(saved);
+
+        return new GuestTicketCreateResult(saved.getId(), saved.getPublicNumber(), rawToken);
+    }
+
+    @Transactional
+    public TicketDetailDto activateGuestTicket(Ticket ticket) {
+        if (ticket == null || ticket.getId() == null) {
+            throw new ApiException(ErrorCode.TICKET_NOT_FOUND);
+        }
+        if (!ticket.isGuestTicket()) {
+            throw new ApiException(ErrorCode.TICKET_GUEST_TOKEN_INVALID);
+        }
+        if (ticket.isGuestEmailVerified()) {
+            return getDetailForGuest(ticket);
+        }
+
+        ticket.setGuestEmailVerified(true);
+        User autoAssignee = ticketAutoAssignService.assignIfConfigured(ticket);
+        ticket = ticketRepository.save(ticket);
+
+        if (autoAssignee != null) {
+            notificationService.onAssigned(ticket, autoAssignee, null);
+        } else {
+            notificationService.onTicketCreated(ticket, null);
+        }
+
+        try {
+            businessRuleEngineService.processRules(ticket, BusinessRuleTrigger.ON_CREATE);
+        } catch (Exception ex) {
+            log.warn("Failed to process business rules for guest ticket {}: {}", ticket.getId(), ex.getMessage());
+        }
+
+        return getDetailForGuest(ticket);
+    }
+
+    @Transactional(readOnly = true)
+    public Ticket requireGuestTicketByToken(String rawToken) {
+        if (!StringUtils.hasText(rawToken)) {
+            throw new ApiException(ErrorCode.TICKET_GUEST_TOKEN_INVALID);
+        }
+        Ticket ticket = ticketRepository.findByGuestAccessTokenHash(hashGuestAccessToken(rawToken.trim()))
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_GUEST_TOKEN_INVALID));
+        assertNotDeleted(ticket);
+        Instant expiresAt = ticket.getGuestAccessTokenExpiresAt();
+        if (expiresAt != null && expiresAt.isBefore(Instant.now())) {
+            throw new ApiException(ErrorCode.TICKET_GUEST_TOKEN_EXPIRED);
+        }
+        return ticket;
+    }
+
+    @Transactional
+    public TicketDetailDto getDetailForGuest(Ticket ticket) {
+        assertNotDeleted(ticket);
+        markReadByCustomer(ticket);
+        return toDetailDto(ticket, null, false, true);
+    }
+
+    @Transactional
+    public TicketDetailDto replyAsGuest(Ticket ticket, String body, MultipartFile[] attachments) {
+        if (ticket == null || !ticket.isGuestEmailVerified()) {
+            throw new ApiException(ErrorCode.TICKET_GUEST_TOKEN_INVALID);
+        }
+        return addReply(ticket, null, body, false, attachments, false);
+    }
+
+    /**
+     * Issues a new opaque access token for a guest ticket (hash stored; raw returned once).
+     * Keeps single-token-per-ticket model — never a shared inbox token.
+     */
+    @Transactional
+    public String renewGuestAccessToken(Ticket ticket) {
+        if (ticket == null || !ticket.isGuestTicket()) {
+            throw new ApiException(ErrorCode.TICKET_GUEST_TOKEN_INVALID);
+        }
+        assertNotDeleted(ticket);
+        String rawToken = generateGuestAccessToken();
+        ticket.setGuestAccessTokenHash(hashGuestAccessToken(rawToken));
+        ticket.setGuestAccessTokenExpiresAt(Instant.now().plus(Duration.ofDays(30)));
+        ticketRepository.save(ticket);
+        return rawToken;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Ticket> findActiveGuestTicketsByEmail(String email) {
+        if (!StringUtils.hasText(email)) {
+            return List.of();
+        }
+        return ticketRepository.findByGuestEmailIgnoreCaseAndRequesterIsNullAndDeletedAtIsNullOrderByUpdatedAtDesc(
+                email.trim().toLowerCase(Locale.ROOT));
+    }
+
+    public static String hashGuestAccessToken(String rawToken) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hashed = digest.digest(rawToken.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(hashed.length * 2);
+            for (byte b : hashed) {
+                sb.append(String.format(Locale.ROOT, "%02x", b));
+            }
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 not available", ex);
+        }
+    }
+
+    private static String generateGuestAccessToken() {
+        byte[] bytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(bytes);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
     private List<MultipartFile> normalizeFiles(MultipartFile[] attachments) {
         List<MultipartFile> files = new ArrayList<>();
         if (attachments == null) {
@@ -2107,14 +2587,20 @@ public class TicketService {
     }
 
     private TicketDetailDto toDetailDto(Ticket ticket, User viewer, boolean includeWorkflow) {
+        return toDetailDto(ticket, viewer, includeWorkflow, false);
+    }
+
+    private TicketDetailDto toDetailDto(Ticket ticket, User viewer, boolean includeWorkflow, boolean guestViewer) {
         List<TicketMessageDto> messages = new ArrayList<>();
-        messages.add(toInitialMessageDto(ticket, viewer));
+        if (ticket.getChannel() != TicketChannel.OUTBOUND) {
+            messages.add(toInitialMessageDto(ticket, viewer, guestViewer));
+        }
 
         List<TicketMessage> replies = includeWorkflow
                 ? ticketMessageRepository.findByTicketOrderByCreatedAtAscIdAsc(ticket)
                 : ticketMessageRepository.findByTicketAndInternalNoteFalseOrderByCreatedAtAscIdAsc(ticket);
         for (TicketMessage message : replies) {
-            messages.add(toMessageDto(message, ticket, viewer, includeWorkflow));
+            messages.add(toMessageDto(message, ticket, viewer, includeWorkflow, guestViewer));
         }
 
         boolean closed = ticket.getStatus() == TicketStatus.CLOSED;
@@ -2137,6 +2623,7 @@ public class TicketService {
         detail.setCanMerge(includeWorkflow && !deleted && !archived && !ticket.isMerged());
         long replyCount = ticketMessageRepository.findByTicketOrderByCreatedAtAscIdAsc(ticket).size();
         detail.setCanSplit(includeWorkflow && !deleted && !archived && !ticket.isMerged() && replyCount > 0);
+        detail.setCanClone(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setCanLinkRelated(includeWorkflow && !deleted && !ticket.isMerged());
         detail.setCanLinkDomains(includeWorkflow && !deleted && !ticket.isMerged()
                 && ticket.getRequester() != null && ticket.getRequester().getId() != null);
@@ -2204,6 +2691,10 @@ public class TicketService {
     }
 
     private TicketMessageDto toInitialMessageDto(Ticket ticket, User viewer) {
+        return toInitialMessageDto(ticket, viewer, false);
+    }
+
+    private TicketMessageDto toInitialMessageDto(Ticket ticket, User viewer, boolean guestViewer) {
         TicketMessageDto dto = new TicketMessageDto();
         dto.setId(null);
         dto.setBody(ticket.getDescription());
@@ -2215,9 +2706,15 @@ public class TicketService {
             dto.setAuthorName(displayName(ticket.getRequester()));
             dto.setMine(viewer != null && viewer.getId() != null
                     && viewer.getId().equals(ticket.getRequester().getId()));
+        } else if (ticket.isGuestTicket()) {
+            dto.setAuthorEmail(ticket.getGuestEmail());
+            dto.setAuthorName(StringUtils.hasText(ticket.getGuestName())
+                    ? ticket.getGuestName()
+                    : ticket.getGuestEmail());
+            dto.setMine(guestViewer);
         }
         dto.setCreatedAt(ticket.getCreatedAt());
-        boolean editable = canEditInitialDescription(ticket, viewer);
+        boolean editable = !guestViewer && canEditInitialDescription(ticket, viewer);
         dto.setCanEdit(editable);
         dto.setCanDelete(false);
         if (ticket.getId() != null) {
@@ -2245,6 +2742,15 @@ public class TicketService {
             Ticket ticket,
             User viewer,
             boolean includeWorkflow) {
+        return toMessageDto(message, ticket, viewer, includeWorkflow, false);
+    }
+
+    private TicketMessageDto toMessageDto(
+            TicketMessage message,
+            Ticket ticket,
+            User viewer,
+            boolean includeWorkflow,
+            boolean guestViewer) {
         TicketMessageDto dto = new TicketMessageDto();
         dto.setId(message.getId());
         boolean deleted = message.isDeleted();
@@ -2262,9 +2768,16 @@ public class TicketService {
             dto.setMine(viewer != null && viewer.getId() != null
                     && viewer.getId().equals(message.getAuthor().getId()));
             dto.setStaff(isStaffUser(message.getAuthor()));
+        } else if (ticket.isGuestTicket()) {
+            dto.setAuthorEmail(ticket.getGuestEmail());
+            dto.setAuthorName(StringUtils.hasText(ticket.getGuestName())
+                    ? ticket.getGuestName()
+                    : ticket.getGuestEmail());
+            dto.setMine(guestViewer);
+            dto.setStaff(false);
         }
         dto.setInternalNote(message.isInternalNote());
-        boolean editable = canEditMessage(message, ticket, viewer, includeWorkflow);
+        boolean editable = !guestViewer && canEditMessage(message, ticket, viewer, includeWorkflow);
         dto.setCanEdit(editable);
         dto.setCanDelete(editable);
         dto.setHasRevisions(ticketMessageRevisionRepository.existsByMessageId(message.getId()));
@@ -2745,6 +3258,11 @@ public class TicketService {
             dto.setRequesterId(ticket.getRequester().getId());
             dto.setRequesterEmail(ticket.getRequester().getEmail());
             dto.setRequesterName(displayName(ticket.getRequester()));
+        } else if (ticket.isGuestTicket()) {
+            dto.setRequesterEmail(ticket.getGuestEmail());
+            dto.setRequesterName(StringUtils.hasText(ticket.getGuestName())
+                    ? ticket.getGuestName()
+                    : ticket.getGuestEmail());
         }
         if (ticket.getAssignee() != null) {
             dto.setAssigneeId(ticket.getAssignee().getId());

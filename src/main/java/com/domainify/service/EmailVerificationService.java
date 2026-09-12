@@ -26,6 +26,7 @@ public class EmailVerificationService {
     private final EmailConfigService emailConfigService;
     private final MailService mailService;
     private final JwtUtil jwtUtil;
+    private final GuestTicketLinkingService guestTicketLinkingService;
 
     @Value("${app.frontend-url:http://localhost:4200}")
     private String frontendUrl;
@@ -34,11 +35,13 @@ public class EmailVerificationService {
             UserRepository userRepository,
             EmailConfigService emailConfigService,
             MailService mailService,
-            JwtUtil jwtUtil) {
+            JwtUtil jwtUtil,
+            GuestTicketLinkingService guestTicketLinkingService) {
         this.userRepository = userRepository;
         this.emailConfigService = emailConfigService;
         this.mailService = mailService;
         this.jwtUtil = jwtUtil;
+        this.guestTicketLinkingService = guestTicketLinkingService;
     }
 
     @Transactional
@@ -103,6 +106,17 @@ public class EmailVerificationService {
         user.setEmailVerified(true);
         user.setEmailVerifiedAt(Instant.now());
         userRepository.save(user);
+
+        // Link any existing guest tickets with this email to the newly verified user
+        try {
+            int linkedCount = guestTicketLinkingService.linkGuestTicketsToUser(user, email);
+            if (linkedCount > 0) {
+                log.info("Linked {} guest tickets to user {} after email verification", linkedCount, user.getId());
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to link guest tickets to user {} after email verification: {}", user.getId(), ex.getMessage());
+            // Don't throw - email verification succeeded, guest ticket linking is a bonus feature
+        }
     }
 
     public void sendVerificationEmailSilently(User user) {

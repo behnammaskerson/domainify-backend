@@ -40,7 +40,8 @@ public class TicketSmsNotificationService {
             NotificationType.TICKET_ESCALATED,
             NotificationType.TICKET_STATUS_CHANGED,
             NotificationType.TICKET_CLOSED,
-            NotificationType.TICKET_REOPENED
+            NotificationType.TICKET_REOPENED,
+            NotificationType.TICKET_OUTBOUND_OPENED
     );
 
     private final SmsService smsService;
@@ -162,6 +163,10 @@ public class TicketSmsNotificationService {
                     locale);
             case TICKET_REOPENED -> messageService.get(
                     "notification.sms.event.reopened",
+                    new Object[]{actorName},
+                    locale);
+            case TICKET_OUTBOUND_OPENED -> messageService.get(
+                    "notification.sms.event.outbound",
                     new Object[]{actorName},
                     locale);
             default -> messageService.get("notification.sms.event.update", locale);

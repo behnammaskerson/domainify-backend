@@ -14,6 +14,8 @@ public interface TicketQueueRepository extends JpaRepository<TicketQueue, Long> 
 
     Optional<TicketQueue> findByCodeIgnoreCase(String code);
 
+    Optional<TicketQueue> findFirstByNameIgnoreCase(String name);
+
     boolean existsByCodeIgnoreCase(String code);
 
     boolean existsByCodeIgnoreCaseAndIdNot(String code, Long id);

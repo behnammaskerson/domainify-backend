@@ -286,9 +286,18 @@ public class AdminTicketService {
                 predicates.add(cb.or(
                         cb.like(cb.lower(requesterJoin.get("email")), pattern),
                         cb.like(cb.lower(requesterJoin.get("firstName")), pattern),
-                        cb.like(cb.lower(requesterJoin.get("lastName")), pattern)
+                        cb.like(cb.lower(requesterJoin.get("lastName")), pattern),
+                        cb.like(cb.lower(root.get("guestEmail")), pattern),
+                        cb.like(cb.lower(root.get("guestName")), pattern)
                 ));
             }
+
+            // Hide unverified guest submissions from the agent inbox.
+            predicates.add(cb.or(
+                    cb.isNull(root.get("guestEmail")),
+                    cb.equal(root.get("guestEmail"), ""),
+                    cb.isTrue(root.get("guestEmailVerified"))
+            ));
 
             if (StringUtils.hasText(q)) {
                 // Staff inbox: include internal notes in body search.
@@ -360,6 +369,11 @@ public class AdminTicketService {
             dto.setRequesterId(ticket.getRequester().getId());
             dto.setRequesterEmail(ticket.getRequester().getEmail());
             dto.setRequesterName(displayName(ticket.getRequester()));
+        } else if (ticket.isGuestTicket()) {
+            dto.setRequesterEmail(ticket.getGuestEmail());
+            dto.setRequesterName(org.springframework.util.StringUtils.hasText(ticket.getGuestName())
+                    ? ticket.getGuestName()
+                    : ticket.getGuestEmail());
         }
         if (ticket.getAssignee() != null) {
             dto.setAssigneeId(ticket.getAssignee().getId());

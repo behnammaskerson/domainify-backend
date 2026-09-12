@@ -23,6 +23,12 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
 
     Optional<Ticket> findByIdAndRequesterId(Long id, Long requesterId);
 
+    Optional<Ticket> findByGuestAccessTokenHash(String guestAccessTokenHash);
+
+    List<Ticket> findByGuestEmailIgnoreCaseAndRequesterIsNull(String guestEmail);
+
+    List<Ticket> findByGuestEmailIgnoreCaseAndRequesterIsNullAndDeletedAtIsNullOrderByUpdatedAtDesc(String guestEmail);
+
     Optional<Ticket> findByPublicNumberIgnoreCase(String publicNumber);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -140,4 +146,20 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
               )
             """)
     long countOpenUnassignedTickets();
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update Ticket t
+               set t.createdAt = :createdAt,
+                   t.updatedAt = :updatedAt,
+                   t.closedAt = :closedAt,
+                   t.resolvedAt = :resolvedAt
+             where t.id = :id
+            """)
+    int patchImportTimestamps(
+            @Param("id") Long id,
+            @Param("createdAt") Instant createdAt,
+            @Param("updatedAt") Instant updatedAt,
+            @Param("closedAt") Instant closedAt,
+            @Param("resolvedAt") Instant resolvedAt);
 }

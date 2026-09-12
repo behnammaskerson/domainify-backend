@@ -334,6 +334,31 @@ public class NotificationService {
     }
 
     @Transactional
+    public void onOutboundTicketOpened(
+            Ticket ticket,
+            User agent,
+            User requester,
+            boolean notifyEmail,
+            boolean notifySms) {
+        if (ticket == null || ticket.getId() == null || (!notifyEmail && !notifySms)) {
+            return;
+        }
+        User recipient = requester != null ? requester : ticket.getRequester();
+        if (recipient == null || !recipient.isEnabled()) {
+            return;
+        }
+        createNotification(
+                recipient,
+                agent,
+                NotificationType.TICKET_OUTBOUND_OPENED,
+                ticket,
+                null,
+                null,
+                notifyEmail,
+                notifySms);
+    }
+
+    @Transactional
     public void onNoReplyRemind(Ticket ticket) {
         if (ticket == null || ticket.getId() == null) {
             return;
@@ -612,6 +637,18 @@ public class NotificationService {
             Ticket ticket,
             TicketStatus from,
             TicketStatus to) {
+        createNotification(recipient, actor, type, ticket, from, to, true, true);
+    }
+
+    private void createNotification(
+            User recipient,
+            User actor,
+            NotificationType type,
+            Ticket ticket,
+            TicketStatus from,
+            TicketStatus to,
+            boolean sendEmail,
+            boolean sendSms) {
         if (recipient == null || recipient.getId() == null) {
             return;
         }
@@ -628,8 +665,12 @@ public class NotificationService {
         notification.setStatusTo(to);
         notification.setRead(false);
         notificationRepository.save(notification);
-        ticketEmailNotificationService.sendIfConfigured(recipient, actor, type, ticket, from, to);
-        ticketSmsNotificationService.sendIfConfigured(recipient, actor, type, ticket, from, to);
+        if (sendEmail) {
+            ticketEmailNotificationService.sendIfConfigured(recipient, actor, type, ticket, from, to);
+        }
+        if (sendSms) {
+            ticketSmsNotificationService.sendIfConfigured(recipient, actor, type, ticket, from, to);
+        }
     }
 
     private NotificationDto toDto(InAppNotification notification) {

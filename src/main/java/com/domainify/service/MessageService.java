@@ -30,11 +30,11 @@ public class MessageService {
     }
 
     public String get(String key) {
-        return messageSource.getMessage(key, null, LocaleContextHolder.getLocale());
+        return messageSource.getMessage(key, null, key, LocaleContextHolder.getLocale());
     }
 
     public String get(String key, Object[] args) {
-        return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
+        return messageSource.getMessage(key, args, key, LocaleContextHolder.getLocale());
     }
 
     public String get(String key, Locale locale) {

@@ -16,10 +16,14 @@ done - Create ticket (subject, description, category, priority, attachments)
 done - Auto-generate unique public ticket ID (e.g. TCK-2026-000142)
 done - Channel stamp at create (portal today; email / SMS / chat / social later)
 done - Link ticket to authenticated user account
-Guest / unauthenticated ticket create (optional; email verification required)
-Proactive / outbound ticket opened by agent on behalf of customer
-Import tickets from CSV / other helpdesk (migration)
-Clone / duplicate ticket as new
+done - Guest / unauthenticated ticket create (optional; email verification required)
+done - Linking guest tickets to a User after later registration.
+done - add CAPTCHA to guest tickets page
+done - Guest list of all their tickets (single-token-per-ticket only).
+done - Clone / duplicate ticket as new
+done - Proactive / outbound ticket opened by agent on behalf of customer
+done - Import tickets from CSV / other helpdesk (migration)
+SSR SEO pages, full public Help Center ticket widget.
 
 2. Classification
 done - Priority levels: Low / Medium / High / Urgent (admin-configurable labels)
@@ -68,11 +72,12 @@ done - Attachments (images, PDF, logs) with size/type limits in settings
 done - Edit / delete own replies (with revision / audit trail)
 done - Draft replies (auto-save)
 done - Read receipts / seen-by customer or agent
+done - Rich text / WYSIWYG editor (in addition to Markdown)
+
 Pin important messages in thread
 Redact message content (GDPR / accidental PII)
 Quote / reply-to specific message
 Forward ticket transcript by email
-Rich text / WYSIWYG editor (in addition to Markdown)
 
 7. Productivity for agents
 done - Canned responses / reply templates (variables: name, ticket ID, domain, ...)
@@ -151,7 +156,7 @@ Download / print own transcript from portal
 
 13. Intake surfaces
 done - In-app portal create
-Public contact form on landing -> ticket (not email-only)
+done - Public contact form on landing -> ticket (not email-only)
 In-app messenger / live chat -> ticket handoff
 Help widget embed on product pages
 Status-page / incident subscribe -> optional ticket link

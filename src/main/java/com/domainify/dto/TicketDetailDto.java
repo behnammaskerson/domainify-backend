@@ -19,6 +19,7 @@ public class TicketDetailDto {
     private boolean canRestore;
     private boolean canMerge;
     private boolean canSplit;
+    private boolean canClone;
     private boolean canLinkRelated;
     private boolean canLinkDomains;
     private boolean canLinkSms;
@@ -143,6 +144,14 @@ public class TicketDetailDto {
 
     public void setCanSplit(boolean canSplit) {
         this.canSplit = canSplit;
+    }
+
+    public boolean isCanClone() {
+        return canClone;
+    }
+
+    public void setCanClone(boolean canClone) {
+        this.canClone = canClone;
     }
 
     public boolean isCanLinkRelated() {

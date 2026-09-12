@@ -14,6 +14,8 @@ public interface TicketCategoryRepository extends JpaRepository<TicketCategory, 
 
     Optional<TicketCategory> findByCodeIgnoreCase(String code);
 
+    Optional<TicketCategory> findFirstByNameIgnoreCase(String name);
+
     boolean existsByCodeIgnoreCase(String code);
 
     boolean existsByCodeIgnoreCaseAndIdNot(String code, Long id);

@@ -34,6 +34,7 @@ public class NotificationTypeSchemaRepair implements ApplicationRunner {
                     + "'TICKET_ESCALATED',"
                     + "'TICKET_SLA_APPROACHING',"
                     + "'TICKET_ACK',"
+                    + "'TICKET_OUTBOUND_OPENED',"
                     + "'TICKET_NO_REPLY_REMIND',"
                     + "'DOMAIN_RENEWAL',"
                     + "'OFFER_RECEIVED',"

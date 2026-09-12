@@ -42,16 +42,19 @@ public class TicketSettingsService {
 
     private final TicketSettingsRepository ticketSettingsRepository;
     private final TicketQueueService ticketQueueService;
+    private final TicketCategoryService ticketCategoryService;
     private final TicketBusinessHoursCalculator businessHoursCalculator;
     private final UserRepository userRepository;
 
     public TicketSettingsService(
             TicketSettingsRepository ticketSettingsRepository,
             TicketQueueService ticketQueueService,
+            TicketCategoryService ticketCategoryService,
             TicketBusinessHoursCalculator businessHoursCalculator,
             UserRepository userRepository) {
         this.ticketSettingsRepository = ticketSettingsRepository;
         this.ticketQueueService = ticketQueueService;
+        this.ticketCategoryService = ticketCategoryService;
         this.businessHoursCalculator = businessHoursCalculator;
         this.userRepository = userRepository;
     }
@@ -267,6 +270,12 @@ public class TicketSettingsService {
         } else {
             settings.setDefaultQueueId(null);
         }
+        if (request.getContactDefaultCategoryId() != null) {
+            ticketCategoryService.requireActiveCategory(request.getContactDefaultCategoryId());
+            settings.setContactDefaultCategoryId(request.getContactDefaultCategoryId());
+        } else {
+            settings.setContactDefaultCategoryId(null);
+        }
         settings.setTicketEmailNotificationsEnabled(ticketEmailNotificationsEnabled);
         settings.setTicketSmsNotificationsEnabled(ticketSmsNotificationsEnabled);
         settings.setEmailNotificationPriorities(TicketSettings.toPriorityCsv(emailPriorities));
@@ -295,6 +304,9 @@ public class TicketSettingsService {
         settings.setAutomationCsatInviteEnabled(request.getAutomationCsatInviteEnabled());
         settings.setAutomationAutoCloseEnabled(request.getAutomationAutoCloseEnabled());
         settings.setAutomationAutoCloseDays(automationAutoCloseDays);
+        settings.setGuestTicketCreateEnabled(request.getGuestTicketCreateEnabled());
+        settings.setGuestTicketAttachmentsEnabled(request.getGuestTicketAttachmentsEnabled());
+        settings.setCaptchaSettingsJson(request.getCaptchaSettingsJson());
         settings.normalize();
         return toDto(ticketSettingsRepository.save(settings));
     }
@@ -578,6 +590,7 @@ public class TicketSettingsService {
                 settings.getAgentDigestSendMinute()
         );
         dto.setDefaultQueueId(settings.getDefaultQueueId());
+        dto.setContactDefaultCategoryId(settings.getContactDefaultCategoryId());
         dto.setSlaUseBusinessHours(settings.isSlaUseBusinessHours());
         dto.setSlaTimezone(settings.getSlaTimezone());
         dto.setBusinessHours(businessHoursCalculator.parseWeek(settings.getBusinessHoursJson()));
@@ -596,6 +609,9 @@ public class TicketSettingsService {
         dto.setAutomationCsatInviteEnabled(settings.isAutomationCsatInviteEnabled());
         dto.setAutomationAutoCloseEnabled(settings.isAutomationAutoCloseEnabled());
         dto.setAutomationAutoCloseDays(settings.getAutomationAutoCloseDays());
+        dto.setGuestTicketCreateEnabled(settings.isGuestTicketCreateEnabled());
+        dto.setGuestTicketAttachmentsEnabled(settings.isGuestTicketAttachmentsEnabled());
+        dto.setCaptchaSettingsJson(settings.getCaptchaSettingsJson());
         return dto;
     }
 

@@ -123,6 +123,10 @@ public class TicketSettings {
     @Column(name = "default_queue_id")
     private Long defaultQueueId;
 
+    /** Default category for landing contact → ticket intake. */
+    @Column(name = "contact_default_category_id")
+    private Long contactDefaultCategoryId;
+
     /** Master switch for ticket event emails (reply / assign / status). Default on. */
     @ColumnDefault("true")
     @Column(name = "ticket_email_notifications_enabled", nullable = true)
@@ -242,6 +246,20 @@ public class TicketSettings {
     @Column(name = "automation_auto_close_days", nullable = true)
     private Integer automationAutoCloseDays = DEFAULT_AUTOMATION_AUTO_CLOSE_DAYS;
 
+    /** Allow unauthenticated guest ticket create (app /support/new and landing contact). */
+    @ColumnDefault("true")
+    @Column(name = "guest_ticket_create_enabled", nullable = true)
+    private Boolean guestTicketCreateEnabled = true;
+
+    /** Allow file attachments on guest ticket create/reply. */
+    @ColumnDefault("true")
+    @Column(name = "guest_ticket_attachments_enabled", nullable = true)
+    private Boolean guestTicketAttachmentsEnabled = true;
+
+    /** CAPTCHA settings for guest tickets as JSON. */
+    @Column(name = "captcha_settings_json", columnDefinition = "TEXT")
+    private String captchaSettingsJson;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -352,6 +370,12 @@ public class TicketSettings {
         }
         if (automationAutoCloseDays == null || automationAutoCloseDays < 1 || automationAutoCloseDays > 3650) {
             automationAutoCloseDays = DEFAULT_AUTOMATION_AUTO_CLOSE_DAYS;
+        }
+        if (guestTicketCreateEnabled == null) {
+            guestTicketCreateEnabled = true;
+        }
+        if (guestTicketAttachmentsEnabled == null) {
+            guestTicketAttachmentsEnabled = true;
         }
     }
 
@@ -628,6 +652,14 @@ public class TicketSettings {
         this.defaultQueueId = defaultQueueId;
     }
 
+    public Long getContactDefaultCategoryId() {
+        return contactDefaultCategoryId;
+    }
+
+    public void setContactDefaultCategoryId(Long contactDefaultCategoryId) {
+        this.contactDefaultCategoryId = contactDefaultCategoryId;
+    }
+
     public boolean isTicketEmailNotificationsEnabled() {
         return ticketEmailNotificationsEnabled == null || Boolean.TRUE.equals(ticketEmailNotificationsEnabled);
     }
@@ -834,6 +866,30 @@ public class TicketSettings {
 
     public void setAutomationAutoCloseDays(Integer automationAutoCloseDays) {
         this.automationAutoCloseDays = automationAutoCloseDays;
+    }
+
+    public boolean isGuestTicketCreateEnabled() {
+        return guestTicketCreateEnabled == null || Boolean.TRUE.equals(guestTicketCreateEnabled);
+    }
+
+    public void setGuestTicketCreateEnabled(Boolean guestTicketCreateEnabled) {
+        this.guestTicketCreateEnabled = guestTicketCreateEnabled;
+    }
+
+    public boolean isGuestTicketAttachmentsEnabled() {
+        return guestTicketAttachmentsEnabled == null || Boolean.TRUE.equals(guestTicketAttachmentsEnabled);
+    }
+
+    public void setGuestTicketAttachmentsEnabled(Boolean guestTicketAttachmentsEnabled) {
+        this.guestTicketAttachmentsEnabled = guestTicketAttachmentsEnabled;
+    }
+
+    public String getCaptchaSettingsJson() {
+        return captchaSettingsJson;
+    }
+
+    public void setCaptchaSettingsJson(String captchaSettingsJson) {
+        this.captchaSettingsJson = captchaSettingsJson;
     }
 
     public Instant getUpdatedAt() {

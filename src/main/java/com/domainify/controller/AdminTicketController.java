@@ -1,5 +1,7 @@
 package com.domainify.controller;
 
+import com.domainify.dto.CloneTicketRequest;
+import com.domainify.dto.CloneTicketResultDto;
 import com.domainify.dto.AddTicketWatcherRequest;
 import com.domainify.dto.AssignTicketQueueRequest;
 import com.domainify.dto.AssignTicketRequest;
@@ -21,6 +23,7 @@ import com.domainify.dto.TicketDetailDto;
 import com.domainify.dto.TicketReplyDraftDto;
 import com.domainify.dto.TicketDto;
 import com.domainify.dto.TicketSmsLinkableItemDto;
+import com.domainify.dto.TicketImportResultDto;
 import com.domainify.dto.TicketInboxSavedViewDto;
 import com.domainify.dto.TicketInboxSavedViewRequest;
 import com.domainify.dto.TicketInboxFilter;
@@ -41,6 +44,7 @@ import com.domainify.entity.User;
 import com.domainify.service.AdminTicketService;
 import com.domainify.service.BulkTicketService;
 import com.domainify.service.TicketCustomerContextService;
+import com.domainify.service.TicketImportService;
 import com.domainify.service.TicketInboxSavedViewService;
 import com.domainify.service.TicketService;
 import com.domainify.service.TicketSmsLinkService;
@@ -50,6 +54,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -80,6 +86,7 @@ public class AdminTicketController {
     private final TicketCustomerContextService ticketCustomerContextService;
     private final TicketInboxSavedViewService ticketInboxSavedViewService;
     private final TicketSmsLinkService ticketSmsLinkService;
+    private final TicketImportService ticketImportService;
 
     public AdminTicketController(
             AdminTicketService adminTicketService,
@@ -87,13 +94,68 @@ public class AdminTicketController {
             BulkTicketService bulkTicketService,
             TicketCustomerContextService ticketCustomerContextService,
             TicketInboxSavedViewService ticketInboxSavedViewService,
-            TicketSmsLinkService ticketSmsLinkService) {
+            TicketSmsLinkService ticketSmsLinkService,
+            TicketImportService ticketImportService) {
         this.adminTicketService = adminTicketService;
         this.ticketService = ticketService;
         this.bulkTicketService = bulkTicketService;
         this.ticketCustomerContextService = ticketCustomerContextService;
         this.ticketInboxSavedViewService = ticketInboxSavedViewService;
         this.ticketSmsLinkService = ticketSmsLinkService;
+        this.ticketImportService = ticketImportService;
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<TicketDto> createOutbound(
+            @AuthenticationPrincipal User agent,
+            @RequestParam("requesterUserId") Long requesterUserId,
+            @RequestParam("subject") String subject,
+            @RequestParam("description") String description,
+            @RequestParam("categoryId") Long categoryId,
+            @RequestParam("priority") TicketPriority priority,
+            @RequestParam(value = "queueId", required = false) Long queueId,
+            @RequestParam(value = "assigneeId", required = false) Long assigneeId,
+            @RequestParam(value = "notifyCustomer", required = false, defaultValue = "true") Boolean notifyCustomer,
+            @RequestParam(value = "notifySms", required = false, defaultValue = "true") Boolean notifySms,
+            @RequestParam(value = "attachments", required = false) MultipartFile[] attachments) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ticketService.createAsStaff(
+                agent,
+                requesterUserId,
+                subject,
+                description,
+                categoryId,
+                priority,
+                queueId,
+                assigneeId,
+                notifyCustomer,
+                notifySms,
+                attachments));
+    }
+
+    @GetMapping(value = "/import/template", produces = "text/csv")
+    public ResponseEntity<String> importTicketsTemplate() {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"ticket-import-template.csv\"")
+                .body(TicketImportService.TICKETS_TEMPLATE_CSV);
+    }
+
+    @GetMapping(value = "/import/messages-template", produces = "text/csv")
+    public ResponseEntity<String> importMessagesTemplate() {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"ticket-import-messages-template.csv\"")
+                .body(TicketImportService.MESSAGES_TEMPLATE_CSV);
+    }
+
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<TicketImportResultDto> importTickets(
+            @AuthenticationPrincipal User agent,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "messagesFile", required = false) MultipartFile messagesFile,
+            @RequestParam(value = "dryRun", required = false, defaultValue = "true") boolean dryRun,
+            @RequestParam(value = "createMissingRequesters", required = false, defaultValue = "false")
+            boolean createMissingRequesters) {
+        return ResponseEntity.ok(ticketImportService.importTickets(
+                agent, file, messagesFile, dryRun, createMissingRequesters));
     }
 
     @GetMapping("/inbox")
@@ -368,6 +430,14 @@ public class AdminTicketController {
             @PathVariable("id") Long id,
             @Valid @RequestBody SplitTicketRequest request) {
         return ResponseEntity.ok(ticketService.splitAsStaff(agent, id, request));
+    }
+
+    @PostMapping("/{id}/clone")
+    public ResponseEntity<CloneTicketResultDto> clone(
+            @AuthenticationPrincipal User agent,
+            @PathVariable("id") Long id,
+            @RequestBody(required = false) @Valid CloneTicketRequest request) {
+        return ResponseEntity.ok(ticketService.cloneAsStaff(agent, id, request));
     }
 
     @PostMapping("/{id}/related")
